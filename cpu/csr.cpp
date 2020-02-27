@@ -1,0 +1,136 @@
+#include "cpu/csr.h"
+#include "util/util.h"
+
+CSR::CSR(uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr) {
+#define CSR_READ_DECLARE(addr, csr) csr = 0;
+#include "cpu/csr_config.h"
+#undef CSR_READ_DECLARE
+  max_isa = 2UL << 62; // XLEN = 64
+  max_isa |= 1UL << ('I' - 'A');
+  max_isa |= 1UL << ('M' - 'A');
+  max_isa |= 1UL << ('S' - 'A');
+  misa = max_isa;
+
+  mstatus = set_field(mstatus, MSTATUS_UXL, 2);
+  mstatus = set_field(mstatus, MSTATUS_SXL, 2);
+}
+
+CSR::~CSR() {}
+
+const char *CSR::csr_name(const uint32_t &addr) {
+  switch (addr) {
+#define CSR_NAME_DECLARE(addr, name)                                           \
+  case addr:                                                                   \
+    return #name;
+#include "cpu/csr_config.h"
+#undef CSR_NAME_DECLARE
+  }
+}
+
+void CSR::set_csr(const uint32_t &addr, uint64_t value) {
+  uint64_t _mask(0);
+  uint64_t *csr_ptr(0);
+
+  if (addr >= CSR_PMPADDR0_ADDR && addr < CSR_PMPADDR0_ADDR + 16) {
+    uint8_t i(addr - CSR_PMPADDR0_ADDR);
+    bool is_locked(pmpcfg[i] & PMP_L);
+    bool nxt_locked(i + 1 < 16 && pmpcfg[i + 1] & PMP_L);
+    bool nxt_tor(i + 1 < 16 && get_field(pmpcfg[i + 1], PMP_A) == PMP_TOR);
+    if (!is_locked && !(nxt_locked && nxt_tor)) {
+      pmpaddr[i] = value & PMPADDR_MASK;
+    }
+    return;
+  }
+
+  if (addr >= CSR_PMPCFG0_ADDR && addr < CSR_PMPCFG0_ADDR + 4) {
+    uint8_t *_val_ptr((uint8_t *)&value);
+    uint8_t i0((addr - CSR_PMPCFG0_ADDR) << 2);
+    for (uint8_t i = 0; i < 8; ++i) {
+      if (!(pmpcfg[i0 + i] & PMP_L)) {
+        uint8_t cfg(_val_ptr[i] & (PMP_R | PMP_W | PMP_X | PMP_A | PMP_L));
+        cfg &= ~((cfg & PMP_R) ? 0 : PMP_W); // if R=0 => W=0
+        pmpcfg[i0 + i] = cfg;
+      }
+    }
+    return;
+  }
+
+  uint64_t s_ints, all_ints;
+  s_ints = MIP_SSIP | MIP_STIP | MIP_SEIP; // Supervise mode
+  all_ints = s_ints | MIP_MSIP | MIP_MTIP | MIP_MEIP;  // Add machine mode 
+
+  switch (addr) {
+#define CSR_WRITE_DECLARE(addr, csr, mask)                                     \
+  case addr:                                                                   \
+    csr_ptr = &csr;                                                            \
+    _mask = mask;                                                              \
+    break;
+#include "cpu/csr_config.h"
+#undef CSR_WRITE_DECLARE
+  case CSR_MSTATUS_ADDR:
+    _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
+            MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
+            MSTATUS_TVM | MSTATUS_TSR | MSTATUS_UXL | MSTATUS_SXL |
+            MSTATUS_MPP | MSTATUS_SPP;
+    mstatus = (mstatus & ~_mask) | (value & _mask);
+    mstatus = set_field(mstatus, MSTATUS_UXL, 2);
+    mstatus = set_field(mstatus, MSTATUS_SXL, 2);
+    return;
+  case CSR_MISA_ADDR:
+    // Avoid unalign PC
+    if (*pc_ptr & 2UL)
+      value |= 1UL << ('C' - 'A');
+    if (!(value & (1UL << ('F' - 'A'))))
+      value &= ~(1UL << ('D' - 'A'));
+    _mask = 0;
+    _mask |= 1UL << ('M' - 'A');
+    _mask |= 1UL << ('A' - 'A');
+    _mask |= 1UL << ('F' - 'A');
+    _mask |= 1UL << ('D' - 'A');
+    _mask |= 1UL << ('C' - 'A');
+    _mask &= max_isa;
+    misa = (misa & ~_mask) | (value & _mask);
+    return;
+  case CSR_MEDELEG_ADDR:
+    _mask = (1 << CAUSE_MISALIGNED_FETCH) |
+            (1 << CAUSE_BREAKPOINT) |
+            (1 << CAUSE_USER_ECALL) |
+            (1 << CAUSE_FETCH_PAGE_FAULT) |
+            (1 << CAUSE_LOAD_PAGE_FAULT) |
+            (1 << CAUSE_STORE_PAGE_FAULT);
+    medeleg = (medeleg & ~_mask) | (value & _mask);
+    return;
+  case CSR_MIDELEG_ADDR:
+    _mask = s_ints;
+    mideleg = (mideleg & ~_mask) | (value & _mask);
+    return;
+  case CSR_MIE_ADDR:
+    _mask = all_ints;
+    mie = (mie & ~_mask) | (value & _mask);
+    return;
+  case CSR_MTVEC_ADDR:
+    _mask = ~0x2UL;
+    mtvec = (mtvec & ~_mask) | (value & _mask);
+    return;
+  case CSR_MIP_ADDR:
+    _mask = all_ints &
+            (MIP_SSIP | MIP_STIP | MIP_MSIP | MIP_MTIP);
+    mip = (mip & ~_mask) | (value & _mask);
+    return;
+  case CSR_MEPC_ADDR:
+    mepc = value;
+    return;
+  }
+  if (csr_ptr)
+    *csr_ptr = (*csr_ptr & ~_mask) | (value & _mask);
+}
+uint64_t CSR::get_csr(const uint32_t &addr) {
+  switch (addr) {
+#define CSR_READ_DECLARE(addr, csr)                                            \
+  case addr:                                                                   \
+    return csr;
+#include "cpu/csr_config.h"
+#undef CSR_READ_DECLARE
+  }
+  return 0;
+}

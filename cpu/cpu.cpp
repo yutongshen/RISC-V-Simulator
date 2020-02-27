@@ -27,7 +27,8 @@ const char *CPU::fence_flag(const uint8_t &arg) {
   return str;
 }
 
-CPU::CPU(uint64_t pc) : low_power(0), pc(pc), regs{0}, csr(new CSR(&pc)), mmu(new MMU(csr)) {}
+CPU::CPU(uint64_t pc)
+    : low_power(0), pc(pc), regs{0}, csr(new CSR(&pc)), mmu(new MMU(csr)) {}
 
 CPU::~CPU() {
   delete mmu;
@@ -43,7 +44,8 @@ void CPU::run() {
     // Check interrupts
     take_interrupt(csr->mip & csr->mie);
 
-    if (low_power) return;
+    if (low_power)
+      return;
 
     // Instruction Execute
     uint32_t insn(mmu->fetch(pc));
@@ -232,11 +234,12 @@ void CPU::run() {
     }
     cout << remark << endl;
   } catch (Trap &t) {
-    if ((int64_t) t.get_cause() >= 0) cout << remark << endl;
-    cout << hex<< "MIE : " << csr->mie << endl;
-    cout << hex<< "MIP : " << csr->mip << endl;
-    cout << hex<< "MIDELEG : " << csr->mideleg << endl;
-    cout << hex<< "MTVEC : " << csr->mtvec << endl;
+    if ((int64_t)t.get_cause() >= 0)
+      cout << remark << endl;
+    cout << hex << "MIE : " << csr->mie << endl;
+    cout << hex << "MIP : " << csr->mip << endl;
+    cout << hex << "MIDELEG : " << csr->mideleg << endl;
+    cout << hex << "MTVEC : " << csr->mtvec << endl;
     printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc, t.get_tval());
     trap_handling(t, pc);
   } catch (WaitForInterrupt &t) {
@@ -250,7 +253,7 @@ void CPU::run() {
 void CPU::trap_handling(Trap t, uint64_t epc) {
   uint64_t n(t.get_cause());
   uint64_t deleg;
-  bool interrupt((int64_t) n < 0L);
+  bool interrupt((int64_t)n < 0L);
   if (interrupt) {
     deleg = csr->mideleg;
     n &= ~(1UL << 63);
@@ -288,31 +291,42 @@ void CPU::take_interrupt(uint64_t ints) {
   uint64_t npc(pc);
 
   // Set CPU low power disable
-  if (ints && low_power) low_power = 0, npc += 4UL;
+  if (ints && low_power)
+    low_power = 0, npc += 4UL;
 
   // Check M-mode interrupts
-  bool m_en((csr->prv == PRV_M && (csr->mstatus & MSTATUS_MIE)) || csr->prv < PRV_M);
+  bool m_en((csr->prv == PRV_M && (csr->mstatus & MSTATUS_MIE)) ||
+            csr->prv < PRV_M);
   uint64_t ints_en(m_en ? ints & ~(csr->mideleg) : 0UL);
 
   // Check S-mode interrupts, if M-mode has no match interrupts
   if (!ints_en) {
-    bool s_en((csr->prv == PRV_S && (csr->mstatus & MSTATUS_SIE)) || csr->prv < PRV_S);
+    bool s_en((csr->prv == PRV_S && (csr->mstatus & MSTATUS_SIE)) ||
+              csr->prv < PRV_S);
     ints_en = s_en ? ints & csr->mideleg : 0UL;
   }
 
   if (ints_en) {
-    if (ints_en >> IRQ_NONSTANDARD) ints_en = ints_en >> IRQ_NONSTANDARD << IRQ_NONSTANDARD;
-    else if (ints_en & MIP_MEIP) ints_en = MIP_MEIP;
-    else if (ints_en & MIP_MSIP) ints_en = MIP_MSIP;
-    else if (ints_en & MIP_MTIP) ints_en = MIP_MTIP;
-    else if (ints_en & MIP_SEIP) ints_en = MIP_SEIP;
-    else if (ints_en & MIP_SSIP) ints_en = MIP_SSIP;
-    else if (ints_en & MIP_STIP) ints_en = MIP_STIP;
-    else abort();
+    if (ints_en >> IRQ_NONSTANDARD)
+      ints_en = ints_en >> IRQ_NONSTANDARD << IRQ_NONSTANDARD;
+    else if (ints_en & MIP_MEIP)
+      ints_en = MIP_MEIP;
+    else if (ints_en & MIP_MSIP)
+      ints_en = MIP_MSIP;
+    else if (ints_en & MIP_MTIP)
+      ints_en = MIP_MTIP;
+    else if (ints_en & MIP_SEIP)
+      ints_en = MIP_SEIP;
+    else if (ints_en & MIP_SSIP)
+      ints_en = MIP_SSIP;
+    else if (ints_en & MIP_STIP)
+      ints_en = MIP_STIP;
+    else
+      abort();
 
     throw Trap((1UL << 63) | lsb_leading_zero(ints_en));
   }
-  
+
   // Execute instruction after wfi
   pc = npc;
 }

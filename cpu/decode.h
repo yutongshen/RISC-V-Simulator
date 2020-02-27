@@ -215,7 +215,7 @@
 
 #define INSTRUCT_UNKNOWN                                                       \
   sprintf(remark, "unknown instruction");                                      \
-  throw TrapIllegalInstruction(insn);                                              \
+  throw TrapIllegalInstruction(insn);                                          \
   pc += 4UL;                                                                   \
   break;
 
@@ -620,11 +620,10 @@
   sprintf(remark, "%s (no implement)", remark);                                \
   break;
 
-#define INSTRUCT_WFI \
+#define INSTRUCT_WFI                                                           \
   sprintf(remark, "wfi");                                                      \
   throw WaitForInterrupt();                                                    \
   break;
-
 
 #define INSTRUCT_SRET                                                          \
   {                                                                            \

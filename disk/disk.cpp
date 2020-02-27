@@ -1,7 +1,6 @@
 #include "disk/disk.h"
 #include "util/util.h"
 
-
 void Disk::copyfile(const char *name, const char *cp_name) {
   std::ifstream src(name, std::ios::in | std::ios::binary);
   std::ofstream dst(cp_name, std::ios::out | std::ios::binary);
@@ -10,13 +9,14 @@ void Disk::copyfile(const char *name, const char *cp_name) {
   dst.close();
 }
 
-
-Disk::Disk(const char *file_name, uint64_t size)
-    : Slave(size) {
+Disk::Disk(const char *file_name, uint64_t size) : Slave(size) {
   int ptr(0);
-  for (; file_name[ptr]; ++ptr) ;
-  if (!ptr) abort();
-  for (--ptr; ptr >= 0 && file_name[ptr] != '/'; --ptr);
+  for (; file_name[ptr]; ++ptr)
+    ;
+  if (!ptr)
+    abort();
+  for (--ptr; ptr >= 0 && file_name[ptr] != '/'; --ptr)
+    ;
   ++ptr;
   std::string tmp_file(file_name + ptr);
   tmp_file += ".";
@@ -24,12 +24,14 @@ Disk::Disk(const char *file_name, uint64_t size)
   data.open(tmp_file, std::ios::binary | std::ios::in | std::ios::out);
 }
 
-Disk::Disk(const char *file_name, const char *str_size)
-    : Slave(str_size) {
+Disk::Disk(const char *file_name, const char *str_size) : Slave(str_size) {
   int ptr(0);
-  for (; file_name[ptr]; ++ptr) ;
-  if (!ptr) abort();
-  for (--ptr; ptr >= 0 && file_name[ptr] != '/'; --ptr);
+  for (; file_name[ptr]; ++ptr)
+    ;
+  if (!ptr)
+    abort();
+  for (--ptr; ptr >= 0 && file_name[ptr] != '/'; --ptr)
+    ;
   ++ptr;
   std::string tmp_file(file_name + ptr);
   tmp_file = std::string(".") + tmp_file;

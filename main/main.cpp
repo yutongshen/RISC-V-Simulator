@@ -71,8 +71,9 @@ int main(int argc, char **argv) {
     uint64_t dump_len(argparser.get_int("MEMLEN") << 2);
     FILE *output(fopen(argparser.get_str("OUTPUT").c_str(), "w"));
     fprintf(output, "SIMEND\n");
-    fprintf(output, "%08x\n",
-            (bus_0.read(SIM_END, DATA_TYPE_WORD, end_code), (uint32_t)end_code));
+    fprintf(
+        output, "%08x\n",
+        (bus_0.read(SIM_END, DATA_TYPE_WORD, end_code), (uint32_t)end_code));
     fprintf(output, "MEMDUMP\n");
     for (; idx < dump_start + dump_len; idx += 4) {
       bus_0.read(idx, DATA_TYPE_WORD, end_code);

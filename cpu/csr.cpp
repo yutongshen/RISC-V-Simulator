@@ -56,8 +56,8 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
   }
 
   uint64_t s_ints, all_ints;
-  s_ints = MIP_SSIP | MIP_STIP | MIP_SEIP; // Supervise mode
-  all_ints = s_ints | MIP_MSIP | MIP_MTIP | MIP_MEIP;  // Add machine mode 
+  s_ints = MIP_SSIP | MIP_STIP | MIP_SEIP;            // Supervise mode
+  all_ints = s_ints | MIP_MSIP | MIP_MTIP | MIP_MEIP; // Add machine mode
 
   switch (addr) {
 #define CSR_WRITE_DECLARE(addr, csr, mask)                                     \
@@ -92,12 +92,9 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     misa = (misa & ~_mask) | (value & _mask);
     return;
   case CSR_MEDELEG_ADDR:
-    _mask = (1 << CAUSE_MISALIGNED_FETCH) |
-            (1 << CAUSE_BREAKPOINT) |
-            (1 << CAUSE_USER_ECALL) |
-            (1 << CAUSE_FETCH_PAGE_FAULT) |
-            (1 << CAUSE_LOAD_PAGE_FAULT) |
-            (1 << CAUSE_STORE_PAGE_FAULT);
+    _mask = (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_BREAKPOINT) |
+            (1 << CAUSE_USER_ECALL) | (1 << CAUSE_FETCH_PAGE_FAULT) |
+            (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT);
     medeleg = (medeleg & ~_mask) | (value & _mask);
     return;
   case CSR_MIDELEG_ADDR:
@@ -113,8 +110,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     mtvec = (mtvec & ~_mask) | (value & _mask);
     return;
   case CSR_MIP_ADDR:
-    _mask = all_ints &
-            (MIP_SSIP | MIP_STIP | MIP_MSIP | MIP_MTIP);
+    _mask = all_ints & (MIP_SSIP | MIP_STIP | MIP_MSIP | MIP_MTIP);
     mip = (mip & ~_mask) | (value & _mask);
     return;
   case CSR_MEPC_ADDR:

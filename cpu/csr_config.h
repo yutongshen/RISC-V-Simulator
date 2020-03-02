@@ -20,7 +20,7 @@ uint64_t instret;
 uint64_t hpmcounter[29];
 
 // Supervisor Trap Setup
-uint64_t sstatus;
+// uint64_t sstatus; reference mstatus
 uint64_t sedeleg;
 uint64_t sideleg;
 uint64_t sie;
@@ -324,6 +324,8 @@ uint64_t dscratch;
 #define MSTATUS_MPIE (0x1UL << 7)
 #define MSTATUS_SPP (0x1UL << 8)
 #define MSTATUS_MPP (0x3UL << 11)
+#define MSTATUS_FS (0x3UL << 13)
+#define MSTATUS_XS (0x3UL << 15)
 #define MSTATUS_MPRV (0x1UL << 17)
 #define MSTATUS_SUM (0x1UL << 18)
 #define MSTATUS_MXR (0x1UL << 19)
@@ -332,6 +334,8 @@ uint64_t dscratch;
 #define MSTATUS_TSR (0x1UL << 22)
 #define MSTATUS_UXL (0x3UL << 32)
 #define MSTATUS_SXL (0x3UL << 34)
+
+#define SSTATUS_MASK (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_XS | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_UXL)
 
 #define MIP_SSIP (0x1UL << 1)
 #define MIP_MSIP (0x1UL << 3)
@@ -626,7 +630,6 @@ CSR_READ_DECLARE(CSR_HPMCOUNTER29_ADDR, hpmcounter[26])
 CSR_READ_DECLARE(CSR_HPMCOUNTER30_ADDR, hpmcounter[27])
 CSR_READ_DECLARE(CSR_HPMCOUNTER31_ADDR, hpmcounter[28])
 
-CSR_READ_DECLARE(CSR_SSTATUS_ADDR, sstatus)
 CSR_READ_DECLARE(CSR_SEDELEG_ADDR, sedeleg)
 CSR_READ_DECLARE(CSR_SIDELEG_ADDR, sideleg)
 CSR_READ_DECLARE(CSR_SIE_ADDR, sie)
@@ -788,7 +791,6 @@ CSR_WRITE_DECLARE(CSR_HPMCOUNTER29_ADDR, hpmcounter[26], 0x0)
 CSR_WRITE_DECLARE(CSR_HPMCOUNTER30_ADDR, hpmcounter[27], 0x0)
 CSR_WRITE_DECLARE(CSR_HPMCOUNTER31_ADDR, hpmcounter[28], 0x0)
 
-CSR_WRITE_DECLARE(CSR_SSTATUS_ADDR, sstatus, -0x1L)
 CSR_WRITE_DECLARE(CSR_SEDELEG_ADDR, sedeleg, -0x1L)
 CSR_WRITE_DECLARE(CSR_SIDELEG_ADDR, sideleg, -0x1L)
 CSR_WRITE_DECLARE(CSR_SIE_ADDR, sie, -0x1L)

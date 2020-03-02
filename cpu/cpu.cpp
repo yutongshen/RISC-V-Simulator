@@ -178,7 +178,13 @@ void CPU::run() {
           DECLARECASE(FUNCT12_WFI, INSTRUCT_WFI)
           DECLARECASE(FUNCT12_MRET, INSTRUCT_MRET)
           DECLARECASE(FUNCT12_SRET, INSTRUCT_SRET)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
+          // Check funct7 next
+          default:
+          switch (funct7) {
+            DECLARECASE(FUNCT7_SFENCE_VMA, INSTRUCT_SFENCE_VMA)
+            DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
+          }
+          break;
         }
         break;
         DECLARECASE(FUNCT3_CSRRW, INSTRUCT_CSRRW)
@@ -236,10 +242,7 @@ void CPU::run() {
   } catch (Trap &t) {
     if ((int64_t)t.get_cause() >= 0)
       cout << remark << endl;
-    cout << hex << "MIE : " << csr->mie << endl;
-    cout << hex << "MIP : " << csr->mip << endl;
-    cout << hex << "MIDELEG : " << csr->mideleg << endl;
-    cout << hex << "MTVEC : " << csr->mtvec << endl;
+    cout << hex << "MSTATUS : " << csr->mstatus << endl;
     printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc, t.get_tval());
     trap_handling(t, pc);
   } catch (WaitForInterrupt &t) {
@@ -248,11 +251,13 @@ void CPU::run() {
   }
   regs[0] = 0UL;
   cout << hex << "PRV : " << csr->prv << endl;
+  cout << hex << "STVEC : " << csr->stvec << endl;
+  cout << hex << "MEDELEG : " << csr->medeleg << endl;
 }
 
 void CPU::trap_handling(Trap t, uint64_t epc) {
   uint64_t n(t.get_cause());
-  uint64_t deleg;
+  uint64_t deleg(csr->medeleg);
   bool interrupt((int64_t)n < 0L);
   if (interrupt) {
     deleg = csr->mideleg;

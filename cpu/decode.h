@@ -31,6 +31,7 @@
 #define FUNCT7_OR 0x00
 #define FUNCT7_AND 0x00
 #define FUNCT7_MULDIV 0x01
+#define FUNCT7_SFENCE_VMA 0x9
 
 #define FUNCT3_BEQ 0x0
 #define FUNCT3_BNE 0x1
@@ -212,6 +213,20 @@
 #define OPCODE_FCVT_D_L 0x53
 #define OPCODE_FCVT_D_LU 0x53
 #define OPCODE_FMV_D_X 0x53
+
+#define confirm_insn_legal(x)                                                  \
+  if (!(x))                                                                    \
+    throw TrapIllegalInstruction((x));
+
+#define require_privilege(x) confirm_insn_legal(csr->prv >= (x))
+
+#define confirm_csr_legal(x, write)                                            \
+  if ((csr->mstatus & MSTATUS_TVM) && x == CSR_SATP_ADDR)                      \
+    require_privilege(PRV_M)                                                   \
+  else                                                                         \
+    require_privilege(get_field((x), 0x300))                                   \
+  confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write))
+  
 
 #define INSTRUCT_UNKNOWN                                                       \
   sprintf(remark, "unknown instruction");                                      \
@@ -622,12 +637,14 @@
 
 #define INSTRUCT_WFI                                                           \
   sprintf(remark, "wfi");                                                      \
-  throw WaitForInterrupt();                                                    \
+  require_privilege(                                                           \
+      (csr->mstatus & MSTATUS_TW) ? PRV_M : PRV_S) throw WaitForInterrupt();   \
   break;
 
 #define INSTRUCT_SRET                                                          \
   {                                                                            \
     sprintf(remark, "sret");                                                   \
+    require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S)            \
     pc = csr->sepc;                                                            \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_SPP);                                 \
@@ -641,6 +658,7 @@
 #define INSTRUCT_MRET                                                          \
   {                                                                            \
     sprintf(remark, "mret");                                                   \
+    require_privilege(PRV_M)                                                   \
     pc = csr->mepc;                                                            \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_MPP);                                 \
@@ -651,6 +669,13 @@
   }                                                                            \
   break;
 
+#define INSTRUCT_SFENCE_VMA                                                    \
+  sprintf(remark, "sfence.vma %s,%s", regs_name[rs1], regs_name[rs2]);                                               \
+  require_privilege((csr->mstatus & MSTATUS_TVM) ? PRV_M : PRV_S)              \
+  /* TLB flush */                                                              \
+  pc += 4UL;                                                                   \
+  break;
+
 #define INSTRUCT_CSRRW                                                         \
   {                                                                            \
     if (rd)                                                                    \
@@ -658,6 +683,7 @@
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
     else                                                                       \
       sprintf(remark, "csrw %s,%s", csr->csr_name(csr_addr), regs_name[rs1]);  \
+    confirm_csr_legal(csr_addr, 1)                                             \
     uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, regs[rs1]);                                         \
     regs[rd] = tmp;                                                            \
@@ -674,6 +700,7 @@
     else                                                                       \
       sprintf(remark, "csrrs %s,%s,%s", regs_name[rd],                         \
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
+    confirm_csr_legal(csr_addr, rs1)                                           \
     uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp | regs[rs1]);                                   \
     regs[rd] = tmp;                                                            \
@@ -688,6 +715,7 @@
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
     else                                                                       \
       sprintf(remark, "csrc %s,%s", csr->csr_name(csr_addr), regs_name[rs1]);  \
+    confirm_csr_legal(csr_addr, rs1)                                           \
     uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp & ~regs[rs1]);                                  \
     regs[rd] = tmp;                                                            \
@@ -701,6 +729,7 @@
             rs1);                                                              \
   else                                                                         \
     sprintf(remark, "csrwi %s,%d", csr->csr_name(csr_addr), rs1);              \
+  confirm_csr_legal(csr_addr, 1)                                               \
   regs[rd] = csr->get_csr(csr_addr);                                           \
   csr->set_csr(csr_addr, zext(rs1, 5));                                        \
   pc += 4UL;                                                                   \
@@ -713,6 +742,7 @@
               csr->csr_name(csr_addr), rs1);                                   \
     else                                                                       \
       sprintf(remark, "csrsi %s,%d", csr->csr_name(csr_addr), rs1);            \
+    confirm_csr_legal(csr_addr, rs1)                                           \
     uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp | zext(rs1, 5));                                \
     regs[rd] = tmp;                                                            \
@@ -727,6 +757,7 @@
               csr->csr_name(csr_addr), rs1);                                   \
     else                                                                       \
       sprintf(remark, "csrci %s,%d", csr->csr_name(csr_addr), rs1);            \
+    confirm_csr_legal(csr_addr, rs1)                                           \
     uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp &(~zext(rs1, 5)));                              \
     regs[rd] = tmp;                                                            \

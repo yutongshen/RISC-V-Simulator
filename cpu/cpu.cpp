@@ -28,7 +28,8 @@ const char *CPU::fence_flag(const uint8_t &arg) {
 }
 
 CPU::CPU(uint64_t pc)
-    : low_power(0), pc(pc), regs{0}, csr(new CSR(&pc)), mmu(new MMU(csr)) {}
+    : low_power(0), pc(pc), regs{0}, csr(new CSR(&this->pc)),
+      mmu(new MMU(csr)) {}
 
 CPU::~CPU() {
   delete mmu;
@@ -49,10 +50,17 @@ void CPU::run() {
 
     // Instruction Execute
     uint32_t insn(mmu->fetch(pc));
-    uint8_t opcode(bits_zext(insn, 6, 0)), rd(bits_zext(insn, 11, 7)),
-        funct3(bits_zext(insn, 14, 12)), funct7(bits_zext(insn, 31, 25)),
+    uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
+        rd(bits_zext(insn, 11, 7)), funct3(bits_zext(insn, 14, 12)),
+        funct7(bits_zext(insn, 31, 25)), c_funct3(bits_zext(insn, 15, 13)),
+        c_funct4(bits_zext(insn, 15, 12)), c_funct6(bits_zext(insn, 15, 10)),
+        c_funct2(bits_zext(insn, 6, 5)), _c_funct2(bits_zext(insn, 11, 10)),
         rs1(bits_zext(insn, 19, 15)), rs2(bits_zext(insn, 24, 20)),
-        shamt(bits_zext(insn, 24, 20)), shamt64(bits_zext(insn, 25, 20)),
+        c_rs1(bits_zext(insn, 11, 7)), c_rs2(bits_zext(insn, 6, 2)),
+        _c_rs1(bits_zext(insn, 9, 7)), _c_rs2(bits_zext(insn, 4, 2)),
+        _c_rd(bits_zext(insn, 4, 2)), shamt(bits_zext(insn, 24, 20)),
+        shamt64(bits_zext(insn, 25, 20)),
+        c_shamt(bit(insn, 12) << 5 | bits_zext(insn, 6, 2)),
         pred(bits_zext(insn, 27, 24)), succ(bits_zext(insn, 23, 20));
     uint16_t funct12(bits_zext(insn, 31, 20)),
         csr_addr(bits_zext(insn, 31, 20));
@@ -62,182 +70,42 @@ void CPU::run() {
               bits_zext(insn, 30, 25) << 5 | bits_zext(insn, 11, 8) << 1),
         imm_u(bits_sext(insn, 31, 12) << 12),
         imm_j(bit_signed(insn, 31) << 20 | bits_zext(insn, 19, 12) << 12 |
-              bit(insn, 20) << 11 | bits_zext(insn, 30, 21) << 1);
+              bit(insn, 20) << 11 | bits_zext(insn, 30, 21) << 1),
+        imm_c_lwsp(bits_zext(insn, 3, 2) << 6 | bit(insn, 12) << 5 |
+                   bits_zext(insn, 6, 4) << 2),
+        imm_c_ldsp(bits_zext(insn, 4, 2) << 6 | bit(insn, 12) << 5 |
+                   bits_zext(insn, 6, 5) << 3),
+        imm_c_swsp(bits_zext(insn, 8, 7) << 6 | bits_zext(insn, 12, 9) << 2),
+        imm_c_sdsp(bits_zext(insn, 9, 7) << 6 | bits_zext(insn, 12, 10) << 3),
+        imm_c_slw(bit(insn, 5) << 6 | bits_zext(insn, 12, 10) << 3 |
+                  bit(insn, 6) << 2),
+        imm_c_sld(bits_zext(insn, 6, 5) << 6 | bits_zext(insn, 12, 10) << 3),
+        imm_c_j(bit_signed(insn, 12) << 11 | bit(insn, 8) << 10 |
+                bits_zext(insn, 10, 9) << 8 | bit(insn, 6) << 7 |
+                bit(insn, 7) << 6 | bit(insn, 2) << 5 | bit(insn, 11) << 4 |
+                bits_zext(insn, 5, 3) << 1),
+        imm_c_b(bit_signed(insn, 12) << 8 | bits_zext(insn, 6, 5) << 6 |
+                bit(insn, 2) << 5 | bits_zext(insn, 11, 10) << 3 |
+                bits_zext(insn, 4, 3) << 1),
+        imm_c_lui(bit_signed(insn, 12) << 17 | bits_zext(insn, 6, 2) << 12),
+        imm_c_addi(bit_signed(insn, 12) << 5 | bits_zext(insn, 6, 2)),
+        imm_c_addi16sp(bit_signed(insn, 12) << 9 | bits_zext(insn, 4, 3) << 7 |
+                       bit(insn, 5) << 6 | bit(insn, 2) << 5 |
+                       bit(insn, 6) << 4),
+        imm_c_addi4spn(bits_zext(insn, 10, 7) << 6 |
+                       bits_zext(insn, 12, 11) << 4 | bit(insn, 5) << 3 |
+                       bit(insn, 6) << 2);
+
+    _c_rs1 = (_c_rs1 & 0x7) | 0x8;
+    _c_rs2 = (_c_rs2 & 0x7) | 0x8;
+    _c_rd = (_c_rd & 0x7) | 0x8;
 
     printf("%08lx: %08x %s: %08lx %s: %08lx %s: %08lx %s: %08lx    ", pc, insn,
            regs_name[10], regs[10], regs_name[11], regs[11], regs_name[5],
            regs[5], regs_name[6], regs[6]);
 
-    switch (opcode) {
-      DECLARECASE(OPCODE_LUI, INSTRUCT_LUI)
-      DECLARECASE(OPCODE_AUIPC, INSTRUCT_AUIPC)
-      DECLARECASE(OPCODE_JAL, INSTRUCT_JAL)
-      DECLARECASE(OPCODE_JALR, INSTRUCT_JALR)
-    case OPCODE_BRANCH:
-      switch (funct3) {
-        DECLARECASE(FUNCT3_BEQ, INSTRUCT_BEQ)
-        DECLARECASE(FUNCT3_BNE, INSTRUCT_BNE)
-        DECLARECASE(FUNCT3_BLT, INSTRUCT_BLT)
-        DECLARECASE(FUNCT3_BGE, INSTRUCT_BGE)
-        DECLARECASE(FUNCT3_BLTU, INSTRUCT_BLTU)
-        DECLARECASE(FUNCT3_BGEU, INSTRUCT_BGEU)
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_LOAD:
-      switch (funct3) {
-        DECLARECASE(FUNCT3_LB, INSTRUCT_LB)
-        DECLARECASE(FUNCT3_LH, INSTRUCT_LH)
-        DECLARECASE(FUNCT3_LW, INSTRUCT_LW)
-        DECLARECASE(FUNCT3_LBU, INSTRUCT_LBU)
-        DECLARECASE(FUNCT3_LHU, INSTRUCT_LHU)
-        DECLARECASE(FUNCT3_LWU, INSTRUCT_LWU) // RV64
-        DECLARECASE(FUNCT3_LD, INSTRUCT_LD)   // RV64
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_STORE:
-      switch (funct3) {
-        DECLARECASE(FUNCT3_SB, INSTRUCT_SB)
-        DECLARECASE(FUNCT3_SH, INSTRUCT_SH)
-        DECLARECASE(FUNCT3_SW, INSTRUCT_SW)
-        DECLARECASE(FUNCT3_SD, INSTRUCT_SD) // RV64
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_OP_IMM:
-      switch (funct3) {
-        DECLARECASE(FUNCT3_ADDI, INSTRUCT_ADDI)
-        DECLARECASE(FUNCT3_SLTI, INSTRUCT_SLTI)
-        DECLARECASE(FUNCT3_SLTIU, INSTRUCT_SLTIU)
-        DECLARECASE(FUNCT3_XORI, INSTRUCT_XORI)
-        DECLARECASE(FUNCT3_ORI, INSTRUCT_ORI)
-        DECLARECASE(FUNCT3_ANDI, INSTRUCT_ANDI)
-        DECLARECASE(FUNCT3_SLLI, INSTRUCT_SLLI)
-      case FUNCT3_SRI:
-        switch (funct7 & 0x3e) {
-          DECLARECASE(FUNCT7_SRLI, INSTRUCT_SRLI)
-          DECLARECASE(FUNCT7_SRAI, INSTRUCT_SRAI)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_OP:
-      switch (funct7) {
-      case FUNCT7_ADD:
-        switch (funct3) {
-          DECLARECASE(FUNCT3_ADD, INSTRUCT_ADD)
-          DECLARECASE(FUNCT3_SLL, INSTRUCT_SLL)
-          DECLARECASE(FUNCT3_SLT, INSTRUCT_SLT)
-          DECLARECASE(FUNCT3_SLTU, INSTRUCT_SLTU)
-          DECLARECASE(FUNCT3_XOR, INSTRUCT_XOR)
-          DECLARECASE(FUNCT3_SRR, INSTRUCT_SRL)
-          DECLARECASE(FUNCT3_OR, INSTRUCT_OR)
-          DECLARECASE(FUNCT3_AND, INSTRUCT_AND)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-      case FUNCT7_SUB:
-        switch (funct3) {
-          DECLARECASE(FUNCT3_ADD, INSTRUCT_SUB)
-          DECLARECASE(FUNCT3_SRR, INSTRUCT_SRA)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-      case FUNCT7_MULDIV:
-        switch (funct3) {
-          DECLARECASE(FUNCT3_MUL, INSTRUCT_MUL)
-          DECLARECASE(FUNCT3_MULH, INSTRUCT_MULH)
-          DECLARECASE(FUNCT3_MULHSU, INSTRUCT_MULHSU)
-          DECLARECASE(FUNCT3_MULHU, INSTRUCT_MULHU)
-          DECLARECASE(FUNCT3_DIV, INSTRUCT_DIV)
-          DECLARECASE(FUNCT3_DIVU, INSTRUCT_DIVU)
-          DECLARECASE(FUNCT3_REM, INSTRUCT_REM)
-          DECLARECASE(FUNCT3_REMU, INSTRUCT_REMU)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_MISC_MEM:
-      switch (funct3) {
-        DECLARECASE(FUNCT3_FENCE, INSTRUCT_FENCE)
-        DECLARECASE(FUNCT3_FENCE_I, INSTRUCT_FENCE_I)
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_SYSTEM:
-      switch (funct3) {
-      case FUNCT3_PRIV:
-        switch (funct12) {
-          DECLARECASE(FUNCT12_ECALL, INSTRUCT_ECALL)
-          DECLARECASE(FUNCT12_EBREAK, INSTRUCT_EBREAK)
-          DECLARECASE(FUNCT12_WFI, INSTRUCT_WFI)
-          DECLARECASE(FUNCT12_MRET, INSTRUCT_MRET)
-          DECLARECASE(FUNCT12_SRET, INSTRUCT_SRET)
-          // Check funct7 next
-          default:
-          switch (funct7) {
-            DECLARECASE(FUNCT7_SFENCE_VMA, INSTRUCT_SFENCE_VMA)
-            DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-          }
-          break;
-        }
-        break;
-        DECLARECASE(FUNCT3_CSRRW, INSTRUCT_CSRRW)
-        DECLARECASE(FUNCT3_CSRRS, INSTRUCT_CSRRS)
-        DECLARECASE(FUNCT3_CSRRC, INSTRUCT_CSRRC)
-        DECLARECASE(FUNCT3_CSRRWI, INSTRUCT_CSRRWI)
-        DECLARECASE(FUNCT3_CSRRSI, INSTRUCT_CSRRSI)
-        DECLARECASE(FUNCT3_CSRRCI, INSTRUCT_CSRRCI)
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    // RV64
-    case OPCODE_OP_IMM_32:
-      switch (funct3) {
-        DECLARECASE(FUNCT3_ADDI, INSTRUCT_ADDIW)
-        DECLARECASE(FUNCT3_SLLI, INSTRUCT_SLLIW)
-      case FUNCT3_SRI:
-        switch (funct7) {
-          DECLARECASE(FUNCT7_SRLI, INSTRUCT_SRLIW)
-          DECLARECASE(FUNCT7_SRAI, INSTRUCT_SRAIW)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-    case OPCODE_OP_32:
-      switch (funct3) {
-      case FUNCT3_ADD:
-        switch (funct7) {
-          DECLARECASE(FUNCT7_ADD, INSTRUCT_ADDW)
-          DECLARECASE(FUNCT7_SUB, INSTRUCT_SUBW)
-          DECLARECASE(FUNCT7_MULDIV, INSTRUCT_MULW)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-        DECLARECASE(FUNCT3_SLL, INSTRUCT_SLLW)
-        DECLARECASE(FUNCT3_DIV, INSTRUCT_DIVW)
-      case FUNCT3_SRR:
-        switch (funct7) {
-          DECLARECASE(FUNCT7_SRL, INSTRUCT_SRLW)
-          DECLARECASE(FUNCT7_SRA, INSTRUCT_SRAW)
-          DECLARECASE(FUNCT7_MULDIV, INSTRUCT_DIVUW)
-          DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-        }
-        break;
-        DECLARECASE(FUNCT3_REM, INSTRUCT_REMW)
-        DECLARECASE(FUNCT3_REMU, INSTRUCT_REMUW)
-        DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-      }
-      break;
-      DECLAREDEFAULTCASE(INSTRUCT_UNKNOWN)
-    }
+#include "cpu/exec.h"
+
     cout << remark << endl;
   } catch (Trap &t) {
     if ((int64_t)t.get_cause() >= 0)
@@ -251,8 +119,7 @@ void CPU::run() {
   }
   regs[0] = 0UL;
   cout << hex << "PRV : " << csr->prv << endl;
-  cout << hex << "STVEC : " << csr->stvec << endl;
-  cout << hex << "MEDELEG : " << csr->medeleg << endl;
+  cout << hex << "SATP : " << csr->satp << endl;
 }
 
 void CPU::trap_handling(Trap t, uint64_t epc) {

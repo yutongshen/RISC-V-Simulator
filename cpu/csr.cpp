@@ -8,6 +8,7 @@ CSR::CSR(uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr) {
   max_isa = 2UL << 62; // XLEN = 64
   max_isa |= 1UL << ('I' - 'A');
   max_isa |= 1UL << ('M' - 'A');
+  max_isa |= 1UL << ('C' - 'A');
   max_isa |= 1UL << ('S' - 'A');
   misa = max_isa;
 
@@ -70,6 +71,9 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
   case CSR_SSTATUS_ADDR:
     _mask = SSTATUS_MASK & ~MSTATUS_UXL;
     return set_csr(CSR_MSTATUS_ADDR, (mstatus & ~_mask) | (value & _mask));
+  case CSR_SEPC_ADDR:
+    sepc = value & ~3UL;
+    return;
   case CSR_MSTATUS_ADDR:
     _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
             MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
@@ -117,7 +121,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     mip = (mip & ~_mask) | (value & _mask);
     return;
   case CSR_MEPC_ADDR:
-    mepc = value;
+    mepc = value & ~3UL;
     return;
   }
   if (csr_ptr)
@@ -130,8 +134,8 @@ uint64_t CSR::get_csr(const uint32_t &addr) {
     return csr;
 #include "cpu/csr_config.h"
 #undef CSR_READ_DECLARE
-    case CSR_SSTATUS_ADDR:
-       return mstatus & SSTATUS_MASK;
+  case CSR_SSTATUS_ADDR:
+    return mstatus & SSTATUS_MASK;
   }
   return 0;
 }

@@ -11,7 +11,6 @@
   default:                                                                     \
     EXECUTE
 
-// RV32I Base Instruction Set
 #define FUNCT12_ECALL 0x000
 #define FUNCT12_EBREAK 0x001
 #define FUNCT12_WFI 0x105
@@ -85,6 +84,45 @@
 #define FUNCT3_REM 0x6
 #define FUNCT3_REMU 0x7
 
+// RVC function code
+#define FUNCT3_C_ADDI4SPN 0b000
+#define FUNCT3_C_LW 0b010
+#define FUNCT3_C_LD 0b011
+#define FUNCT3_C_SW 0b110
+#define FUNCT3_C_SD 0b111
+#define FUNCT3_C_ADDI 0b000
+#define FUNCT3_C_ADDIW 0b001
+#define FUNCT3_C_LI 0b010
+#define FUNCT3_C_LUI 0b011
+#define FUNCT3_C_MISC_ALU 0b100
+#define FUNCT3_C_J 0b101
+#define FUNCT3_C_BEQZ 0b110
+#define FUNCT3_C_BNEZ 0b111
+#define FUNCT3_C_SLLI 0b000
+#define FUNCT3_C_LWSP 0b010
+#define FUNCT3_C_LDSP 0b011
+#define FUNCT3_C_JR 0b100
+#define FUNCT3_C_SWSP 0b110
+#define FUNCT3_C_SDSP 0b111
+
+#define FUNCT6_C_SUB 0x23
+#define FUNCT6_C_SUBW 0x27
+
+#define FUNCT2_C_SUB 0b00
+#define FUNCT2_C_XOR 0b01
+#define FUNCT2_C_OR 0b10
+#define FUNCT2_C_AND 0b11
+#define FUNCT2_C_SUBW 0b00
+#define FUNCT2_C_ADDW 0b01
+
+#define FUNCT2_C_SRLI 0b00
+#define FUNCT2_C_SRAI 0b01
+#define FUNCT2_C_ANDI 0b10
+
+#define FUNCT4_C_JR 0x8
+#define FUNCT4_C_JALR 0x9
+
+// RV32I Base Instruction Set
 #define OPCODE_LUI 0x37
 #define OPCODE_AUIPC 0x17
 #define OPCODE_JAL 0x6F
@@ -214,6 +252,11 @@
 #define OPCODE_FCVT_D_LU 0x53
 #define OPCODE_FMV_D_X 0x53
 
+// RVC Standard Extension
+#define OPCODE_C0 0x0
+#define OPCODE_C1 0x1
+#define OPCODE_C2 0x2
+
 #define confirm_insn_legal(x)                                                  \
   if (!(x))                                                                    \
     throw TrapIllegalInstruction((x));
@@ -222,11 +265,8 @@
 
 #define confirm_csr_legal(x, write)                                            \
   if ((csr->mstatus & MSTATUS_TVM) && x == CSR_SATP_ADDR)                      \
-    require_privilege(PRV_M)                                                   \
-  else                                                                         \
-    require_privilege(get_field((x), 0x300))                                   \
-  confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write))
-  
+  require_privilege(PRV_M) else require_privilege(get_field((x), 0x300))       \
+      confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write))
 
 #define INSTRUCT_UNKNOWN                                                       \
   sprintf(remark, "unknown instruction");                                      \
@@ -632,7 +672,7 @@
 
 #define INSTRUCT_EBREAK                                                        \
   sprintf(remark, "ebreak");                                                   \
-  sprintf(remark, "%s (no implement)", remark);                                \
+  throw TrapBreakpoint(pc);                                                    \
   break;
 
 #define INSTRUCT_WFI                                                           \
@@ -644,8 +684,8 @@
 #define INSTRUCT_SRET                                                          \
   {                                                                            \
     sprintf(remark, "sret");                                                   \
-    require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S)            \
-    pc = csr->sepc;                                                            \
+    require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S) pc =       \
+        csr->sepc;                                                             \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_SPP);                                 \
     status = set_field(status, MSTATUS_SIE, get_field(status, MSTATUS_SPIE));  \
@@ -658,8 +698,7 @@
 #define INSTRUCT_MRET                                                          \
   {                                                                            \
     sprintf(remark, "mret");                                                   \
-    require_privilege(PRV_M)                                                   \
-    pc = csr->mepc;                                                            \
+    require_privilege(PRV_M) pc = csr->mepc;                                   \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_MPP);                                 \
     status = set_field(status, MSTATUS_MIE, get_field(status, MSTATUS_MPIE));  \
@@ -670,10 +709,10 @@
   break;
 
 #define INSTRUCT_SFENCE_VMA                                                    \
-  sprintf(remark, "sfence.vma %s,%s", regs_name[rs1], regs_name[rs2]);                                               \
-  require_privilege((csr->mstatus & MSTATUS_TVM) ? PRV_M : PRV_S)              \
-  /* TLB flush */                                                              \
-  pc += 4UL;                                                                   \
+  sprintf(remark, "sfence.vma %s,%s", regs_name[rs1], regs_name[rs2]);         \
+  require_privilege((csr->mstatus & MSTATUS_TVM) ? PRV_M                       \
+                                                 : PRV_S) /* TLB flush */      \
+      pc += 4UL;                                                               \
   break;
 
 #define INSTRUCT_CSRRW                                                         \
@@ -683,8 +722,7 @@
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
     else                                                                       \
       sprintf(remark, "csrw %s,%s", csr->csr_name(csr_addr), regs_name[rs1]);  \
-    confirm_csr_legal(csr_addr, 1)                                             \
-    uint64_t tmp(csr->get_csr(csr_addr));                                      \
+    confirm_csr_legal(csr_addr, 1) uint64_t tmp(csr->get_csr(csr_addr));       \
     csr->set_csr(csr_addr, regs[rs1]);                                         \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -700,8 +738,7 @@
     else                                                                       \
       sprintf(remark, "csrrs %s,%s,%s", regs_name[rd],                         \
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
-    confirm_csr_legal(csr_addr, rs1)                                           \
-    uint64_t tmp(csr->get_csr(csr_addr));                                      \
+    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
     csr->set_csr(csr_addr, tmp | regs[rs1]);                                   \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -715,8 +752,7 @@
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
     else                                                                       \
       sprintf(remark, "csrc %s,%s", csr->csr_name(csr_addr), regs_name[rs1]);  \
-    confirm_csr_legal(csr_addr, rs1)                                           \
-    uint64_t tmp(csr->get_csr(csr_addr));                                      \
+    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
     csr->set_csr(csr_addr, tmp & ~regs[rs1]);                                  \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -729,8 +765,7 @@
             rs1);                                                              \
   else                                                                         \
     sprintf(remark, "csrwi %s,%d", csr->csr_name(csr_addr), rs1);              \
-  confirm_csr_legal(csr_addr, 1)                                               \
-  regs[rd] = csr->get_csr(csr_addr);                                           \
+  confirm_csr_legal(csr_addr, 1) regs[rd] = csr->get_csr(csr_addr);            \
   csr->set_csr(csr_addr, zext(rs1, 5));                                        \
   pc += 4UL;                                                                   \
   break;
@@ -742,8 +777,7 @@
               csr->csr_name(csr_addr), rs1);                                   \
     else                                                                       \
       sprintf(remark, "csrsi %s,%d", csr->csr_name(csr_addr), rs1);            \
-    confirm_csr_legal(csr_addr, rs1)                                           \
-    uint64_t tmp(csr->get_csr(csr_addr));                                      \
+    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
     csr->set_csr(csr_addr, tmp | zext(rs1, 5));                                \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -757,8 +791,7 @@
               csr->csr_name(csr_addr), rs1);                                   \
     else                                                                       \
       sprintf(remark, "csrci %s,%d", csr->csr_name(csr_addr), rs1);            \
-    confirm_csr_legal(csr_addr, rs1)                                           \
-    uint64_t tmp(csr->get_csr(csr_addr));                                      \
+    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
     csr->set_csr(csr_addr, tmp &(~zext(rs1, 5)));                              \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -861,6 +894,254 @@
           regs_name[rs2]);                                                     \
   regs[rd] = (uint32_t)regs[rs1] / (uint32_t)regs[rs2];                        \
   pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_ADDI4SPN                                                    \
+  sprintf(remark, "c.addi4spn %s,%ld", regs_name[_c_rd], imm_c_addi4spn);      \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(imm_c_addi4spn) regs[_c_rd] = regs[2] + imm_c_addi4spn;   \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_LW                                                          \
+  sprintf(remark, "c.lw %s,%ld(%s)", regs_name[_c_rd], imm_c_slw,              \
+          regs_name[_c_rs1]);                                                  \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD);           \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_LD                                                          \
+  sprintf(remark, "c.ld %s,%ld(%s)", regs_name[_c_rd], imm_c_sld,              \
+          regs_name[_c_rs1]);                                                  \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD);          \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SW                                                          \
+  sprintf(remark, "c.sw %s,%ld(%s)", regs_name[_c_rs2], imm_c_slw,             \
+          regs_name[_c_rs1]);                                                  \
+  sprintf(remark, "%s (check)", remark);                                       \
+  mmu->store(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD, regs[_c_rs2]);          \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SD                                                          \
+  sprintf(remark, "c.sd %s,%ld(%s)", regs_name[_c_rs2], imm_c_sld,             \
+          regs_name[_c_rs1]);                                                  \
+  sprintf(remark, "%s (check)", remark);                                       \
+  mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, regs[_c_rs2]);         \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_ADDI                                                        \
+  if (!rd && !imm_c_addi)                                                      \
+    sprintf(remark, "c.nop");                                                  \
+  else {                                                                       \
+    sprintf(remark, "c.addi %s,%ld", regs_name[rd], (int64_t)imm_c_addi);      \
+    confirm_insn_legal(rd &&imm_c_addi)                                        \
+  }                                                                            \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[rd] = regs[rd] + imm_c_addi;                                            \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_ADDIW                                                       \
+  sprintf(remark, "c.addiw %s,%ld", regs_name[rd], (int64_t)imm_c_addi);       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd) regs[rd] = (int32_t)regs[rd] + (int32_t)imm_c_addi;   \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_JAL                                                         \
+  sprintf(remark, "c.jal %08lx", pc + imm_c_j & 0xffffffff);                   \
+  sprintf(remark, "%s (check)", remark);                                       \
+  throw TrapIllegalInstruction(insn); /* RV32C only */                         \
+  regs[1] = pc + 2UL;                                                          \
+  pc += imm_c_j;                                                               \
+  break;
+
+#define INSTRUCT_C_LI                                                          \
+  sprintf(remark, "c.li %s,0x%lx", regs_name[rd], imm_c_addi);                 \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd) regs[rd] = imm_c_addi;                                \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_ADDI16SP                                                    \
+  sprintf(remark, "c.addi16sp %ld", (int64_t)imm_c_addi16sp);                  \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(imm_c_addi16sp &&rd == 2) regs[2] =                       \
+      regs[2] + imm_c_addi16sp;                                                \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_LUI                                                         \
+  sprintf(remark, "c.lui %s,0x%lx", regs_name[rd], imm_c_lui >> 12 & 0xfffff); \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd &&imm_c_lui &&rd != 2) regs[rd] = imm_c_lui;           \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SUB                                                         \
+  sprintf(remark, "c.sub %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);        \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = regs[_c_rs1] - regs[_c_rs2];                                  \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_XOR                                                         \
+  sprintf(remark, "c.xor %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);        \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = regs[_c_rs1] ^ regs[_c_rs2];                                  \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_OR                                                          \
+  sprintf(remark, "c.or %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);         \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = regs[_c_rs1] | regs[_c_rs2];                                  \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_AND                                                         \
+  sprintf(remark, "c.and %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);        \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = regs[_c_rs1] & regs[_c_rs2];                                  \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SUBW                                                        \
+  sprintf(remark, "c.subw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = (int32_t)regs[_c_rs1] - (int32_t)regs[_c_rs2];                \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_ADDW                                                        \
+  sprintf(remark, "c.addw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = (int32_t)regs[_c_rs1] + (int32_t)regs[_c_rs2];                \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SRLI                                                        \
+  sprintf(remark, "c.srli %s,0x%x", regs_name[_c_rs1], c_shamt);               \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(c_shamt) regs[_c_rs1] = regs[_c_rs1] >> c_shamt;          \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SRAI                                                        \
+  sprintf(remark, "c.srai %s,0x%x", regs_name[_c_rs1], c_shamt);               \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(c_shamt) regs[_c_rs1] = (int64_t)regs[_c_rs1] >> c_shamt; \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_ANDI                                                        \
+  sprintf(remark, "c.andi %s,%ld", regs_name[_c_rs1], (int64_t)imm_c_addi);    \
+  sprintf(remark, "%s (check)", remark);                                       \
+  regs[_c_rs1] = regs[_c_rs1] & imm_c_addi;                                    \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_J                                                           \
+  sprintf(remark, "c.j %08lx", pc + imm_c_j & 0xffffffff);                     \
+  pc += imm_c_j;                                                               \
+  break;
+
+#define INSTRUCT_C_BEQZ                                                        \
+  sprintf(remark, "c.beqz %s,%08lx", regs_name[_c_rs1],                        \
+          pc + imm_c_b & 0xffffffff);                                          \
+  sprintf(remark, "%s (check)", remark);                                       \
+  pc += !regs[_c_rs1] ? imm_c_b : 2UL;                                         \
+  break;
+
+#define INSTRUCT_C_BNEZ                                                        \
+  sprintf(remark, "c.bnez %s,%08lx", regs_name[_c_rs1],                        \
+          pc + imm_c_b & 0xffffffff);                                          \
+  sprintf(remark, "%s (check)", remark);                                       \
+  pc += regs[_c_rs1] ? imm_c_b : 2UL;                                          \
+  break;
+
+#define INSTRUCT_C_SLLI                                                        \
+  sprintf(remark, "c.slli %s,0x%x", regs_name[rd], c_shamt);                   \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd &&c_shamt) regs[rd] = regs[rd] << c_shamt;             \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_LWSP                                                        \
+  sprintf(remark, "c.lwsp %s,%ld(%s)", regs_name[rd], imm_c_lwsp,              \
+          regs_name[2]);                                                       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd) regs[rd] =                                            \
+      mmu->load(regs[2] + imm_c_lwsp, DATA_TYPE_WORD);                         \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_LDSP                                                        \
+  sprintf(remark, "c.ldsp %s,%ld(%s)", regs_name[rd], imm_c_ldsp,              \
+          regs_name[2]);                                                       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd) regs[rd] =                                            \
+      mmu->load(regs[2] + imm_c_ldsp, DATA_TYPE_DWORD);                        \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_JR                                                          \
+  {                                                                            \
+    sprintf(remark, "c.jr %s", regs_name[c_rs1]);                              \
+    sprintf(remark, "%s (check)", remark);                                     \
+    confirm_insn_legal(c_rs1) pc = (regs[c_rs1]) & ~1UL;                       \
+  }                                                                            \
+  break;
+
+#define INSTRUCT_C_MV                                                          \
+  sprintf(remark, "c.mv %s,%s", regs_name[rd], regs_name[c_rs2]);              \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd &&c_rs2) regs[rd] = regs[c_rs2];                       \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_EBREAK                                                      \
+  sprintf(remark, "c.ebreak");                                                 \
+  throw TrapBreakpoint(pc);                                                    \
+  break;
+
+#define INSTRUCT_C_JALR                                                        \
+  {                                                                            \
+    sprintf(remark, "c.jalr %s", regs_name[c_rs1]);                            \
+    sprintf(remark, "%s (check)", remark);                                     \
+    confirm_insn_legal(c_rs1) uint64_t rs1_data(regs[c_rs1]);                  \
+    regs[1] = pc + 2UL;                                                        \
+    pc = (rs1_data) & ~1UL;                                                    \
+  }                                                                            \
+  break;
+
+#define INSTRUCT_C_ADD                                                         \
+  sprintf(remark, "c.add %s,%s", regs_name[rd], regs_name[c_rs2]);             \
+  sprintf(remark, "%s (check)", remark);                                       \
+  confirm_insn_legal(rd &&c_rs2) regs[rd] = regs[rd] + regs[c_rs2];            \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SWSP                                                        \
+  sprintf(remark, "c.swsp %s,%ld(%s)", regs_name[c_rs2], imm_c_swsp,           \
+          regs_name[2]);                                                       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  mmu->store(regs[2] + imm_c_swsp, DATA_TYPE_WORD, regs[c_rs2]);               \
+  pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_C_SDSP                                                        \
+  sprintf(remark, "c.sdsp %s,%ld(%s)", regs_name[c_rs2], imm_c_sdsp,           \
+          regs_name[2]);                                                       \
+  sprintf(remark, "%s (check)", remark);                                       \
+  mmu->store(regs[2] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]);              \
+  pc += 2UL;                                                                   \
   break;
 
 #endif

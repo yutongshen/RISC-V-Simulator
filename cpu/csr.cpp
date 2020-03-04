@@ -68,12 +68,23 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     break;
 #include "cpu/csr_config.h"
 #undef CSR_WRITE_DECLARE
+  // Supervispr
   case CSR_SSTATUS_ADDR:
     _mask = SSTATUS_MASK & ~MSTATUS_UXL;
     return set_csr(CSR_MSTATUS_ADDR, (mstatus & ~_mask) | (value & _mask));
+
+  case CSR_SIE_ADDR:
+    return set_csr(CSR_MIE_ADDR, (mie & ~mideleg) | (value & mideleg));
+
   case CSR_SEPC_ADDR:
     sepc = value & ~3UL;
     return;
+
+  case CSR_SIP_ADDR:
+    _mask = MIP_SSIP & mideleg;
+    return set_csr(CSR_MIP_ADDR, (mie & ~_mask) | (value & _mask));
+
+  // Machine
   case CSR_MSTATUS_ADDR:
     _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
             MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
@@ -136,6 +147,11 @@ uint64_t CSR::get_csr(const uint32_t &addr) {
 #undef CSR_READ_DECLARE
   case CSR_SSTATUS_ADDR:
     return mstatus & SSTATUS_MASK;
+  case CSR_SIE_ADDR:
+    return mie & mideleg;
+  case CSR_SIP_ADDR:
+    return mip & mideleg;
   }
+
   return 0;
 }

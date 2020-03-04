@@ -20,10 +20,10 @@ uint64_t instret;
 uint64_t hpmcounter[29];
 
 // Supervisor Trap Setup
-// uint64_t sstatus; reference mstatus
+// uint64_t sstatus; mapping mstatus
 uint64_t sedeleg;
 uint64_t sideleg;
-uint64_t sie;
+// uint64_t sie; mapping to mie
 uint64_t stvec;
 uint64_t scounteren;
 // Supervisor Trap Handling
@@ -31,7 +31,7 @@ uint64_t sscratch;
 uint64_t sepc;
 uint64_t scause;
 uint64_t stval;
-uint64_t sip;
+// uint64_t sip; mapping to mip
 // Supervisor Protection and Translation
 uint64_t satp;
 
@@ -657,14 +657,12 @@ CSR_READ_DECLARE(CSR_HPMCOUNTER31_ADDR, hpmcounter[28])
 
 CSR_READ_DECLARE(CSR_SEDELEG_ADDR, sedeleg)
 CSR_READ_DECLARE(CSR_SIDELEG_ADDR, sideleg)
-CSR_READ_DECLARE(CSR_SIE_ADDR, sie)
 CSR_READ_DECLARE(CSR_STVEC_ADDR, stvec)
 CSR_READ_DECLARE(CSR_SCOUNTEREN_ADDR, scounteren)
 CSR_READ_DECLARE(CSR_SSCRATCH_ADDR, sscratch)
 CSR_READ_DECLARE(CSR_SEPC_ADDR, sepc)
 CSR_READ_DECLARE(CSR_SCAUSE_ADDR, scause)
 CSR_READ_DECLARE(CSR_STVAL_ADDR, stval)
-CSR_READ_DECLARE(CSR_SIP_ADDR, sip)
 CSR_READ_DECLARE(CSR_SATP_ADDR, satp)
 
 CSR_READ_DECLARE(CSR_MVENDORID_ADDR, mvendorid)
@@ -818,13 +816,11 @@ CSR_WRITE_DECLARE(CSR_HPMCOUNTER31_ADDR, hpmcounter[28], 0x0)
 
 CSR_WRITE_DECLARE(CSR_SEDELEG_ADDR, sedeleg, -0x1L)
 CSR_WRITE_DECLARE(CSR_SIDELEG_ADDR, sideleg, -0x1L)
-CSR_WRITE_DECLARE(CSR_SIE_ADDR, sie, -0x1L)
 CSR_WRITE_DECLARE(CSR_STVEC_ADDR, stvec, -0x1L)
 CSR_WRITE_DECLARE(CSR_SCOUNTEREN_ADDR, scounteren, -0x1L)
 CSR_WRITE_DECLARE(CSR_SSCRATCH_ADDR, sscratch, -0x1L)
 CSR_WRITE_DECLARE(CSR_SCAUSE_ADDR, scause, -0x1L)
 CSR_WRITE_DECLARE(CSR_STVAL_ADDR, stval, -0x1L)
-CSR_WRITE_DECLARE(CSR_SIP_ADDR, sip, -0x1L)
 CSR_WRITE_DECLARE(CSR_SATP_ADDR, satp, -0x1L)
 
 CSR_WRITE_DECLARE(CSR_MVENDORID_ADDR, mvendorid, 0x0)

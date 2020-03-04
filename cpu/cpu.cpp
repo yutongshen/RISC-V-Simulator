@@ -119,11 +119,15 @@ void CPU::run() {
   }
   regs[0] = 0UL;
 
-  uint64_t addr(0x80002008), rdata;
-  cout << hex
-       << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata), rdata)
-       << endl;
+  // uint64_t addr(0x80002008), rdata;
+  // cout << hex
+  //      << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata), rdata)
+  //      << endl;
   // cout << hex << "PRV : " << csr->prv << endl;
+  // cout << hex << "MIE : " << csr->mie << endl;
+  // cout << hex << "MIP : " << csr->mip << endl;
+  // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;
+  // cout << hex << "SIP : " << csr->get_csr(CSR_SIP_ADDR) << endl;
   // cout << hex << "SATP : " << csr->satp << endl;
 }
 

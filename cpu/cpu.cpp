@@ -100,9 +100,9 @@ void CPU::run() {
     _c_rs2 = (_c_rs2 & 0x7) | 0x8;
     _c_rd = (_c_rd & 0x7) | 0x8;
 
-    printf("%08lx: %08x %s: %08lx %s: %08lx %s: %08lx %s: %08lx    ", pc, insn,
-           regs_name[10], regs[10], regs_name[11], regs[11], regs_name[5],
-           regs[5], regs_name[6], regs[6]);
+    printf("%08lx: %08x %s: %08lx %s: %08lx %s: %08lx %s: %08lx %s: %08lx %s: %08lx    ", pc, insn,
+           regs_name[10], regs[10], regs_name[11], regs[11], regs_name[14], regs[14], regs_name[5],
+           regs[5], regs_name[6], regs[6], regs_name[29], regs[29]);
 
 #include "cpu/exec.h"
 

@@ -816,13 +816,13 @@
 
 #define INSTRUCT_SRLIW                                                         \
   sprintf(remark, "srliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], shamt);   \
-  regs[rd] = (uint32_t)regs[rs1] >> shamt;                                     \
+  regs[rd] = (int32_t)((uint32_t)regs[rs1] >> shamt);                          \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_SRAIW                                                         \
   sprintf(remark, "sraiw %s,%s,0x%x", regs_name[rd], regs_name[rs1], shamt64); \
-  regs[rd] = (uint32_t)((int32_t)regs[rs1] >> shamt);                          \
+  regs[rd] = ((int32_t)regs[rs1] >> shamt);                          \
   pc += 4UL;                                                                   \
   break;
 
@@ -864,14 +864,14 @@
 #define INSTRUCT_SRLW                                                          \
   sprintf(remark, "srlw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = (uint32_t)regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F);              \
+  regs[rd] = (int32_t)((uint32_t)regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F));   \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_SRAW                                                          \
   sprintf(remark, "sraw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = (uint32_t)((int32_t)regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F));   \
+  regs[rd] = ((int32_t)regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F));   \
   pc += 4UL;                                                                   \
   break;
 

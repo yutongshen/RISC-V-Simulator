@@ -120,7 +120,9 @@ void CPU::run() {
   regs[0] = 0UL;
 
   uint64_t addr(0x80002008), rdata;
-  cout << hex << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata), rdata) << endl;
+  cout << hex
+       << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata), rdata)
+       << endl;
   // cout << hex << "PRV : " << csr->prv << endl;
   // cout << hex << "SATP : " << csr->satp << endl;
 }

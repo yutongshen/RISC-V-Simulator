@@ -294,8 +294,16 @@ uint64_t dscratch;
 #define CSR_MHPMEVENT30_ADDR 0x33e
 #define CSR_MHPMEVENT31_ADDR 0x33f
 
+#define CSR_TSELECT_ADDR 0x7a0
+#define CSR_TDATA1_ADDR 0x7a1
+#define CSR_TDATA2_ADDR 0x7a2
+#define CSR_TDATA3_ADDR 0x7a3
+#define CSR_DCSR_ADDR 0x7b0
+#define CSR_DPC_ADDR 0x7b1
+#define CSR_DSCRATCH_ADDR 0x7b2
+
 #define CAUSE_MISALIGNED_FETCH 0x0
-#define CAUSE_FETCH_ACCESS 0x1
+#define CAUSE_INSTRUCTION_ACCESS 0x1
 #define CAUSE_ILLEGAL_INSTRUCTION 0x2
 #define CAUSE_BREAKPOINT 0x3
 #define CAUSE_MISALIGNED_LOAD 0x4
@@ -306,17 +314,32 @@ uint64_t dscratch;
 #define CAUSE_SUPERVISOR_ECALL 0x9
 #define CAUSE_HYPERVISOR_ECALL 0xa
 #define CAUSE_MACHINE_ECALL 0xb
-#define CAUSE_FETCH_PAGE_FAULT 0xc
+#define CAUSE_INSTRUCTION_PAGE_FAULT 0xc
 #define CAUSE_LOAD_PAGE_FAULT 0xd
 #define CAUSE_STORE_PAGE_FAULT 0xf
 
-#define CSR_TSELECT_ADDR 0x7a0
-#define CSR_TDATA1_ADDR 0x7a1
-#define CSR_TDATA2_ADDR 0x7a2
-#define CSR_TDATA3_ADDR 0x7a3
-#define CSR_DCSR_ADDR 0x7b0
-#define CSR_DPC_ADDR 0x7b1
-#define CSR_DSCRATCH_ADDR 0x7b2
+#define PTE_V (1 << 0)
+#define PTE_R (1 << 1)
+#define PTE_W (1 << 2)
+#define PTE_X (1 << 3)
+#define PTE_U (1 << 4)
+#define PTE_G (1 << 5)
+#define PTE_A (1 << 6)
+#define PTE_D (1 << 7)
+#define PTE_RSW (3 << 8)
+#define PTE_PPN_SHIFT 10
+
+#define PAGE_SHIFT 12
+
+#define SATP_MODE_NONE 0
+#define SATP_MODE_SV39 8
+#define SATP_MODE_SV48 9
+#define SATP_MODE_SV57 10
+#define SATP_MODE_SV64 11
+
+#define SATP_MODE (0xfUL << 60)
+#define SATP_ASID (0xffffUL << 44)
+#define SATP_PPN ((1UL << 44) - 1UL)
 
 #define MSTATUS_SIE (0x1UL << 1)
 #define MSTATUS_MIE (0x1UL << 3)

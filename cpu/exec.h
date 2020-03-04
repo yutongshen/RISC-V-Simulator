@@ -186,7 +186,7 @@ default:
       DECLARECASE(FUNCT3_C_LI, INSTRUCT_C_LI)
     case FUNCT3_C_LUI:
       switch (rd) {
-        DECLARECASE(2, INSTRUCT_C_ADDI16SP)
+        DECLARECASE(REG_SP, INSTRUCT_C_ADDI16SP)
         DECLAREDEFAULTCASE(INSTRUCT_C_LUI)
       }
       break;

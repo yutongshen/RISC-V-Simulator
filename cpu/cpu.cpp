@@ -100,9 +100,14 @@ void CPU::run() {
     _c_rs2 = (_c_rs2 & 0x7) | 0x8;
     _c_rd = (_c_rd & 0x7) | 0x8;
 
-    printf("%08lx: %08x %s: %08lx %s: %08lx %s: %08lx %s: %08lx %s: %08lx %s: %08lx    ", pc, insn,
-           regs_name[10], regs[10], regs_name[11], regs[11], regs_name[14], regs[14], regs_name[5],
-           regs[5], regs_name[6], regs[6], regs_name[29], regs[29]);
+    int reg_num(0);
+    printf("%08lx: %08x ", pc, insn);
+    reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_S0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_T0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_T1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    // reg_num = REG_T4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
 
 #include "cpu/exec.h"
 
@@ -124,14 +129,14 @@ void CPU::run() {
   //      << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata), rdata)
   //      << endl;
   // cout << hex << "PRV : " << csr->prv << endl;
-  // cout << hex << "MIE : " << csr->mie << endl;
-  // cout << hex << "MIP : " << csr->mip << endl;
+  // cout << hex << "STVAL : " << csr->stval << endl;
+  // cout << hex << "SEPC : " << csr->sepc << endl;
   // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;
   // cout << hex << "SIP : " << csr->get_csr(CSR_SIP_ADDR) << endl;
   // cout << hex << "SATP : " << csr->satp << endl;
 }
 
-void CPU::trap_handling(Trap t, uint64_t epc) {
+void CPU::trap_handling(const Trap &t, uint64_t epc) {
   uint64_t n(t.get_cause());
   uint64_t deleg(csr->medeleg);
   bool interrupt((int64_t)n < 0L);
@@ -144,7 +149,8 @@ void CPU::trap_handling(Trap t, uint64_t epc) {
     pc = (csr->stvec & ~3UL) + vector;
     csr->scause = t.get_cause();
     csr->sepc = epc;
-    csr->stval = 0UL;
+    csr->stval = t.get_tval();
+    cout << hex << "STVAL : " << csr->stval << endl;
 
     uint64_t status = csr->mstatus;
     status = set_field(status, MSTATUS_SPIE, get_field(status, MSTATUS_SIE));
@@ -157,7 +163,7 @@ void CPU::trap_handling(Trap t, uint64_t epc) {
     pc = (csr->mtvec & ~3UL) + vector;
     csr->mcause = t.get_cause();
     csr->mepc = epc;
-    csr->mtval = 0UL;
+    csr->mtval = t.get_tval();
 
     uint64_t status = csr->mstatus;
     status = set_field(status, MSTATUS_MPIE, get_field(status, MSTATUS_MIE));

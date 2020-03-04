@@ -20,7 +20,7 @@ class CPU : public Device {
   pCSR csr;
   pMMU mmu;
   virtual void _init();
-  void trap_handling(Trap t, uint64_t epc);
+  void trap_handling(const Trap &t, uint64_t epc);
   void take_interrupt(uint64_t interrupts);
 
 public:

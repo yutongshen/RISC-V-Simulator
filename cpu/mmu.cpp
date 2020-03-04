@@ -3,8 +3,6 @@
 #include "cpu/csr_config.h"
 #include "cpu/trap.h"
 #include "util//util.h"
-#include <iostream>
-using namespace std;
 
 void MMU::_init() {}
 

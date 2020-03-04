@@ -625,49 +625,65 @@
 #define INSTRUCT_MULH                                                          \
   sprintf(remark, "mulh %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = regs[rs1] * regs[rs2];                                            \
+  regs[rd] = mulh(regs[rs1], regs[rs2]);                                       \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULHSU                                                        \
   sprintf(remark, "mulhsu %s,%s,%s", regs_name[rd], regs_name[rs1],            \
           regs_name[rs2]);                                                     \
-  regs[rd] = regs[rs1] * regs[rs2];                                            \
+  regs[rd] = mulhsu(regs[rs1], regs[rs2]);                                     \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULHU                                                         \
   sprintf(remark, "mulhu %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  regs[rd] = regs[rs1] * regs[rs2];                                            \
+  regs[rd] = mulhu(regs[rs1], regs[rs2]);                                      \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIV                                                           \
   sprintf(remark, "div %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  regs[rd] = (int64_t)regs[rs1] / (int64_t)regs[rs2];                          \
+  if (!regs[rs2])                                                              \
+    regs[rd] = -1UL;                                                           \
+  else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL)                        \
+    regs[rd] = regs[rs1];                                                      \
+  else                                                                         \
+    regs[rd] = (int64_t) regs[rs1] / (int64_t) regs[rs2];                      \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIVU                                                          \
   sprintf(remark, "divu %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = regs[rs1] / regs[rs2];                                            \
+  if (!regs[rs2])                                                              \
+    regs[rd] = -1UL;                                                           \
+  else                                                                         \
+    regs[rd] = regs[rs1] / regs[rs2];                                          \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REM                                                           \
   sprintf(remark, "rem %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  regs[rd] = (int64_t)regs[rs1] % (int64_t)regs[rs2];                          \
+  if (!regs[rs2])                                                              \
+    regs[rd] = regs[rs1];                                                      \
+  else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL)                      \
+    regs[rd] = 0;                                                              \
+  else                                                                         \
+    regs[rd] = (int64_t) regs[rs1] % (int64_t) regs[rs2];                      \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMU                                                          \
   sprintf(remark, "remu %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = regs[rs1] % regs[rs2];                                            \
+  if (!regs[rs2])                                                              \
+    regs[rd] = regs[rs1];                                                      \
+  else                                                                         \
+    regs[rd] = regs[rs1] % regs[rs2];                                          \
   pc += 4UL;                                                                   \
   break;
 
@@ -891,7 +907,10 @@
 #define INSTRUCT_DIVW                                                          \
   sprintf(remark, "divw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = (int32_t)regs[rs1] / (int32_t)regs[rs2];                          \
+  if (!(int32_t)regs[rs2])                                                     \
+    regs[rd] = -1UL;                                                           \
+  else                                                                         \
+    regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] / (int32_t)regs[rs2]);    \
   pc += 4UL;                                                                   \
   break;
 
@@ -905,28 +924,37 @@
 #define INSTRUCT_SRAW                                                          \
   sprintf(remark, "sraw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = ((int32_t)regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F));   \
+  regs[rd] = ((int32_t) regs[rs1] >> (uint32_t) (regs[rs2] & 0x1F));           \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIVUW                                                         \
   sprintf(remark, "divuw %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  regs[rd] = (uint32_t)regs[rs1] / (uint32_t)regs[rs2];                        \
+  if (!(uint32_t)regs[rs2])                                                    \
+    regs[rd] = -1UL;                                                           \
+  else                                                                         \
+    regs[rd] = (int32_t)((uint32_t)regs[rs1] / (uint32_t)regs[rs2]);           \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMW                                                          \
   sprintf(remark, "remw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = (int32_t)regs[rs1] / (int32_t)regs[rs2];                          \
+  if (!(int32_t)regs[rs2])                                                     \
+    regs[rd] = (int32_t)regs[rs1];                                             \
+  else                                                                         \
+    regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] % (int32_t)regs[rs2]);    \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMUW                                                         \
   sprintf(remark, "remuw %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  regs[rd] = (uint32_t)regs[rs1] / (uint32_t)regs[rs2];                        \
+  if (!(uint32_t)regs[rs2])                                                    \
+    regs[rd] = (int32_t)regs[rs1];                                             \
+  else                                                                         \
+    regs[rd] = (int32_t)((uint32_t)regs[rs1] % (uint32_t)regs[rs2]);           \
   pc += 4UL;                                                                   \
   break;
 

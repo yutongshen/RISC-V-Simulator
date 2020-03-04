@@ -14,6 +14,9 @@
 #define set_field(x, mask, value) \
     ((x) & ~(mask)) | ((value) * ((mask) & ~((mask) << 1)) & (mask))
 
+uint64_t mulhu(const uint64_t &a, const uint64_t &b);
+int64_t mulh(const int64_t &a, const int64_t &b);
+int64_t mulhsu(const int64_t &a, const uint64_t &b);
 uint64_t str2uint64_t(const char *str);
 uint8_t leading_zero(uint64_t x);
 uint8_t lsb_leading_zero(uint64_t x);

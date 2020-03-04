@@ -1,4 +1,5 @@
 # temporary
+*.o
 *.swp
 *.swo
 *.swn

@@ -217,6 +217,7 @@ default:
         }
         break;
       }
+      break;
       DECLARECASE(FUNCT3_C_J, INSTRUCT_C_J)
       DECLARECASE(FUNCT3_C_BEQZ, INSTRUCT_C_BEQZ)
       DECLARECASE(FUNCT3_C_BNEZ, INSTRUCT_C_BNEZ)

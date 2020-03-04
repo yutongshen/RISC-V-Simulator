@@ -102,12 +102,14 @@ void CPU::run() {
 
     int reg_num(0);
     printf("%08lx: %08x ", pc, insn);
-    // reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    // reg_num = REG_S0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_RA, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_SP, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_T4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    // reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num],
+    // regs[reg_num]); reg_num = REG_S0, printf("%s: %08lx ",
+    // regs_name[reg_num], regs[reg_num]); reg_num = REG_RA, printf("%s: %08lx
+    // ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A6, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A5, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
 
 #include "cpu/exec.h"
 
@@ -150,7 +152,6 @@ void CPU::trap_handling(const Trap &t, uint64_t epc) {
     csr->scause = t.get_cause();
     csr->sepc = epc;
     csr->stval = t.get_tval();
-    cout << hex << "STVAL : " << csr->stval << endl;
 
     uint64_t status = csr->mstatus;
     status = set_field(status, MSTATUS_SPIE, get_field(status, MSTATUS_SIE));

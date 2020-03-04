@@ -119,7 +119,8 @@ Addr MMU::trace_pt(const Addr &addr, const uint64_t &len, uint8_t type,
     bool fault(0);
 
     // Check user page access
-    fault |= (pte & PTE_U) ? prv == PRV_S && !(csr->mstatus & MSTATUS_SUM)
+    fault |= (pte & PTE_U) ? prv == PRV_S && (type == ACCESS_TYPE_FETCH ||
+                                              !(csr->mstatus & MSTATUS_SUM))
                            : prv == PRV_U;
 
     // Check PTE's valid
@@ -193,11 +194,13 @@ void MMU::throw_access_exception(const Addr &addr, uint8_t type) {
 }
 
 uint64_t MMU::fetch(const Addr &pc) {
-  uint64_t insn;
-  Addr paddr(translate(pc, 4, ACCESS_TYPE_FETCH));
-  if (!read(paddr, DATA_TYPE_WORD_UNSIGNED, insn))
-    throw TrapInstructionAccessFault(paddr);
-  return insn;
+  uint64_t insn[2];
+  for (uint8_t i = 0; i < 2; ++i) {
+    Addr paddr(translate(pc + (i << 1), 2, ACCESS_TYPE_FETCH));
+    if (!read(paddr, DATA_TYPE_HWORD_UNSIGNED, insn[i]))
+      throw TrapInstructionAccessFault(paddr);
+  }
+  return insn[1] << 16 | insn[0];
 }
 
 uint64_t MMU::load(const Addr &addr, const DataType &data_type) {

@@ -77,7 +77,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     return set_csr(CSR_MIE_ADDR, (mie & ~mideleg) | (value & mideleg));
 
   case CSR_SEPC_ADDR:
-    sepc = value & ~3UL;
+    sepc = value & ~1UL;
     return;
 
   case CSR_SIP_ADDR:
@@ -132,7 +132,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     mip = (mip & ~_mask) | (value & _mask);
     return;
   case CSR_MEPC_ADDR:
-    mepc = value & ~3UL;
+    mepc = value & ~1UL;
     return;
   }
   if (csr_ptr)

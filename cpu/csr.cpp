@@ -100,7 +100,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     return;
   case CSR_MEDELEG_ADDR:
     _mask = (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_BREAKPOINT) |
-            (1 << CAUSE_USER_ECALL) | (1 << CAUSE_FETCH_PAGE_FAULT) |
+            (1 << CAUSE_USER_ECALL) | (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
             (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT);
     medeleg = (medeleg & ~_mask) | (value & _mask);
     return;

@@ -118,8 +118,11 @@ void CPU::run() {
     low_power = 1;
   }
   regs[0] = 0UL;
-  cout << hex << "PRV : " << csr->prv << endl;
-  cout << hex << "SATP : " << csr->satp << endl;
+
+  uint64_t addr(0x80002008), rdata;
+  cout << hex << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata), rdata) << endl;
+  // cout << hex << "PRV : " << csr->prv << endl;
+  // cout << hex << "SATP : " << csr->satp << endl;
 }
 
 void CPU::trap_handling(Trap t, uint64_t epc) {

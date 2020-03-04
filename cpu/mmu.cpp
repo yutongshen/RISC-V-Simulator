@@ -4,6 +4,7 @@
 #include "cpu/trap.h"
 #include "util//util.h"
 #include <iostream>
+using namespace std;
 
 void MMU::_init() {}
 
@@ -27,28 +28,168 @@ bool MMU::read(const Addr &addr, const DataType &data_type, uint64_t &rdata) {
 
 Addr MMU::translate(const Addr &addr, const uint64_t &len, uint8_t type) {
   Addr paddr;
+  uint8_t prv(csr->prv);
+  if (type != ACCESS_TYPE_FETCH && (csr->mstatus & MSTATUS_MPRV))
+    prv = get_field(csr->mstatus, MSTATUS_MPP);
 
-  paddr = addr;
-  if (!pmp_ok(paddr, len, type)) {
-    switch (type) {
-    case ACCESS_TYPE_FETCH:
-      throw TrapFetchAccessFault(paddr);
-    case ACCESS_TYPE_LOAD:
-      throw TrapLoadAccessFault(paddr);
-    case ACCESS_TYPE_STORE:
-      throw TrapStoreAccessFault(paddr);
-    default:
-      abort();
-    }
-  }
+  paddr = trace_pt(addr, len, type, prv);
+  if (!pmp_ok(paddr, len, type, csr->prv))
+    throw_access_exception(addr, type);
+
   return paddr;
+}
+
+Addr MMU::trace_pt(const Addr &addr, const uint64_t &len, uint8_t type, uint8_t prv) {
+  if (prv == PRV_M) return addr;
+
+  // Define virtual address type
+  uint8_t idx_len;
+  uint8_t pt_levels;
+  uint8_t pte_size;
+  uint64_t pte_base;
+  switch (get_field(csr->satp, SATP_MODE)) {
+    case SATP_MODE_NONE:
+      pt_levels = 0;
+      break;
+    case SATP_MODE_SV39:
+      idx_len = 9;
+      pt_levels = 3;
+      pte_size = 8;
+      pte_base = (csr->satp & SATP_PPN) << PAGE_SHIFT;
+      break;
+    case SATP_MODE_SV48:
+      idx_len = 9;
+      pt_levels = 4;
+      pte_size = 8;
+      pte_base = (csr->satp & SATP_PPN) << PAGE_SHIFT;
+      break;
+    case SATP_MODE_SV57:
+      idx_len = 9;
+      pt_levels = 5;
+      pte_size = 8;
+      pte_base = (csr->satp & SATP_PPN) << PAGE_SHIFT;
+      break;
+    case SATP_MODE_SV64:
+      idx_len = 9;
+      pt_levels = 6;
+      pte_size = 8;
+      pte_base = (csr->satp & SATP_PPN) << PAGE_SHIFT;
+      break;
+    default: abort();
+  }
+
+  // SATP_MODE_NONE mean virtual address == physical address
+  if (!pt_levels) return addr;
+
+  // Check virtual address is legal
+  uint8_t va_len(idx_len * pt_levels + PAGE_SHIFT);
+  // Virtual address must be less than or equal to 64
+  if (va_len >= 64) va_len = 64;
+  uint64_t mask((1UL << (64 - (va_len - 1))) - 1UL);
+  uint64_t va_masked((addr >> (va_len - 1)) & mask);
+  if (va_masked && va_masked != mask)
+    pt_levels = 0;
+
+  uint8_t i(pt_levels);
+  uint64_t pn_shift(idx_len * pt_levels);
+  uint64_t base(pte_base);
+  while (i--) {
+    // Calculate PTE's physical address
+    pn_shift -= idx_len;
+    uint64_t vpn_i((addr >> pn_shift >> PAGE_SHIFT) & ((1UL << idx_len) - 1UL));
+    uint64_t pte_paddr(base + vpn_i * pte_size);
+    
+    // Load PTE
+    uint64_t pte;
+    if (!read(pte_paddr, DATA_TYPE_DWORD, pte))
+      throw_access_exception(addr, type);
+    if (!pmp_ok(pte_paddr, 8, ACCESS_TYPE_LOAD, PRV_S))
+      throw_access_exception(addr, type);
+    uint64_t ppn(pte >> PTE_PPN_SHIFT);
+
+    base = ppn << PAGE_SHIFT;
+    // Internal node
+    if ((pte & PTE_V) && !(pte & (PTE_R | PTE_W | PTE_X)))
+      continue;
+
+    // Check page fault
+    bool fault(0);
+
+    // Check user page access
+    fault |= (pte & PTE_U) ? prv == PRV_S && !(csr->mstatus & MSTATUS_SUM) :
+                             prv == PRV_U;
+
+    // Check PTE's valid
+    fault |= !(pte & PTE_V);
+
+    // Check W == 1 => R == 1
+    fault |= (pte & PTE_W) && !(pte & PTE_R);
+
+    // Check permission
+    switch (type) {
+      case ACCESS_TYPE_FETCH:
+        fault |= !(pte & PTE_X);
+        break;
+      case ACCESS_TYPE_LOAD:
+        fault |= !(pte & PTE_R) && !(get_field(csr->mstatus, MSTATUS_MXR) && (pte & PTE_X));
+        break;
+      case ACCESS_TYPE_STORE:
+        fault |= !(pte & PTE_W);
+        break;
+      default: abort();
+    }
+
+    // Check ppn[i-1:0]
+    fault |= ppn & ((1UL << pn_shift) - 1UL);
+
+    if (fault) break;
+
+    // Set dirty by hardware
+    uint64_t ad(PTE_A);
+    if (type == ACCESS_TYPE_STORE) ad |= PTE_D;
+    if ((pte & ad) != ad) {
+      pte |= ad;
+      if (!pmp_ok(pte_paddr, 8, ACCESS_TYPE_STORE, PRV_S))
+        throw_access_exception(addr, type);
+    if (!write(pte_paddr, DATA_TYPE_DWORD, pte))
+      throw_access_exception(addr, type);
+    }
+
+    // Return physical address
+    uint64_t vpn_pffset(addr & ((1UL << pn_shift << PAGE_SHIFT) - 1UL));
+    return base | vpn_pffset;
+  }
+
+  switch (type) {
+  case ACCESS_TYPE_FETCH:
+    throw TrapInstructionPageFault(addr);
+  case ACCESS_TYPE_LOAD:
+    throw TrapLoadPageFault(addr);
+  case ACCESS_TYPE_STORE:
+    throw TrapStorePageFault(addr);
+  default:
+    abort();
+  }
+}
+
+void MMU::throw_access_exception(const Addr &addr, uint8_t type) {
+  switch (type) {
+  case ACCESS_TYPE_FETCH:
+    throw TrapInstructionAccessFault(addr);
+  case ACCESS_TYPE_LOAD:
+    throw TrapLoadAccessFault(addr);
+  case ACCESS_TYPE_STORE:
+    throw TrapStoreAccessFault(addr);
+  default:
+    abort();
+  }
 }
 
 uint64_t MMU::fetch(const Addr &pc) {
   uint64_t insn;
   Addr paddr(translate(pc, 4, ACCESS_TYPE_FETCH));
   if (!read(paddr, DATA_TYPE_WORD_UNSIGNED, insn))
-    throw TrapFetchAccessFault(paddr);
+    throw TrapInstructionAccessFault(paddr);
   return insn;
 }
 
@@ -105,7 +246,7 @@ void MMU::store(const Addr &addr, const DataType &data_type,
     throw TrapStoreAccessFault(paddr);
 }
 
-bool MMU::pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type) {
+bool MMU::pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type, uint8_t prv) {
   uint64_t base(0);
   uint8_t a_field;
 
@@ -132,7 +273,7 @@ bool MMU::pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type) {
       if (any_match) {
         if (!all_match)
           return 0;
-        return (csr->prv == PRV_M && !(cfg && PMP_R)) ||
+        return (prv == PRV_M && !(cfg && PMP_R)) ||
                (type == ACCESS_TYPE_FETCH && (cfg && PMP_X)) ||
                (type == ACCESS_TYPE_LOAD && (cfg && PMP_R)) ||
                (type == ACCESS_TYPE_STORE && (cfg && PMP_W));
@@ -141,5 +282,5 @@ bool MMU::pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type) {
     base = tor;
   }
 
-  return csr->prv == PRV_M;
+  return prv == PRV_M;
 }

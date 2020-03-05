@@ -1,6 +1,7 @@
 #include "cpu/cpu.h"
 #include "bus/datatype.h"
 #include "cpu/decode.h"
+#include "cpu/rule_define.h"
 #include "util/util.h"
 #include <iostream>
 using namespace std;
@@ -106,7 +107,7 @@ void CPU::run() {
     // regs[reg_num]); reg_num = REG_S0, printf("%s: %08lx ",
     // regs_name[reg_num], regs[reg_num]); reg_num = REG_RA, printf("%s: %08lx
     // ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A6, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_T0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
     reg_num = REG_A5, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
     reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
     reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
@@ -220,3 +221,5 @@ void CPU::take_interrupt(uint64_t ints) {
 }
 
 void CPU::bus_connect(pBus bus) { mmu->connect(bus); }
+
+bool CPU::support_extension(char ext) { return csr->support_extension(ext); }

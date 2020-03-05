@@ -292,15 +292,19 @@
 #define OPCODE_C2 0x2
 
 #define confirm_insn_legal(x)                                                  \
-  if (!(x))                                                                    \
-    throw TrapIllegalInstruction((x));
+  if (!(x)) {                                                                  \
+    throw TrapIllegalInstruction((x));                                         \
+  }
 
 #define require_privilege(x) confirm_insn_legal(csr->prv >= (x))
+#define require_extension(x) confirm_insn_legal(support_extension(x))
 
 #define confirm_csr_legal(x, write)                                            \
-  if ((csr->mstatus & MSTATUS_TVM) && x == CSR_SATP_ADDR)                      \
-  require_privilege(PRV_M) else require_privilege(get_field((x), 0x300))       \
-      confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write))
+  do {                                                                         \
+    if ((csr->mstatus & MSTATUS_TVM) && x == CSR_SATP_ADDR)                    \
+      require_privilege(PRV_M) else require_privilege(get_field((x), 0x300))   \
+          confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write))           \
+  } while (0);
 
 #define INSTRUCT_UNKNOWN                                                       \
   sprintf(remark, "unknown instruction");                                      \
@@ -618,72 +622,62 @@
 #define INSTRUCT_MUL                                                           \
   sprintf(remark, "mul %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  regs[rd] = regs[rs1] * regs[rs2];                                            \
+  require_extension('M') regs[rd] = regs[rs1] * regs[rs2];                     \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULH                                                          \
   sprintf(remark, "mulh %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = mulh(regs[rs1], regs[rs2]);                                       \
+  require_extension('M') regs[rd] = mulh(regs[rs1], regs[rs2]);                \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULHSU                                                        \
   sprintf(remark, "mulhsu %s,%s,%s", regs_name[rd], regs_name[rs1],            \
           regs_name[rs2]);                                                     \
-  regs[rd] = mulhsu(regs[rs1], regs[rs2]);                                     \
+  require_extension('M') regs[rd] = mulhsu(regs[rs1], regs[rs2]);              \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULHU                                                         \
   sprintf(remark, "mulhu %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  regs[rd] = mulhu(regs[rs1], regs[rs2]);                                      \
+  require_extension('M') regs[rd] = mulhu(regs[rs1], regs[rs2]);               \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIV                                                           \
   sprintf(remark, "div %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  if (!regs[rs2])                                                              \
-    regs[rd] = -1UL;                                                           \
-  else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL)                        \
-    regs[rd] = regs[rs1];                                                      \
-  else                                                                         \
-    regs[rd] = (int64_t)regs[rs1] / (int64_t)regs[rs2];                        \
+  require_extension('M') if (!regs[rs2]) regs[rd] = -1UL;                      \
+  else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL) regs[rd] = regs[rs1];  \
+  else regs[rd] = (int64_t)regs[rs1] / (int64_t)regs[rs2];                     \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIVU                                                          \
   sprintf(remark, "divu %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  if (!regs[rs2])                                                              \
-    regs[rd] = -1UL;                                                           \
-  else                                                                         \
-    regs[rd] = regs[rs1] / regs[rs2];                                          \
+  require_extension('M') if (!regs[rs2]) regs[rd] = -1UL;                      \
+  else regs[rd] = regs[rs1] / regs[rs2];                                       \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REM                                                           \
   sprintf(remark, "rem %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  if (!regs[rs2])                                                              \
-    regs[rd] = regs[rs1];                                                      \
-  else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL)                      \
-    regs[rd] = 0;                                                              \
-  else                                                                         \
-    regs[rd] = (int64_t)regs[rs1] % (int64_t)regs[rs2];                        \
+  require_extension('M') if (!regs[rs2]) regs[rd] = regs[rs1];                 \
+  else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL) regs[rd] = 0;        \
+  else regs[rd] = (int64_t)regs[rs1] % (int64_t)regs[rs2];                     \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMU                                                          \
   sprintf(remark, "remu %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  if (!regs[rs2])                                                              \
-    regs[rd] = regs[rs1];                                                      \
-  else                                                                         \
-    regs[rd] = regs[rs1] % regs[rs2];                                          \
+  require_extension('M') if (!regs[rs2]) regs[rd] = regs[rs1];                 \
+  else regs[rd] = regs[rs1] % regs[rs2];                                       \
   pc += 4UL;                                                                   \
   break;
 
@@ -735,7 +729,7 @@
   {                                                                            \
     sprintf(remark, "sret");                                                   \
     require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S) pc =       \
-        csr->sepc;                                                             \
+        csr->sepc & pc_alignment_mask;                                         \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_SPP);                                 \
     status = set_field(status, MSTATUS_SIE, get_field(status, MSTATUS_SPIE));  \
@@ -748,7 +742,7 @@
 #define INSTRUCT_MRET                                                          \
   {                                                                            \
     sprintf(remark, "mret");                                                   \
-    require_privilege(PRV_M) pc = csr->mepc;                                   \
+    require_privilege(PRV_M) pc = csr->mepc & pc_alignment_mask;               \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_MPP);                                 \
     status = set_field(status, MSTATUS_MIE, get_field(status, MSTATUS_MPIE));  \
@@ -893,7 +887,7 @@
 #define INSTRUCT_MULW                                                          \
   sprintf(remark, "mulw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;                              \
+  require_extension('M') regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;       \
   pc += 4UL;                                                                   \
   break;
 
@@ -907,10 +901,8 @@
 #define INSTRUCT_DIVW                                                          \
   sprintf(remark, "divw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  if (!(int32_t)regs[rs2])                                                     \
-    regs[rd] = -1UL;                                                           \
-  else                                                                         \
-    regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] / (int32_t)regs[rs2]);    \
+  require_extension('M') if (!(int32_t)regs[rs2]) regs[rd] = -1UL;             \
+  else regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] / (int32_t)regs[rs2]); \
   pc += 4UL;                                                                   \
   break;
 
@@ -931,36 +923,33 @@
 #define INSTRUCT_DIVUW                                                         \
   sprintf(remark, "divuw %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  if (!(uint32_t)regs[rs2])                                                    \
-    regs[rd] = -1UL;                                                           \
-  else                                                                         \
-    regs[rd] = (int32_t)((uint32_t)regs[rs1] / (uint32_t)regs[rs2]);           \
+  require_extension('M') if (!(uint32_t)regs[rs2]) regs[rd] = -1UL;            \
+  else regs[rd] = (int32_t)((uint32_t)regs[rs1] / (uint32_t)regs[rs2]);        \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMW                                                          \
   sprintf(remark, "remw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  if (!(int32_t)regs[rs2])                                                     \
-    regs[rd] = (int32_t)regs[rs1];                                             \
-  else                                                                         \
-    regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] % (int32_t)regs[rs2]);    \
+  require_extension('M') if (!(int32_t)regs[rs2]) regs[rd] =                   \
+      (int32_t)regs[rs1];                                                      \
+  else regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] % (int32_t)regs[rs2]); \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMUW                                                         \
   sprintf(remark, "remuw %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  if (!(uint32_t)regs[rs2])                                                    \
-    regs[rd] = (int32_t)regs[rs1];                                             \
-  else                                                                         \
-    regs[rd] = (int32_t)((uint32_t)regs[rs1] % (uint32_t)regs[rs2]);           \
+  require_extension('M') if (!(uint32_t)regs[rs2]) regs[rd] =                  \
+      (int32_t)regs[rs1];                                                      \
+  else regs[rd] = (int32_t)((uint32_t)regs[rs1] % (uint32_t)regs[rs2]);        \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_C_ADDI4SPN                                                    \
   sprintf(remark, "c.addi4spn %s,%s,%ld", regs_name[_c_rd], regs_name[REG_SP], \
           imm_c_addi4spn);                                                     \
+  require_extension('C');                                                      \
   confirm_insn_legal(imm_c_addi4spn) regs[_c_rd] =                             \
       regs[REG_SP] + imm_c_addi4spn;                                           \
   pc += 2UL;                                                                   \
@@ -969,6 +958,7 @@
 #define INSTRUCT_C_LW                                                          \
   sprintf(remark, "c.lw %s,%ld(%s)", regs_name[_c_rd], imm_c_slw,              \
           regs_name[_c_rs1]);                                                  \
+  require_extension('C');                                                      \
   regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD);           \
   pc += 2UL;                                                                   \
   break;
@@ -976,6 +966,7 @@
 #define INSTRUCT_C_LD                                                          \
   sprintf(remark, "c.ld %s,%ld(%s)", regs_name[_c_rd], imm_c_sld,              \
           regs_name[_c_rs1]);                                                  \
+  require_extension('C');                                                      \
   regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD);          \
   pc += 2UL;                                                                   \
   break;
@@ -983,6 +974,7 @@
 #define INSTRUCT_C_SW                                                          \
   sprintf(remark, "c.sw %s,%ld(%s)", regs_name[_c_rs2], imm_c_slw,             \
           regs_name[_c_rs1]);                                                  \
+  require_extension('C');                                                      \
   mmu->store(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD, regs[_c_rs2]);          \
   pc += 2UL;                                                                   \
   break;
@@ -990,15 +982,18 @@
 #define INSTRUCT_C_SD                                                          \
   sprintf(remark, "c.sd %s,%ld(%s)", regs_name[_c_rs2], imm_c_sld,             \
           regs_name[_c_rs1]);                                                  \
+  require_extension('C');                                                      \
   mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, regs[_c_rs2]);         \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_ADDI                                                        \
-  if (!rd && !imm_c_addi)                                                      \
+  if (!rd && !imm_c_addi) {                                                    \
     sprintf(remark, "c.nop");                                                  \
-  else {                                                                       \
+    require_extension('C');                                                    \
+  } else {                                                                     \
     sprintf(remark, "c.addi %s,%ld", regs_name[rd], (int64_t)imm_c_addi);      \
+    require_extension('C');                                                    \
     confirm_insn_legal(rd &&imm_c_addi)                                        \
   }                                                                            \
   regs[rd] = regs[rd] + imm_c_addi;                                            \
@@ -1007,6 +1002,7 @@
 
 #define INSTRUCT_C_ADDIW                                                       \
   sprintf(remark, "c.addiw %s,%ld", regs_name[rd], (int64_t)imm_c_addi);       \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd) regs[rd] = (int32_t)regs[rd] + (int32_t)imm_c_addi;   \
   pc += 2UL;                                                                   \
   break;
@@ -1014,6 +1010,7 @@
 #define INSTRUCT_C_JAL                                                         \
   sprintf(remark, "c.jal %08lx", pc + imm_c_j & 0xffffffff);                   \
   sprintf(remark, "%s (check)", remark);                                       \
+  require_extension('C');                                                      \
   throw TrapIllegalInstruction(insn); /* RV32C only */                         \
   regs[REG_RA] = pc + 2UL;                                                     \
   pc += imm_c_j;                                                               \
@@ -1021,6 +1018,7 @@
 
 #define INSTRUCT_C_LI                                                          \
   sprintf(remark, "c.li %s,%ld", regs_name[rd], (int64_t)imm_c_addi);          \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd) regs[rd] = imm_c_addi;                                \
   pc += 2UL;                                                                   \
   break;
@@ -1028,6 +1026,7 @@
 #define INSTRUCT_C_ADDI16SP                                                    \
   sprintf(remark, "c.addi16sp %s,%ld", regs_name[REG_SP],                      \
           (int64_t)imm_c_addi16sp);                                            \
+  require_extension('C');                                                      \
   confirm_insn_legal(imm_c_addi16sp &&rd == REG_SP) regs[REG_SP] =             \
       regs[REG_SP] + imm_c_addi16sp;                                           \
   pc += 2UL;                                                                   \
@@ -1035,83 +1034,97 @@
 
 #define INSTRUCT_C_LUI                                                         \
   sprintf(remark, "c.lui %s,0x%lx", regs_name[rd], imm_c_lui >> 12 & 0xfffff); \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd &&imm_c_lui &&rd != REG_SP) regs[rd] = imm_c_lui;      \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_SUB                                                         \
   sprintf(remark, "c.sub %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);        \
+  require_extension('C');                                                      \
   regs[_c_rs1] = regs[_c_rs1] - regs[_c_rs2];                                  \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_XOR                                                         \
   sprintf(remark, "c.xor %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);        \
+  require_extension('C');                                                      \
   regs[_c_rs1] = regs[_c_rs1] ^ regs[_c_rs2];                                  \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_OR                                                          \
   sprintf(remark, "c.or %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);         \
+  require_extension('C');                                                      \
   regs[_c_rs1] = regs[_c_rs1] | regs[_c_rs2];                                  \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_AND                                                         \
   sprintf(remark, "c.and %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);        \
+  require_extension('C');                                                      \
   regs[_c_rs1] = regs[_c_rs1] & regs[_c_rs2];                                  \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_SUBW                                                        \
   sprintf(remark, "c.subw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);       \
+  require_extension('C');                                                      \
   regs[_c_rs1] = (int32_t)regs[_c_rs1] - (int32_t)regs[_c_rs2];                \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_ADDW                                                        \
   sprintf(remark, "c.addw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]);       \
+  require_extension('C');                                                      \
   regs[_c_rs1] = (int32_t)regs[_c_rs1] + (int32_t)regs[_c_rs2];                \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_SRLI                                                        \
   sprintf(remark, "c.srli %s,0x%x", regs_name[_c_rs1], c_shamt);               \
+  require_extension('C');                                                      \
   confirm_insn_legal(c_shamt) regs[_c_rs1] = regs[_c_rs1] >> c_shamt;          \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_SRAI                                                        \
   sprintf(remark, "c.srai %s,0x%x", regs_name[_c_rs1], c_shamt);               \
+  require_extension('C');                                                      \
   confirm_insn_legal(c_shamt) regs[_c_rs1] = (int64_t)regs[_c_rs1] >> c_shamt; \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_ANDI                                                        \
   sprintf(remark, "c.andi %s,%ld", regs_name[_c_rs1], (int64_t)imm_c_addi);    \
+  require_extension('C');                                                      \
   regs[_c_rs1] = regs[_c_rs1] & imm_c_addi;                                    \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_J                                                           \
   sprintf(remark, "c.j %08lx", pc + imm_c_j & 0xffffffff);                     \
+  require_extension('C');                                                      \
   pc += imm_c_j;                                                               \
   break;
 
 #define INSTRUCT_C_BEQZ                                                        \
   sprintf(remark, "c.beqz %s,%08lx", regs_name[_c_rs1],                        \
           pc + imm_c_b & 0xffffffff);                                          \
+  require_extension('C');                                                      \
   pc += !regs[_c_rs1] ? imm_c_b : 2UL;                                         \
   break;
 
 #define INSTRUCT_C_BNEZ                                                        \
   sprintf(remark, "c.bnez %s,%08lx", regs_name[_c_rs1],                        \
           pc + imm_c_b & 0xffffffff);                                          \
+  require_extension('C');                                                      \
   pc += regs[_c_rs1] ? imm_c_b : 2UL;                                          \
   break;
 
 #define INSTRUCT_C_SLLI                                                        \
   sprintf(remark, "c.slli %s,0x%x", regs_name[rd], c_shamt);                   \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd &&c_shamt) regs[rd] = regs[rd] << c_shamt;             \
   pc += 2UL;                                                                   \
   break;
@@ -1119,6 +1132,7 @@
 #define INSTRUCT_C_LWSP                                                        \
   sprintf(remark, "c.lwsp %s,%ld(%s)", regs_name[rd], imm_c_lwsp,              \
           regs_name[REG_SP]);                                                  \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd) regs[rd] =                                            \
       mmu->load(regs[REG_SP] + imm_c_lwsp, DATA_TYPE_WORD);                    \
   pc += 2UL;                                                                   \
@@ -1127,6 +1141,7 @@
 #define INSTRUCT_C_LDSP                                                        \
   sprintf(remark, "c.ldsp %s,%ld(%s)", regs_name[rd], imm_c_ldsp,              \
           regs_name[REG_SP]);                                                  \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd) regs[rd] =                                            \
       mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD);                   \
   pc += 2UL;                                                                   \
@@ -1135,24 +1150,28 @@
 #define INSTRUCT_C_JR                                                          \
   {                                                                            \
     sprintf(remark, "c.jr %s", regs_name[c_rs1]);                              \
+    require_extension('C');                                                    \
     confirm_insn_legal(c_rs1) pc = (regs[c_rs1]) & ~1UL;                       \
   }                                                                            \
   break;
 
 #define INSTRUCT_C_MV                                                          \
   sprintf(remark, "c.mv %s,%s", regs_name[rd], regs_name[c_rs2]);              \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd &&c_rs2) regs[rd] = regs[c_rs2];                       \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_EBREAK                                                      \
   sprintf(remark, "c.ebreak");                                                 \
+  require_extension('C');                                                      \
   throw TrapBreakpoint(pc);                                                    \
   break;
 
 #define INSTRUCT_C_JALR                                                        \
   {                                                                            \
     sprintf(remark, "c.jalr %s", regs_name[c_rs1]);                            \
+    require_extension('C');                                                    \
     confirm_insn_legal(c_rs1) uint64_t rs1_data(regs[c_rs1]);                  \
     regs[REG_RA] = pc + 2UL;                                                   \
     pc = (rs1_data) & ~1UL;                                                    \
@@ -1161,6 +1180,7 @@
 
 #define INSTRUCT_C_ADD                                                         \
   sprintf(remark, "c.add %s,%s", regs_name[rd], regs_name[c_rs2]);             \
+  require_extension('C');                                                      \
   confirm_insn_legal(rd &&c_rs2) regs[rd] = regs[rd] + regs[c_rs2];            \
   pc += 2UL;                                                                   \
   break;
@@ -1168,6 +1188,7 @@
 #define INSTRUCT_C_SWSP                                                        \
   sprintf(remark, "c.swsp %s,%ld(%s)", regs_name[c_rs2], imm_c_swsp,           \
           regs_name[REG_SP]);                                                  \
+  require_extension('C');                                                      \
   mmu->store(regs[REG_SP] + imm_c_swsp, DATA_TYPE_WORD, regs[c_rs2]);          \
   pc += 2UL;                                                                   \
   break;
@@ -1175,6 +1196,7 @@
 #define INSTRUCT_C_SDSP                                                        \
   sprintf(remark, "c.sdsp %s,%ld(%s)", regs_name[c_rs2], imm_c_sdsp,           \
           regs_name[REG_SP]);                                                  \
+  require_extension('C');                                                      \
   mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]);         \
   pc += 2UL;                                                                   \
   break;

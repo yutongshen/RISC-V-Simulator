@@ -25,8 +25,16 @@ ${bld_dir}:
 	mkdir -p ${bld_dir}
 
 sim: all
-	make -C ${sim_dir} prog=${prog}
-	${sim_dir}/${sim_file} ${bld_dir} ${sim_dir}/prog${prog}
+	@if [ "${prog}" == "9" ]; then \
+	  sh ${sim_dir}/prog${prog}/script.sh rv64mi; \
+	  sh ${sim_dir}/prog${prog}/script.sh rv64si; \
+	  sh ${sim_dir}/prog${prog}/script.sh rv64ui; \
+	  sh ${sim_dir}/prog${prog}/script.sh rv64uc; \
+	  sh ${sim_dir}/prog${prog}/script.sh rv64um; \
+	else \
+	  make -C ${sim_dir} prog=${prog}; \
+	  ${sim_dir}/${sim_file} ${bld_dir} ${sim_dir}/prog${prog}; \
+	fi
 
 copy-make:
 	@for dir in ${src_dir}; do \

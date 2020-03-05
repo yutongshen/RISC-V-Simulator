@@ -24,7 +24,7 @@ do
   sim_end=$(sed "2q;d" ./build/dump.out)
   if [ "${sim_end}" != "00000001" ]; then
     # eval "${cmd}"
-    echo "There are some error on ${test}"
+    echo "${test} ..... error"
     echo "Please try command: ${cmd}"
     exit 1
   else

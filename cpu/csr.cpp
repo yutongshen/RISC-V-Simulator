@@ -1,4 +1,5 @@
 #include "cpu/csr.h"
+#include "cpu/rule_define.h"
 #include "util/util.h"
 
 CSR::CSR(uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr) {
@@ -149,9 +150,15 @@ uint64_t CSR::get_csr(const uint32_t &addr) {
     return mstatus & SSTATUS_MASK;
   case CSR_SIE_ADDR:
     return mie & mideleg;
+  case CSR_SEPC_ADDR:
+    return sepc & pc_alignment_mask;
   case CSR_SIP_ADDR:
     return mip & mideleg;
+  case CSR_MEPC_ADDR:
+    return mepc & pc_alignment_mask;
   }
 
   return 0;
 }
+
+bool CSR::support_extension(char ext) { return misa & (1UL << (ext - 'A')); }

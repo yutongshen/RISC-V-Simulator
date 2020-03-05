@@ -28,6 +28,7 @@ public:
   ~CPU();
   virtual void run();
   void bus_connect(pBus bus);
+  bool support_extension(char ext);
 };
 
 #endif

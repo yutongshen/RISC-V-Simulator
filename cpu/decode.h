@@ -11,6 +11,7 @@
   default:                                                                     \
     EXECUTE
 
+// Register declare
 #define REG_ZERO 0
 #define REG_RA 1
 #define REG_SP 2
@@ -109,6 +110,7 @@
 #define FUNCT3_CSRRSI 0x6
 #define FUNCT3_CSRRCI 0x7
 
+// M extension code
 #define FUNCT3_MUL 0x0
 #define FUNCT3_MULH 0x1
 #define FUNCT3_MULHSU 0x2
@@ -118,7 +120,23 @@
 #define FUNCT3_REM 0x6
 #define FUNCT3_REMU 0x7
 
-// RVC function code
+// A extension code
+#define FUNCT5_LR 0x2
+#define FUNCT5_SC 0x3
+#define FUNCT5_AMOSWAP 0x1
+#define FUNCT5_AMOADD 0x0
+#define FUNCT5_AMOXOR 0x4
+#define FUNCT5_AMOAND 0xc
+#define FUNCT5_AMOOR 0x8
+#define FUNCT5_AMOMIN 0x10
+#define FUNCT5_AMOMAX 0x14
+#define FUNCT5_AMOMINU 0x18
+#define FUNCT5_AMOMAXU 0x1c
+
+#define FUNCT3_AMO_W 0b010
+#define FUNCT3_AMO_D 0b011
+
+// C extension code
 #define FUNCT3_C_ADDI4SPN 0b000
 #define FUNCT3_C_LW 0b010
 #define FUNCT3_C_LD 0b011
@@ -174,47 +192,48 @@
 #define OPCODE_OP_32 0x3B
 
 // RV32M Standard Extension
-#define OPCODE_MUL 0x33
-#define OPCODE_MULH 0x33
-#define OPCODE_MULHSU 0x33
-#define OPCODE_MULHU 0x33
-#define OPCODE_DIV 0x33
-#define OPCODE_DIVU 0x33
-#define OPCODE_REM 0x33
-#define OPCODE_REMU 0x33
+// #define OPCODE_MUL 0x33
+// #define OPCODE_MULH 0x33
+// #define OPCODE_MULHSU 0x33
+// #define OPCODE_MULHU 0x33
+// #define OPCODE_DIV 0x33
+// #define OPCODE_DIVU 0x33
+// #define OPCODE_REM 0x33
+// #define OPCODE_REMU 0x33
 
 // RV64M Standard Extension (in addition to RV32M)
-#define OPCODE_MULW 0x3B
-#define OPCODE_DIVW 0x3B
-#define OPCODE_DIVUW 0x3B
-#define OPCODE_REMW 0x3B
-#define OPCODE_REMUW 0x3B
+// #define OPCODE_MULW 0x3B
+// #define OPCODE_DIVW 0x3B
+// #define OPCODE_DIVUW 0x3B
+// #define OPCODE_REMW 0x3B
+// #define OPCODE_REMUW 0x3B
 
 // RV32A Standard Extension
-#define OPCODE_LR_W 0x2F
-#define OPCODE_SC_W 0x2F
-#define OPCODE_AMOSWAP_W 0x2F
-#define OPCODE_AMOADD_W 0x2F
-#define OPCODE_AMOXOR_W 0x2F
-#define OPCODE_AMOAND_W 0x2F
-#define OPCODE_AMOOR_W 0x2F
-#define OPCODE_AMOMIN_W 0x2F
-#define OPCODE_AMOMAX_W 0x2F
-#define OPCODE_AMOMINU_W 0x2F
-#define OPCODE_AMOMAXU_W 0x2F
+#define OPCODE_AMO 0x2F
+// #define OPCODE_LR_W 0x2F
+// #define OPCODE_SC_W 0x2F
+// #define OPCODE_AMOSWAP_W 0x2F
+// #define OPCODE_AMOADD_W 0x2F
+// #define OPCODE_AMOXOR_W 0x2F
+// #define OPCODE_AMOAND_W 0x2F
+// #define OPCODE_AMOOR_W 0x2F
+// #define OPCODE_AMOMIN_W 0x2F
+// #define OPCODE_AMOMAX_W 0x2F
+// #define OPCODE_AMOMINU_W 0x2F
+// #define OPCODE_AMOMAXU_W 0x2F
 
 // RV64A Standard Extension (in addition to RV32A)
-#define OPCODE_LR_D 0x2F
-#define OPCODE_SC_D 0x2F
-#define OPCODE_AMOSWAP_D 0x2F
-#define OPCODE_AMOADD_D 0x2F
-#define OPCODE_AMOXOR_D 0x2F
-#define OPCODE_AMOAND_D 0x2F
-#define OPCODE_AMOOR_D 0x2F
-#define OPCODE_AMOMIN_D 0x2F
-#define OPCODE_AMOMAX_D 0x2F
-#define OPCODE_AMOMINU_D 0x2F
-#define OPCODE_AMOMAXU_D 0x2F
+// #define OPCODE_LR_D 0x2F
+// #define OPCODE_SC_D 0x2F
+// #define OPCODE_AMOSWAP_D 0x2F
+// #define OPCODE_AMOADD_D 0x2F
+// #define OPCODE_AMOXOR_D 0x2F
+// #define OPCODE_AMOAND_D 0x2F
+// #define OPCODE_AMOOR_D 0x2F
+// #define OPCODE_AMOMIN_D 0x2F
+// #define OPCODE_AMOMAX_D 0x2F
+// #define OPCODE_AMOMINU_D 0x2F
+// #define OPCODE_AMOMAXU_D 0x2F
 
 // RV32F Standard Extension
 #define OPCODE_FLW 0x07
@@ -292,9 +311,11 @@
 #define OPCODE_C2 0x2
 
 #define confirm_insn_legal(x)                                                  \
-  if (!(x)) {                                                                  \
-    throw TrapIllegalInstruction((x));                                         \
-  }
+  do {                                                                         \
+    if (!(x)) {                                                                \
+      throw TrapIllegalInstruction((x));                                       \
+    }                                                                          \
+  } while (0)
 
 #define require_privilege(x) confirm_insn_legal(csr->prv >= (x))
 #define require_extension(x) confirm_insn_legal(support_extension(x))
@@ -302,9 +323,11 @@
 #define confirm_csr_legal(x, write)                                            \
   do {                                                                         \
     if ((csr->mstatus & MSTATUS_TVM) && x == CSR_SATP_ADDR)                    \
-      require_privilege(PRV_M) else require_privilege(get_field((x), 0x300))   \
-          confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write))           \
-  } while (0);
+      require_privilege(PRV_M);                                                \
+    else                                                                       \
+      require_privilege(get_field((x), 0x300));                                \
+    confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write));                \
+  } while (0)
 
 #define INSTRUCT_UNKNOWN                                                       \
   sprintf(remark, "unknown instruction");                                      \
@@ -622,62 +645,80 @@
 #define INSTRUCT_MUL                                                           \
   sprintf(remark, "mul %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  require_extension('M') regs[rd] = regs[rs1] * regs[rs2];                     \
+  require_extension('M');                                                      \
+  regs[rd] = regs[rs1] * regs[rs2];                                            \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULH                                                          \
   sprintf(remark, "mulh %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  require_extension('M') regs[rd] = mulh(regs[rs1], regs[rs2]);                \
+  require_extension('M');                                                      \
+  regs[rd] = mulh(regs[rs1], regs[rs2]);                                       \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULHSU                                                        \
   sprintf(remark, "mulhsu %s,%s,%s", regs_name[rd], regs_name[rs1],            \
           regs_name[rs2]);                                                     \
-  require_extension('M') regs[rd] = mulhsu(regs[rs1], regs[rs2]);              \
+  require_extension('M');                                                      \
+  regs[rd] = mulhsu(regs[rs1], regs[rs2]);                                     \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_MULHU                                                         \
   sprintf(remark, "mulhu %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  require_extension('M') regs[rd] = mulhu(regs[rs1], regs[rs2]);               \
+  require_extension('M');                                                      \
+  regs[rd] = mulhu(regs[rs1], regs[rs2]);                                      \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIV                                                           \
   sprintf(remark, "div %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!regs[rs2]) regs[rd] = -1UL;                      \
-  else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL) regs[rd] = regs[rs1];  \
-  else regs[rd] = (int64_t)regs[rs1] / (int64_t)regs[rs2];                     \
+  require_extension('M');                                                      \
+  if (!regs[rs2])                                                              \
+    regs[rd] = -1UL;                                                           \
+  else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL)                        \
+    regs[rd] = regs[rs1];                                                      \
+  else                                                                         \
+    regs[rd] = (int64_t)regs[rs1] / (int64_t)regs[rs2];                        \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_DIVU                                                          \
   sprintf(remark, "divu %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!regs[rs2]) regs[rd] = -1UL;                      \
-  else regs[rd] = regs[rs1] / regs[rs2];                                       \
+  require_extension('M');                                                      \
+  if (!regs[rs2])                                                              \
+    regs[rd] = -1UL;                                                           \
+  else                                                                         \
+    regs[rd] = regs[rs1] / regs[rs2];                                          \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REM                                                           \
   sprintf(remark, "rem %s,%s,%s", regs_name[rd], regs_name[rs1],               \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!regs[rs2]) regs[rd] = regs[rs1];                 \
-  else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL) regs[rd] = 0;        \
-  else regs[rd] = (int64_t)regs[rs1] % (int64_t)regs[rs2];                     \
+  require_extension('M');                                                      \
+  if (!regs[rs2])                                                              \
+    regs[rd] = regs[rs1];                                                      \
+  else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL)                      \
+    regs[rd] = 0;                                                              \
+  else                                                                         \
+    regs[rd] = (int64_t)regs[rs1] % (int64_t)regs[rs2];                        \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMU                                                          \
   sprintf(remark, "remu %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!regs[rs2]) regs[rd] = regs[rs1];                 \
-  else regs[rd] = regs[rs1] % regs[rs2];                                       \
+  require_extension('M');                                                      \
+  if (!regs[rs2])                                                              \
+    regs[rd] = regs[rs1];                                                      \
+  else                                                                         \
+    regs[rd] = regs[rs1] % regs[rs2];                                          \
   pc += 4UL;                                                                   \
   break;
 
@@ -721,15 +762,15 @@
 
 #define INSTRUCT_WFI                                                           \
   sprintf(remark, "wfi");                                                      \
-  require_privilege(                                                           \
-      (csr->mstatus & MSTATUS_TW) ? PRV_M : PRV_S) throw WaitForInterrupt();   \
+  require_privilege((csr->mstatus & MSTATUS_TW) ? PRV_M : PRV_S);              \
+  throw WaitForInterrupt();                                                    \
   break;
 
 #define INSTRUCT_SRET                                                          \
   {                                                                            \
     sprintf(remark, "sret");                                                   \
-    require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S) pc =       \
-        csr->sepc & pc_alignment_mask;                                         \
+    require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S);           \
+    pc = csr->sepc & pc_alignment_mask;                                        \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_SPP);                                 \
     status = set_field(status, MSTATUS_SIE, get_field(status, MSTATUS_SPIE));  \
@@ -742,7 +783,8 @@
 #define INSTRUCT_MRET                                                          \
   {                                                                            \
     sprintf(remark, "mret");                                                   \
-    require_privilege(PRV_M) pc = csr->mepc & pc_alignment_mask;               \
+    require_privilege(PRV_M);                                                  \
+    pc = csr->mepc & pc_alignment_mask;                                        \
     uint64_t status(csr->mstatus);                                             \
     csr->prv = get_field(status, MSTATUS_MPP);                                 \
     status = set_field(status, MSTATUS_MIE, get_field(status, MSTATUS_MPIE));  \
@@ -755,8 +797,8 @@
 #define INSTRUCT_SFENCE_VMA                                                    \
   sprintf(remark, "sfence.vma %s,%s", regs_name[rs1], regs_name[rs2]);         \
   require_privilege((csr->mstatus & MSTATUS_TVM) ? PRV_M                       \
-                                                 : PRV_S) /* TLB flush */      \
-      pc += 4UL;                                                               \
+                                                 : PRV_S); /* TLB flush */     \
+  pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_CSRRW                                                         \
@@ -766,7 +808,8 @@
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
     else                                                                       \
       sprintf(remark, "csrw %s,%s", csr->csr_name(csr_addr), regs_name[rs1]);  \
-    confirm_csr_legal(csr_addr, 1) uint64_t tmp(csr->get_csr(csr_addr));       \
+    confirm_csr_legal(csr_addr, 1);                                            \
+    uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, regs[rs1]);                                         \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -782,7 +825,8 @@
     else                                                                       \
       sprintf(remark, "csrrs %s,%s,%s", regs_name[rd],                         \
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
-    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
+    confirm_csr_legal(csr_addr, rs1);                                          \
+    uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp | regs[rs1]);                                   \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -796,7 +840,8 @@
               csr->csr_name(csr_addr), regs_name[rs1]);                        \
     else                                                                       \
       sprintf(remark, "csrc %s,%s", csr->csr_name(csr_addr), regs_name[rs1]);  \
-    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
+    confirm_csr_legal(csr_addr, rs1);                                          \
+    uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp & ~regs[rs1]);                                  \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -809,7 +854,8 @@
             rs1);                                                              \
   else                                                                         \
     sprintf(remark, "csrwi %s,%d", csr->csr_name(csr_addr), rs1);              \
-  confirm_csr_legal(csr_addr, 1) regs[rd] = csr->get_csr(csr_addr);            \
+  confirm_csr_legal(csr_addr, 1);                                              \
+  regs[rd] = csr->get_csr(csr_addr);                                           \
   csr->set_csr(csr_addr, zext(rs1, 5));                                        \
   pc += 4UL;                                                                   \
   break;
@@ -821,7 +867,8 @@
               csr->csr_name(csr_addr), rs1);                                   \
     else                                                                       \
       sprintf(remark, "csrsi %s,%d", csr->csr_name(csr_addr), rs1);            \
-    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
+    confirm_csr_legal(csr_addr, rs1);                                          \
+    uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp | zext(rs1, 5));                                \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -835,7 +882,8 @@
               csr->csr_name(csr_addr), rs1);                                   \
     else                                                                       \
       sprintf(remark, "csrci %s,%d", csr->csr_name(csr_addr), rs1);            \
-    confirm_csr_legal(csr_addr, rs1) uint64_t tmp(csr->get_csr(csr_addr));     \
+    confirm_csr_legal(csr_addr, rs1);                                          \
+    uint64_t tmp(csr->get_csr(csr_addr));                                      \
     csr->set_csr(csr_addr, tmp &(~zext(rs1, 5)));                              \
     regs[rd] = tmp;                                                            \
     pc += 4UL;                                                                 \
@@ -887,7 +935,8 @@
 #define INSTRUCT_MULW                                                          \
   sprintf(remark, "mulw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  require_extension('M') regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;       \
+  require_extension('M');                                                      \
+  regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;                              \
   pc += 4UL;                                                                   \
   break;
 
@@ -901,8 +950,11 @@
 #define INSTRUCT_DIVW                                                          \
   sprintf(remark, "divw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!(int32_t)regs[rs2]) regs[rd] = -1UL;             \
-  else regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] / (int32_t)regs[rs2]); \
+  require_extension('M');                                                      \
+  if (!(int32_t)regs[rs2])                                                     \
+    regs[rd] = -1UL;                                                           \
+  else                                                                         \
+    regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] / (int32_t)regs[rs2]);    \
   pc += 4UL;                                                                   \
   break;
 
@@ -923,26 +975,33 @@
 #define INSTRUCT_DIVUW                                                         \
   sprintf(remark, "divuw %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!(uint32_t)regs[rs2]) regs[rd] = -1UL;            \
-  else regs[rd] = (int32_t)((uint32_t)regs[rs1] / (uint32_t)regs[rs2]);        \
+  require_extension('M');                                                      \
+  if (!(uint32_t)regs[rs2])                                                    \
+    regs[rd] = -1UL;                                                           \
+  else                                                                         \
+    regs[rd] = (int32_t)((uint32_t)regs[rs1] / (uint32_t)regs[rs2]);           \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMW                                                          \
   sprintf(remark, "remw %s,%s,%s", regs_name[rd], regs_name[rs1],              \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!(int32_t)regs[rs2]) regs[rd] =                   \
-      (int32_t)regs[rs1];                                                      \
-  else regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] % (int32_t)regs[rs2]); \
+  require_extension('M');                                                      \
+  if (!(int32_t)regs[rs2])                                                     \
+    regs[rd] = (int32_t)regs[rs1];                                             \
+  else                                                                         \
+    regs[rd] = (int32_t)((int64_t)(int32_t)regs[rs1] % (int32_t)regs[rs2]);    \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_REMUW                                                         \
   sprintf(remark, "remuw %s,%s,%s", regs_name[rd], regs_name[rs1],             \
           regs_name[rs2]);                                                     \
-  require_extension('M') if (!(uint32_t)regs[rs2]) regs[rd] =                  \
-      (int32_t)regs[rs1];                                                      \
-  else regs[rd] = (int32_t)((uint32_t)regs[rs1] % (uint32_t)regs[rs2]);        \
+  require_extension('M');                                                      \
+  if (!(uint32_t)regs[rs2])                                                    \
+    regs[rd] = (int32_t)regs[rs1];                                             \
+  else                                                                         \
+    regs[rd] = (int32_t)((uint32_t)regs[rs1] % (uint32_t)regs[rs2]);           \
   pc += 4UL;                                                                   \
   break;
 
@@ -950,8 +1009,8 @@
   sprintf(remark, "c.addi4spn %s,%s,%ld", regs_name[_c_rd], regs_name[REG_SP], \
           imm_c_addi4spn);                                                     \
   require_extension('C');                                                      \
-  confirm_insn_legal(imm_c_addi4spn) regs[_c_rd] =                             \
-      regs[REG_SP] + imm_c_addi4spn;                                           \
+  confirm_insn_legal(imm_c_addi4spn);                                          \
+  regs[_c_rd] = regs[REG_SP] + imm_c_addi4spn;                                 \
   pc += 2UL;                                                                   \
   break;
 
@@ -994,7 +1053,7 @@
   } else {                                                                     \
     sprintf(remark, "c.addi %s,%ld", regs_name[rd], (int64_t)imm_c_addi);      \
     require_extension('C');                                                    \
-    confirm_insn_legal(rd &&imm_c_addi)                                        \
+    confirm_insn_legal(rd &&imm_c_addi);                                       \
   }                                                                            \
   regs[rd] = regs[rd] + imm_c_addi;                                            \
   pc += 2UL;                                                                   \
@@ -1003,7 +1062,8 @@
 #define INSTRUCT_C_ADDIW                                                       \
   sprintf(remark, "c.addiw %s,%ld", regs_name[rd], (int64_t)imm_c_addi);       \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd) regs[rd] = (int32_t)regs[rd] + (int32_t)imm_c_addi;   \
+  confirm_insn_legal(rd);                                                      \
+  regs[rd] = (int32_t)regs[rd] + (int32_t)imm_c_addi;                          \
   pc += 2UL;                                                                   \
   break;
 
@@ -1019,7 +1079,8 @@
 #define INSTRUCT_C_LI                                                          \
   sprintf(remark, "c.li %s,%ld", regs_name[rd], (int64_t)imm_c_addi);          \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd) regs[rd] = imm_c_addi;                                \
+  confirm_insn_legal(rd);                                                      \
+  regs[rd] = imm_c_addi;                                                       \
   pc += 2UL;                                                                   \
   break;
 
@@ -1027,15 +1088,16 @@
   sprintf(remark, "c.addi16sp %s,%ld", regs_name[REG_SP],                      \
           (int64_t)imm_c_addi16sp);                                            \
   require_extension('C');                                                      \
-  confirm_insn_legal(imm_c_addi16sp &&rd == REG_SP) regs[REG_SP] =             \
-      regs[REG_SP] + imm_c_addi16sp;                                           \
+  confirm_insn_legal(imm_c_addi16sp &&rd == REG_SP);                           \
+  regs[REG_SP] = regs[REG_SP] + imm_c_addi16sp;                                \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_LUI                                                         \
   sprintf(remark, "c.lui %s,0x%lx", regs_name[rd], imm_c_lui >> 12 & 0xfffff); \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd &&imm_c_lui &&rd != REG_SP) regs[rd] = imm_c_lui;      \
+  confirm_insn_legal(rd &&imm_c_lui &&rd != REG_SP);                           \
+  regs[rd] = imm_c_lui;                                                        \
   pc += 2UL;                                                                   \
   break;
 
@@ -1084,14 +1146,16 @@
 #define INSTRUCT_C_SRLI                                                        \
   sprintf(remark, "c.srli %s,0x%x", regs_name[_c_rs1], c_shamt);               \
   require_extension('C');                                                      \
-  confirm_insn_legal(c_shamt) regs[_c_rs1] = regs[_c_rs1] >> c_shamt;          \
+  confirm_insn_legal(c_shamt);                                                 \
+  regs[_c_rs1] = regs[_c_rs1] >> c_shamt;                                      \
   pc += 2UL;                                                                   \
   break;
 
 #define INSTRUCT_C_SRAI                                                        \
   sprintf(remark, "c.srai %s,0x%x", regs_name[_c_rs1], c_shamt);               \
   require_extension('C');                                                      \
-  confirm_insn_legal(c_shamt) regs[_c_rs1] = (int64_t)regs[_c_rs1] >> c_shamt; \
+  confirm_insn_legal(c_shamt);                                                 \
+  regs[_c_rs1] = (int64_t)regs[_c_rs1] >> c_shamt;                             \
   pc += 2UL;                                                                   \
   break;
 
@@ -1125,7 +1189,8 @@
 #define INSTRUCT_C_SLLI                                                        \
   sprintf(remark, "c.slli %s,0x%x", regs_name[rd], c_shamt);                   \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd &&c_shamt) regs[rd] = regs[rd] << c_shamt;             \
+  confirm_insn_legal(rd &&c_shamt);                                            \
+  regs[rd] = regs[rd] << c_shamt;                                              \
   pc += 2UL;                                                                   \
   break;
 
@@ -1133,8 +1198,8 @@
   sprintf(remark, "c.lwsp %s,%ld(%s)", regs_name[rd], imm_c_lwsp,              \
           regs_name[REG_SP]);                                                  \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd) regs[rd] =                                            \
-      mmu->load(regs[REG_SP] + imm_c_lwsp, DATA_TYPE_WORD);                    \
+  confirm_insn_legal(rd);                                                      \
+  regs[rd] = mmu->load(regs[REG_SP] + imm_c_lwsp, DATA_TYPE_WORD);             \
   pc += 2UL;                                                                   \
   break;
 
@@ -1142,8 +1207,8 @@
   sprintf(remark, "c.ldsp %s,%ld(%s)", regs_name[rd], imm_c_ldsp,              \
           regs_name[REG_SP]);                                                  \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd) regs[rd] =                                            \
-      mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD);                   \
+  confirm_insn_legal(rd);                                                      \
+  regs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD);            \
   pc += 2UL;                                                                   \
   break;
 
@@ -1151,14 +1216,16 @@
   {                                                                            \
     sprintf(remark, "c.jr %s", regs_name[c_rs1]);                              \
     require_extension('C');                                                    \
-    confirm_insn_legal(c_rs1) pc = (regs[c_rs1]) & ~1UL;                       \
+    confirm_insn_legal(c_rs1);                                                 \
+    pc = (regs[c_rs1]) & ~1UL;                                                 \
   }                                                                            \
   break;
 
 #define INSTRUCT_C_MV                                                          \
   sprintf(remark, "c.mv %s,%s", regs_name[rd], regs_name[c_rs2]);              \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd &&c_rs2) regs[rd] = regs[c_rs2];                       \
+  confirm_insn_legal(rd &&c_rs2);                                              \
+  regs[rd] = regs[c_rs2];                                                      \
   pc += 2UL;                                                                   \
   break;
 
@@ -1172,7 +1239,8 @@
   {                                                                            \
     sprintf(remark, "c.jalr %s", regs_name[c_rs1]);                            \
     require_extension('C');                                                    \
-    confirm_insn_legal(c_rs1) uint64_t rs1_data(regs[c_rs1]);                  \
+    confirm_insn_legal(c_rs1);                                                 \
+    uint64_t rs1_data(regs[c_rs1]);                                            \
     regs[REG_RA] = pc + 2UL;                                                   \
     pc = (rs1_data) & ~1UL;                                                    \
   }                                                                            \
@@ -1181,7 +1249,8 @@
 #define INSTRUCT_C_ADD                                                         \
   sprintf(remark, "c.add %s,%s", regs_name[rd], regs_name[c_rs2]);             \
   require_extension('C');                                                      \
-  confirm_insn_legal(rd &&c_rs2) regs[rd] = regs[rd] + regs[c_rs2];            \
+  confirm_insn_legal(rd &&c_rs2);                                              \
+  regs[rd] = regs[rd] + regs[c_rs2];                                           \
   pc += 2UL;                                                                   \
   break;
 
@@ -1199,6 +1268,253 @@
   require_extension('C');                                                      \
   mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]);         \
   pc += 2UL;                                                                   \
+  break;
+
+#define INSTRUCT_LR_W                                                          \
+  sprintf(remark, "lr.w %s, (%s)", regs_name[rd], regs_name[rs1]);             \
+  sprintf(remark, "%s (check)", remark);                                       \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->load(regs[rs1], DATA_TYPE_WORD);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_SC_W                                                          \
+  sprintf(remark, "sc.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],          \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  mmu->store(regs[rs1], DATA_TYPE_WORD, regs[rs2]);                            \
+  regs[rd] = 0UL;                                                              \
+  pc += 4UL;                                                                   \
+  break;
+
+uint64_t amo_amoswap_w_func(const uint64_t &a, const uint64_t &b) { return b; }
+uint64_t amo_amoadd_w_func(const uint64_t &a, const uint64_t &b) {
+  return a + b;
+}
+uint64_t amo_amoxor_w_func(const uint64_t &a, const uint64_t &b) {
+  return a ^ b;
+}
+uint64_t amo_amoand_w_func(const uint64_t &a, const uint64_t &b) {
+  return a & b;
+}
+uint64_t amo_amoor_w_func(const uint64_t &a, const uint64_t &b) {
+  return a | b;
+}
+uint64_t amo_amomin_w_func(const uint64_t &a, const uint64_t &b) {
+  return (int32_t)a < (int32_t)b ? a : b;
+}
+uint64_t amo_amomax_w_func(const uint64_t &a, const uint64_t &b) {
+  return (int32_t)a < (int32_t)b ? b : a;
+}
+uint64_t amo_amominu_w_func(const uint64_t &a, const uint64_t &b) {
+  return (uint32_t)a < (uint32_t)b ? a : b;
+}
+uint64_t amo_amomaxu_w_func(const uint64_t &a, const uint64_t &b) {
+  return (uint32_t)a < (uint32_t)b ? b : a;
+}
+uint64_t amo_amoswap_d_func(const uint64_t &a, const uint64_t &b) { return b; }
+uint64_t amo_amoadd_d_func(const uint64_t &a, const uint64_t &b) {
+  return a + b;
+}
+uint64_t amo_amoxor_d_func(const uint64_t &a, const uint64_t &b) {
+  return a ^ b;
+}
+uint64_t amo_amoand_d_func(const uint64_t &a, const uint64_t &b) {
+  return a & b;
+}
+uint64_t amo_amoor_d_func(const uint64_t &a, const uint64_t &b) {
+  return a | b;
+}
+uint64_t amo_amomin_d_func(const uint64_t &a, const uint64_t &b) {
+  return (int64_t)a < (int64_t)b ? a : b;
+}
+uint64_t amo_amomax_d_func(const uint64_t &a, const uint64_t &b) {
+  return (int64_t)a < (int64_t)b ? b : a;
+}
+uint64_t amo_amominu_d_func(const uint64_t &a, const uint64_t &b) {
+  return a < b ? a : b;
+}
+uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
+  return a < b ? b : a;
+}
+
+#define INSTRUCT_AMOSWAP_W                                                     \
+  sprintf(remark, "amoswap.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],     \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amoswap_w_func);                            \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOADD_W                                                      \
+  sprintf(remark, "amoadd.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amoadd_w_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOXOR_W                                                      \
+  sprintf(remark, "amoxor.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amoxor_w_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOAND_W                                                      \
+  sprintf(remark, "amoand.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amoand_w_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOOR_W                                                       \
+  sprintf(remark, "amoor.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],       \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amoor_w_func);                              \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMIN_W                                                      \
+  sprintf(remark, "amomin.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amomin_w_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMAX_W                                                      \
+  sprintf(remark, "amomax.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amomax_w_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMINU_W                                                     \
+  sprintf(remark, "amominu.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],     \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amominu_w_func);                            \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMAXU_W                                                     \
+  sprintf(remark, "amoswap.w %s, %s, (%s)", regs_name[rd], regs_name[rs2],     \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
+                              &amo_amomaxu_w_func);                            \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_LR_D                                                          \
+  sprintf(remark, "lr.d %s, (%s)", regs_name[rd], regs_name[rs1]);             \
+  sprintf(remark, "%s (check)", remark);                                       \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->load(regs[rs1], DATA_TYPE_DWORD);                            \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_SC_D                                                          \
+  sprintf(remark, "sc.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],          \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  mmu->store(regs[rs1], DATA_TYPE_DWORD, regs[rs2]);                           \
+  regs[rd] = 0UL;                                                              \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOSWAP_D                                                     \
+  sprintf(remark, "amoswap.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],     \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amoswap_d_func);                            \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOADD_D                                                      \
+  sprintf(remark, "amoadd.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amoadd_d_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOXOR_D                                                      \
+  sprintf(remark, "amoxor.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amoxor_d_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOAND_D                                                      \
+  sprintf(remark, "amoand.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amoand_d_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOOR_D                                                       \
+  sprintf(remark, "amoor.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],       \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amoor_d_func);                              \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMIN_D                                                      \
+  sprintf(remark, "amomin.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amomin_d_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMAX_D                                                      \
+  sprintf(remark, "amomax.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],      \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amomax_d_func);                             \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMINU_D                                                     \
+  sprintf(remark, "amominu.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],     \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amominu_d_func);                            \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_AMOMAXU_D                                                     \
+  sprintf(remark, "amomaxu.d %s, %s, (%s)", regs_name[rd], regs_name[rs2],     \
+          regs_name[rs1]);                                                     \
+  require_extension('A');                                                      \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+                              &amo_amomaxu_d_func);                            \
+  pc += 4UL;                                                                   \
   break;
 
 #endif

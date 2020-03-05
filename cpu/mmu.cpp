@@ -3,6 +3,8 @@
 #include "cpu/csr_config.h"
 #include "cpu/trap.h"
 #include "util//util.h"
+#include <iostream>
+using namespace std;
 
 void MMU::_init() {}
 
@@ -193,29 +195,61 @@ void MMU::throw_access_exception(const Addr &addr, uint8_t type) {
   }
 }
 
-uint64_t MMU::fetch(const Addr &pc) {
-  uint64_t insn[2];
-  for (uint8_t i = 0; i < 2; ++i) {
-    Addr paddr(translate(pc + (i << 1), 2, ACCESS_TYPE_FETCH));
-    if (!read(paddr, DATA_TYPE_HWORD_UNSIGNED, insn[i]))
+uint64_t MMU::fetch(const Addr &pc, const uint64_t &alignment_mask) {
+  if (pc & ~alignment_mask)
+    throw TrapInstructionAddressMisaligned(pc);
+  if (pc & 3UL) {
+    uint64_t insn[2];
+    for (uint8_t i = 0; i < 2; ++i) {
+      Addr paddr(translate(pc + (i << 1), 2, ACCESS_TYPE_FETCH));
+      if (!read(paddr, DATA_TYPE_HWORD_UNSIGNED, insn[i]))
+        throw TrapInstructionAccessFault(paddr);
+    }
+    return insn[1] << 16 | insn[0];
+  } else {
+    uint64_t insn;
+    Addr paddr(translate(pc, 4, ACCESS_TYPE_FETCH));
+    if (!read(paddr, DATA_TYPE_WORD_UNSIGNED, insn))
       throw TrapInstructionAccessFault(paddr);
+    return insn;
   }
-  return insn[1] << 16 | insn[0];
 }
 
 uint64_t MMU::load(const Addr &addr, const DataType &data_type) {
-  uint64_t rdata;
+  cout << hex << "LOAD(" << addr << ", " << (int)data_type << ")" << endl;
+  uint64_t rdata(0);
   uint64_t paddr;
   switch (data_type) {
   case DATA_TYPE_DWORD:
+    if (addr & 7UL) {
+      for (uint8_t i = 0; i < 2; ++i) {
+        rdata |= load(addr + i * 4, DATA_TYPE_WORD_UNSIGNED) << (i << 5);
+      }
+      return rdata;
+    }
     paddr = translate(addr, 8, ACCESS_TYPE_LOAD);
     break;
   case DATA_TYPE_WORD:
   case DATA_TYPE_WORD_UNSIGNED:
+    if (addr & 3UL) {
+      for (uint8_t i = 0; i < 2; ++i) {
+        rdata |=
+            load(addr + i * 2, half_data(data_type, i && is_signed(data_type)))
+            << (i << 4);
+      }
+      return rdata;
+    }
     paddr = translate(addr, 4, ACCESS_TYPE_LOAD);
     break;
   case DATA_TYPE_HWORD:
   case DATA_TYPE_HWORD_UNSIGNED:
+    if (addr & 1UL) {
+      for (uint8_t i = 0; i < 2; ++i) {
+        rdata |= load(addr + i, half_data(data_type, i && is_signed(data_type)))
+                 << (i << 3);
+      }
+      return rdata;
+    }
     paddr = translate(addr, 2, ACCESS_TYPE_LOAD);
     break;
   case DATA_TYPE_BYTE:
@@ -233,16 +267,35 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type) {
 void MMU::store(const Addr &addr, const DataType &data_type,
                 const uint64_t &wdata) {
   uint64_t paddr;
+  cout << hex << "STORE(" << addr << ", " << (int)data_type << ", " << wdata << ")" << endl;
   switch (data_type) {
   case DATA_TYPE_DWORD:
+    if (addr & 7UL) {
+      for (uint8_t i = 0; i < 2; ++i) {
+        store(addr + i * 4, DATA_TYPE_WORD_UNSIGNED, wdata >> (i << 5));
+      }
+      return;
+    }
     paddr = translate(addr, 8, ACCESS_TYPE_STORE);
     break;
   case DATA_TYPE_WORD:
   case DATA_TYPE_WORD_UNSIGNED:
+    if (addr & 3UL) {
+      for (uint8_t i = 0; i < 2; ++i) {
+        store(addr + i * 2, half_data(data_type, 0), wdata >> (i << 4));
+      }
+      return;
+    }
     paddr = translate(addr, 4, ACCESS_TYPE_STORE);
     break;
   case DATA_TYPE_HWORD:
   case DATA_TYPE_HWORD_UNSIGNED:
+    if (addr & 1UL) {
+      for (uint8_t i = 0; i < 2; ++i) {
+        store(addr + i, half_data(data_type, 0), wdata >> (i << 3));
+      }
+      return;
+    }
     paddr = translate(addr, 2, ACCESS_TYPE_STORE);
     break;
   case DATA_TYPE_BYTE:
@@ -254,6 +307,24 @@ void MMU::store(const Addr &addr, const DataType &data_type,
   }
   if (!write(paddr, data_type, wdata))
     throw TrapStoreAccessFault(paddr);
+}
+
+uint64_t
+MMU::amo_operate(const Addr &addr, const DataType &type, const uint64_t &src,
+                 uint64_t (*func)(const uint64_t &rdata, const uint64_t &src)) {
+  if (addr & 7UL)
+    throw TrapStoreAddressMisaligned(addr);
+  try {
+    uint64_t x(load(addr, type));
+    store(addr, type, func(x, src));
+    return x;
+  } catch (TrapLoadPageFault &t) {
+    throw TrapStorePageFault(t.get_tval());
+  } catch (TrapLoadAccessFault &t) {
+    throw TrapStoreAccessFault(t.get_tval());
+  } catch (Trap &t) {
+    throw t;
+  }
 }
 
 bool MMU::pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type,

@@ -19,10 +19,13 @@ public:
                      const uint64_t &wdata);
   virtual bool read(const Addr &addr, const DataType &data_type,
                     uint64_t &rdata);
-  uint64_t fetch(const Addr &pc);
+  uint64_t fetch(const Addr &pc, const uint64_t &alignment_mask);
   uint64_t load(const Addr &addr, const DataType &data_type);
   void store(const Addr &addr, const DataType &data_type,
              const uint64_t &wdata);
+  uint64_t
+  amo_operate(const Addr &addr, const DataType &type, const uint64_t &src,
+              uint64_t (*func)(const uint64_t &rdata, const uint64_t &src));
   bool pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type, uint8_t prv);
 };
 

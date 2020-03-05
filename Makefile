@@ -3,6 +3,8 @@ bld_dir  := ./build
 src_dir  := ./main ./sys ./dev ./cpu ./bus ./mem ./disk ./util
 sim_dir  := ./sim
 sim_file := sim
+rv_ext   := rv64mi rv64si rv64ui rv64um rv64ua rv64uc
+rv_ext   := rv64ua
 obj_path  = $(src_dir:=/*.o)
 
 CC      := g++
@@ -26,11 +28,9 @@ ${bld_dir}:
 
 sim: all
 	@if [ "${prog}" == "9" ]; then \
-	  sh ${sim_dir}/prog${prog}/script.sh rv64mi; \
-	  sh ${sim_dir}/prog${prog}/script.sh rv64si; \
-	  sh ${sim_dir}/prog${prog}/script.sh rv64ui; \
-	  sh ${sim_dir}/prog${prog}/script.sh rv64uc; \
-	  sh ${sim_dir}/prog${prog}/script.sh rv64um; \
+	  for ext in ${rv_ext}; do \
+	    sh ${sim_dir}/prog${prog}/script.sh $${ext}; \
+	  done \
 	else \
 	  make -C ${sim_dir} prog=${prog}; \
 	  ${sim_dir}/${sim_file} ${bld_dir} ${sim_dir}/prog${prog}; \

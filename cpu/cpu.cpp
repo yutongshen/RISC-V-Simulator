@@ -50,17 +50,17 @@ void CPU::run() {
       return;
 
     // Instruction Execute
-    uint32_t insn(mmu->fetch(pc));
+    uint32_t insn(mmu->fetch(pc, pc_alignment_mask));
     uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
         rd(bits_zext(insn, 11, 7)), funct3(bits_zext(insn, 14, 12)),
-        funct7(bits_zext(insn, 31, 25)), c_funct3(bits_zext(insn, 15, 13)),
-        c_funct4(bits_zext(insn, 15, 12)), c_funct6(bits_zext(insn, 15, 10)),
-        c_funct2(bits_zext(insn, 6, 5)), _c_funct2(bits_zext(insn, 11, 10)),
-        rs1(bits_zext(insn, 19, 15)), rs2(bits_zext(insn, 24, 20)),
-        c_rs1(bits_zext(insn, 11, 7)), c_rs2(bits_zext(insn, 6, 2)),
-        _c_rs1(bits_zext(insn, 9, 7)), _c_rs2(bits_zext(insn, 4, 2)),
-        _c_rd(bits_zext(insn, 4, 2)), shamt(bits_zext(insn, 24, 20)),
-        shamt64(bits_zext(insn, 25, 20)),
+        funct5(bits_zext(insn, 31, 27)), funct7(bits_zext(insn, 31, 25)),
+        c_funct3(bits_zext(insn, 15, 13)), c_funct4(bits_zext(insn, 15, 12)),
+        c_funct6(bits_zext(insn, 15, 10)), c_funct2(bits_zext(insn, 6, 5)),
+        _c_funct2(bits_zext(insn, 11, 10)), rs1(bits_zext(insn, 19, 15)),
+        rs2(bits_zext(insn, 24, 20)), c_rs1(bits_zext(insn, 11, 7)),
+        c_rs2(bits_zext(insn, 6, 2)), _c_rs1(bits_zext(insn, 9, 7)),
+        _c_rs2(bits_zext(insn, 4, 2)), _c_rd(bits_zext(insn, 4, 2)),
+        shamt(bits_zext(insn, 24, 20)), shamt64(bits_zext(insn, 25, 20)),
         c_shamt(bit(insn, 12) << 5 | bits_zext(insn, 6, 2)),
         pred(bits_zext(insn, 27, 24)), succ(bits_zext(insn, 23, 20));
     uint16_t funct12(bits_zext(insn, 31, 20)),
@@ -107,10 +107,12 @@ void CPU::run() {
     // regs[reg_num]); reg_num = REG_S0, printf("%s: %08lx ",
     // regs_name[reg_num], regs[reg_num]); reg_num = REG_RA, printf("%s: %08lx
     // ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_T0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A5, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
     reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A3, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_A5, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_T4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
 
 #include "cpu/exec.h"
 

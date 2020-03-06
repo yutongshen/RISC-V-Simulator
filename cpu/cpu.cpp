@@ -51,6 +51,7 @@ void CPU::run() {
 
     // Instruction Execute
     uint32_t insn(mmu->fetch(pc, pc_alignment_mask));
+    bool aq(bit(insn, 26)), rl(bit(insn, 25));
     uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
         rd(bits_zext(insn, 11, 7)), funct3(bits_zext(insn, 14, 12)),
         funct5(bits_zext(insn, 31, 27)), funct7(bits_zext(insn, 31, 25)),

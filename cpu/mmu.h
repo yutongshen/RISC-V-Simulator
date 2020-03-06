@@ -5,6 +5,7 @@
 #include "cpu/csr.h"
 
 class MMU : public Master {
+  uint64_t load_reservation_addr;
   CSR *csr;
   virtual void _init();
   Addr translate(const Addr &addr, const uint64_t &len, uint8_t type);
@@ -27,6 +28,11 @@ public:
   amo_operate(const Addr &addr, const DataType &type, const uint64_t &src,
               uint64_t (*func)(const uint64_t &rdata, const uint64_t &src));
   bool pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type, uint8_t prv);
+  void acquire_load_reservation(const Addr &addr);
+  bool check_load_reservation(const Addr &addr);
+  inline void release_load_reservation() {
+    load_reservation_addr = -1UL;
+  }
 };
 
 #endif

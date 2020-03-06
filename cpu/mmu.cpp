@@ -8,7 +8,7 @@ using namespace std;
 
 void MMU::_init() {}
 
-MMU::MMU(CSR *csr) : csr(csr) {}
+MMU::MMU(CSR *csr) : csr(csr), load_reservation_addr(-1UL) {}
 
 MMU::~MMU() {}
 
@@ -218,7 +218,7 @@ uint64_t MMU::fetch(const Addr &pc, const uint64_t &alignment_mask) {
 uint64_t MMU::load(const Addr &addr, const DataType &data_type) {
   cout << hex << "LOAD(" << addr << ", " << (int)data_type << ")" << endl;
   uint64_t rdata(0);
-  uint64_t paddr;
+  Addr paddr;
   switch (data_type) {
   case DATA_TYPE_DWORD:
     if (addr & 7UL) {
@@ -266,7 +266,7 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type) {
 
 void MMU::store(const Addr &addr, const DataType &data_type,
                 const uint64_t &wdata) {
-  uint64_t paddr;
+  Addr paddr;
   cout << hex << "STORE(" << addr << ", " << (int)data_type << ", " << wdata << ")" << endl;
   switch (data_type) {
   case DATA_TYPE_DWORD:
@@ -312,7 +312,7 @@ void MMU::store(const Addr &addr, const DataType &data_type,
 uint64_t
 MMU::amo_operate(const Addr &addr, const DataType &type, const uint64_t &src,
                  uint64_t (*func)(const uint64_t &rdata, const uint64_t &src)) {
-  if (addr & 7UL)
+  if (addr & data_size(type) - 1)
     throw TrapStoreAddressMisaligned(addr);
   try {
     uint64_t x(load(addr, type));
@@ -365,4 +365,22 @@ bool MMU::pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type,
   }
 
   return prv == PRV_M;
+}
+
+void MMU::acquire_load_reservation(const Addr &addr) {
+  uint64_t rdata;
+  Addr paddr(translate(addr, 1, ACCESS_TYPE_LOAD));
+  if (read(paddr, DATA_TYPE_BYTE, rdata))
+    load_reservation_addr = paddr;
+  else
+    throw TrapLoadAccessFault(addr);
+}
+
+bool MMU::check_load_reservation(const Addr &addr) {
+  uint64_t rdata;
+  Addr paddr(translate(addr, 1, ACCESS_TYPE_STORE));
+  if (read(paddr, DATA_TYPE_BYTE, rdata))
+    return load_reservation_addr == paddr;
+  else
+    throw TrapStoreAccessFault(addr);
 }

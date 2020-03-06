@@ -12,10 +12,14 @@ typedef uint8_t DataType;
 #define DATA_TYPE_DWORD 0b10000
 
 #define is_signed(type) (!((type)&1))
-#define data_size(type) (((type) & DATA_TYPE_DWORD) ? 8 :\
-                         ((type) & DATA_TYPE_WORD)  ? 4 :\
-                         ((type) & DATA_TYPE_HWORD) ? 2 :\
-                         ((type) & DATA_TYPE_BYTE) ? 1 : (abort(), -1))
+#define data_size(type)                                                        \
+  (((type)&DATA_TYPE_DWORD)                                                    \
+       ? 8                                                                     \
+       : ((type)&DATA_TYPE_WORD)                                               \
+             ? 4                                                               \
+             : ((type)&DATA_TYPE_HWORD)                                        \
+                   ? 2                                                         \
+                   : ((type)&DATA_TYPE_BYTE) ? 1 : (abort(), -1))
 #define half_data(type, signed) (((type) >> 1) + !(signed))
 
 #define ACCESS_TYPE_FETCH 0

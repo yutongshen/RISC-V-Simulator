@@ -30,9 +30,7 @@ public:
   bool pmp_ok(const Addr &addr, const uint64_t &len, uint8_t type, uint8_t prv);
   void acquire_load_reservation(const Addr &addr);
   bool check_load_reservation(const Addr &addr);
-  inline void release_load_reservation() {
-    load_reservation_addr = -1UL;
-  }
+  inline void release_load_reservation() { load_reservation_addr = -1UL; }
 };
 
 #endif

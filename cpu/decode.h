@@ -1270,37 +1270,36 @@
   pc += 2UL;                                                                   \
   break;
 
-#define STR_AQ_RL(_aq, _rl) \
-  (_aq) && (_rl) ? ".aq.rl" : \
-  (_aq) ? ".aq" : \
-  (_rl) ? ".rl" : \
-  ""
+#define STR_AQ_RL(_aq, _rl)                                                    \
+  (_aq) && (_rl) ? ".aq.rl" : (_aq) ? ".aq" : (_rl) ? ".rl" : ""
 
 #define INSTRUCT_LR_W                                                          \
-  sprintf(remark, "lr.w%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs1]);             \
+  sprintf(remark, "lr.w%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd],         \
+          regs_name[rs1]);                                                     \
   sprintf(remark, "%s (check)", remark);                                       \
   require_extension('A');                                                      \
-  if (regs[rs1] & 3UL) \
-    throw TrapLoadAccessFault(regs[rs1]);\
-  mmu->acquire_load_reservation(regs[rs1]);      \
+  if (regs[rs1] & 3UL)                                                         \
+    throw TrapLoadAccessFault(regs[rs1]);                                      \
+  mmu->acquire_load_reservation(regs[rs1]);                                    \
   regs[rd] = mmu->load(regs[rs1], DATA_TYPE_WORD);                             \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_SC_W                                                          \
- {\
-  sprintf(remark, "sc.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],          \
-          regs_name[rs1]);                                                     \
-  require_extension('A');                                                      \
-  if (regs[rs1] & 3UL) \
-    throw TrapLoadAccessFault(regs[rs1]);\
-  bool is_reserv(mmu->check_load_reservation(regs[rs1]));      \
-  if (is_reserv) \
-    mmu->store(regs[rs1], DATA_TYPE_WORD, regs[rs2]);                           \
-  regs[rd] = !is_reserv;                                                              \
-  mmu->release_load_reservation();\
-  pc += 4UL;                                                                   \
- } break;
+  {                                                                            \
+    sprintf(remark, "sc.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd],   \
+            regs_name[rs2], regs_name[rs1]);                                   \
+    require_extension('A');                                                    \
+    if (regs[rs1] & 3UL)                                                       \
+      throw TrapLoadAccessFault(regs[rs1]);                                    \
+    bool is_reserv(mmu->check_load_reservation(regs[rs1]));                    \
+    if (is_reserv)                                                             \
+      mmu->store(regs[rs1], DATA_TYPE_WORD, regs[rs2]);                        \
+    regs[rd] = !is_reserv;                                                     \
+    mmu->release_load_reservation();                                           \
+    pc += 4UL;                                                                 \
+  }                                                                            \
+  break;
 
 uint64_t amo_amoswap_w_func(const uint64_t &a, const uint64_t &b) { return b; }
 uint64_t amo_amoadd_w_func(const uint64_t &a, const uint64_t &b) {
@@ -1354,8 +1353,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
 }
 
 #define INSTRUCT_AMOSWAP_W                                                     \
-  sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],     \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
+          regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amoswap_w_func);                            \
@@ -1363,8 +1362,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOADD_W                                                      \
-  sprintf(remark, "amoadd.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoadd.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amoadd_w_func);                             \
@@ -1372,8 +1371,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOXOR_W                                                      \
-  sprintf(remark, "amoxor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoxor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amoxor_w_func);                             \
@@ -1381,8 +1380,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOAND_W                                                      \
-  sprintf(remark, "amoand.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoand.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amoand_w_func);                             \
@@ -1390,8 +1389,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOOR_W                                                       \
-  sprintf(remark, "amoor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],       \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd],  \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amoor_w_func);                              \
@@ -1399,8 +1398,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOMIN_W                                                      \
-  sprintf(remark, "amomin.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amomin.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amomin_w_func);                             \
@@ -1408,8 +1407,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOMAX_W                                                      \
-  sprintf(remark, "amomax.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amomax.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amomax_w_func);                             \
@@ -1417,8 +1416,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOMINU_W                                                     \
-  sprintf(remark, "amominu.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],     \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amominu.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
+          regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amominu_w_func);                            \
@@ -1426,8 +1425,8 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_AMOMAXU_W                                                     \
-  sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],     \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
+          regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
   require_extension('A');                                                      \
   regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],            \
                               &amo_amomaxu_w_func);                            \
@@ -1435,107 +1434,110 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   break;
 
 #define INSTRUCT_LR_D                                                          \
-  sprintf(remark, "lr.d%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs1]);             \
+  sprintf(remark, "lr.d%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd],         \
+          regs_name[rs1]);                                                     \
   sprintf(remark, "%s (check)", remark);                                       \
   require_extension('A');                                                      \
-  if (regs[rs1] & 7UL) \
-    throw TrapLoadAccessFault(regs[rs1]);\
-  mmu->acquire_load_reservation(regs[rs1]);      \
+  if (regs[rs1] & 7UL)                                                         \
+    throw TrapLoadAccessFault(regs[rs1]);                                      \
+  mmu->acquire_load_reservation(regs[rs1]);                                    \
   regs[rd] = mmu->load(regs[rs1], DATA_TYPE_DWORD);                            \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_SC_D                                                          \
-{ sprintf(remark, "sc.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],          \
-          regs_name[rs1]);                                                     \
-  require_extension('A');                                                      \
-  if (regs[rs1] & 7UL) \
-    throw TrapLoadAccessFault(regs[rs1]);\
-  bool is_reserv(mmu->check_load_reservation(regs[rs1]));      \
-  if (is_reserv) \
-    mmu->store(regs[rs1], DATA_TYPE_DWORD, regs[rs2]);                           \
-  regs[rd] = !is_reserv;                                                              \
-  mmu->release_load_reservation();\
-  pc += 4UL;                                                                   \
-}break;
+  {                                                                            \
+    sprintf(remark, "sc.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd],   \
+            regs_name[rs2], regs_name[rs1]);                                   \
+    require_extension('A');                                                    \
+    if (regs[rs1] & 7UL)                                                       \
+      throw TrapLoadAccessFault(regs[rs1]);                                    \
+    bool is_reserv(mmu->check_load_reservation(regs[rs1]));                    \
+    if (is_reserv)                                                             \
+      mmu->store(regs[rs1], DATA_TYPE_DWORD, regs[rs2]);                       \
+    regs[rd] = !is_reserv;                                                     \
+    mmu->release_load_reservation();                                           \
+    pc += 4UL;                                                                 \
+  }                                                                            \
+  break;
 
 #define INSTRUCT_AMOSWAP_D                                                     \
-  sprintf(remark, "amoswap.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],     \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoswap.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
+          regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amoswap_d_func);                            \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOADD_D                                                      \
-  sprintf(remark, "amoadd.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoadd.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amoadd_d_func);                             \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOXOR_D                                                      \
-  sprintf(remark, "amoxor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoxor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amoxor_d_func);                             \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOAND_D                                                      \
-  sprintf(remark, "amoand.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoand.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amoand_d_func);                             \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOOR_D                                                       \
-  sprintf(remark, "amoor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],       \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amoor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd],  \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amoor_d_func);                              \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOMIN_D                                                      \
-  sprintf(remark, "amomin.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amomin.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amomin_d_func);                             \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOMAX_D                                                      \
-  sprintf(remark, "amomax.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],      \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amomax.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+          regs_name[rs2], regs_name[rs1]);                                     \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amomax_d_func);                             \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOMINU_D                                                     \
-  sprintf(remark, "amominu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],     \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amominu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
+          regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amominu_d_func);                            \
   pc += 4UL;                                                                   \
   break;
 
 #define INSTRUCT_AMOMAXU_D                                                     \
-  sprintf(remark, "amomaxu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], regs_name[rs2],     \
-          regs_name[rs1]);                                                     \
+  sprintf(remark, "amomaxu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
+          regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
   require_extension('A');                                                      \
-  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],            \
+  regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2],           \
                               &amo_amomaxu_d_func);                            \
   pc += 4UL;                                                                   \
   break;

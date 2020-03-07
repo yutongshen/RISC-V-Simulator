@@ -170,29 +170,29 @@
 #define FUNCT3_AMO_D 0b011
 
 // F extension code
-#define FUNCT7_FADD_S    0x00
-#define FUNCT7_FSUB_S    0x04
-#define FUNCT7_FMUL_S    0x08
-#define FUNCT7_FDIV_S    0x0c
-#define FUNCT7_FSQRT_S   0x2c
-#define FUNCT7_FSGNJ_S   0x10
-#define FUNCT7_FSGNJN_S  0x10
-#define FUNCT7_FSGNJX_S  0x10
-#define FUNCT7_FMIN_S    0x14
-#define FUNCT7_FMAX_S    0x14
-#define FUNCT7_FCVT_W_S  0x60
+#define FUNCT7_FADD_S 0x00
+#define FUNCT7_FSUB_S 0x04
+#define FUNCT7_FMUL_S 0x08
+#define FUNCT7_FDIV_S 0x0c
+#define FUNCT7_FSQRT_S 0x2c
+#define FUNCT7_FSGNJ_S 0x10
+#define FUNCT7_FSGNJN_S 0x10
+#define FUNCT7_FSGNJX_S 0x10
+#define FUNCT7_FMIN_S 0x14
+#define FUNCT7_FMAX_S 0x14
+#define FUNCT7_FCVT_W_S 0x60
 #define FUNCT7_FCVT_WU_S 0x60
-#define FUNCT7_FMV_X_W   0x70
-#define FUNCT7_FEQ_S     0x50
-#define FUNCT7_FLT_S     0x50
-#define FUNCT7_FLE_S     0x50
-#define FUNCT7_FCLASS_S  0x70
-#define FUNCT7_FCVT_S_W  0x68
+#define FUNCT7_FMV_X_W 0x70
+#define FUNCT7_FEQ_S 0x50
+#define FUNCT7_FLT_S 0x50
+#define FUNCT7_FLE_S 0x50
+#define FUNCT7_FCLASS_S 0x70
+#define FUNCT7_FCVT_S_W 0x68
 #define FUNCT7_FCVT_S_WU 0x68
-#define FUNCT7_FMV_W_X   0x78
-#define FUNCT7_FCVT_L_S  0x60
+#define FUNCT7_FMV_W_X 0x78
+#define FUNCT7_FCVT_L_S 0x60
 #define FUNCT7_FCVT_LU_S 0x60
-#define FUNCT7_FCVT_S_L  0x68
+#define FUNCT7_FCVT_S_L 0x68
 #define FUNCT7_FCVT_S_LU 0x68
 
 // C extension code
@@ -1454,126 +1454,101 @@
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FLW                                                     \
-  sprintf(remark, "flw %s,%ld(%s)", fregs_name[rd], (int64_t)imm_i,              \
+#define INSTRUCT_FLW                                                           \
+  sprintf(remark, "flw %s,%ld(%s)", fregs_name[rd], (int64_t)imm_i,            \
           regs_name[rs1]);                                                     \
-  require_extension('F'); \
-  fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);                     \
+  require_extension('F');                                                      \
+  fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);                    \
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FSW                                                    \
-  sprintf(remark, "fsw %s,%ld(%s)", fregs_name[rs2], (int64_t)imm_s,             \
+#define INSTRUCT_FSW                                                           \
+  sprintf(remark, "fsw %s,%ld(%s)", fregs_name[rs2], (int64_t)imm_s,           \
           regs_name[rs1]);                                                     \
-  require_extension('F'); \
-  mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, fregs[rs2]);                    \
+  require_extension('F');                                                      \
+  mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, fregs[rs2]);                   \
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FMADD_S                                                     \
- 
+#define INSTRUCT_FMADD_S
 
-#define INSTRUCT_FMSUB_S                                                     \
- 
+#define INSTRUCT_FMSUB_S
 
-#define INSTRUCT_FNMSUB_S                                                     \
- 
+#define INSTRUCT_FNMSUB_S
 
-#define INSTRUCT_FNMADD_S                                                     \
- 
+#define INSTRUCT_FNMADD_S
 
-#define INSTRUCT_FADD_S                                                     \
-  {\
-  sprintf(remark, "fadd.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],             \
-          fregs_name[rs2]);                                                     \
-  require_extension('F'); \
-  uint8_t flags(0);\
-  fregs[rd] = f32_add(fregs[rs1], fregs[rs2], flags);\
-  csr->set_csr(CSR_FFLAGS_ADDR, flags);\
-  pc += 4UL;                                                                   \
-  } break;
- 
+#define INSTRUCT_FADD_S                                                        \
+  {                                                                            \
+    sprintf(remark, "fadd.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],        \
+            fregs_name[rs2]);                                                  \
+    require_extension('F');                                                    \
+    uint8_t flags(0);                                                          \
+    fregs[rd] = f32_add(fregs[rs1], fregs[rs2], flags);                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, flags);                                      \
+    pc += 4UL;                                                                 \
+  }                                                                            \
+  break;
 
-#define INSTRUCT_FSUB_S                                                     \
-  {\
-  sprintf(remark, "fsub.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],             \
-          fregs_name[rs2]);                                                     \
-  require_extension('F'); \
-  uint8_t flags(0);\
-  fregs[rd] = f32_add(fregs[rs1], F32_NEG(fregs[rs2]), flags);\
-  csr->set_csr(CSR_FFLAGS_ADDR, flags);\
-  pc += 4UL;                                                                   \
-  } break;
- 
+#define INSTRUCT_FSUB_S                                                        \
+  {                                                                            \
+    sprintf(remark, "fsub.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],        \
+            fregs_name[rs2]);                                                  \
+    require_extension('F');                                                    \
+    uint8_t flags(0);                                                          \
+    fregs[rd] = f32_add(fregs[rs1], F32_NEG(fregs[rs2]), flags);               \
+    csr->set_csr(CSR_FFLAGS_ADDR, flags);                                      \
+    pc += 4UL;                                                                 \
+  }                                                                            \
+  break;
 
-#define INSTRUCT_FMUL_S                                                     \
- 
+#define INSTRUCT_FMUL_S
 
-#define INSTRUCT_FDIV_S                                                     \
- 
+#define INSTRUCT_FDIV_S
 
-#define INSTRUCT_FSQRT_S                                                     \
- 
+#define INSTRUCT_FSQRT_S
 
-#define INSTRUCT_FSGNJ_S                                                     \
- 
+#define INSTRUCT_FSGNJ_S
 
-#define INSTRUCT_FSGNJN_S                                                     \
- 
+#define INSTRUCT_FSGNJN_S
 
-#define INSTRUCT_FSGNJX_S                                                     \
- 
+#define INSTRUCT_FSGNJX_S
 
-#define INSTRUCT_FMIN_S                                                     \
- 
+#define INSTRUCT_FMIN_S
 
-#define INSTRUCT_FMAX_S                                                     \
- 
+#define INSTRUCT_FMAX_S
 
-#define INSTRUCT_FCVT_W_S                                                     \
- 
+#define INSTRUCT_FCVT_W_S
 
-#define INSTRUCT_FCVT_WU_S                                                     \
- 
+#define INSTRUCT_FCVT_WU_S
 
-#define INSTRUCT_FMV_X_W                                                     \
-  sprintf(remark, "fmv.x.w %s,%s", regs_name[rd], fregs_name[rs1]);             \
-  require_extension('F'); \
-  regs[rd] = (int32_t) fregs[rs1];\
+#define INSTRUCT_FMV_X_W                                                       \
+  sprintf(remark, "fmv.x.w %s,%s", regs_name[rd], fregs_name[rs1]);            \
+  require_extension('F');                                                      \
+  regs[rd] = (int32_t)fregs[rs1];                                              \
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FEQ_S                                                     \
- 
+#define INSTRUCT_FEQ_S
 
-#define INSTRUCT_FLT_S                                                     \
- 
+#define INSTRUCT_FLT_S
 
-#define INSTRUCT_FLE_S                                                     \
- 
+#define INSTRUCT_FLE_S
 
-#define INSTRUCT_FCLASS_S                                                     \
- 
+#define INSTRUCT_FCLASS_S
 
-#define INSTRUCT_FCVT_S_W                                                     \
- 
+#define INSTRUCT_FCVT_S_W
 
-#define INSTRUCT_FCVT_S_WU                                                     \
- 
+#define INSTRUCT_FCVT_S_WU
 
-#define INSTRUCT_FMV_W_X                                                     \
- 
+#define INSTRUCT_FMV_W_X
 
-#define INSTRUCT_FCVT_L_S                                                     \
- 
+#define INSTRUCT_FCVT_L_S
 
-#define INSTRUCT_FCVT_LU_S                                                     \
- 
+#define INSTRUCT_FCVT_LU_S
 
-#define INSTRUCT_FCVT_S_L                                                     \
- 
+#define INSTRUCT_FCVT_S_L
 
-#define INSTRUCT_FCVT_S_LU                                                     \
-
+#define INSTRUCT_FCVT_S_LU
 
 #endif

@@ -56,7 +56,6 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
   return a < b ? b : a;
 }
 
-
 #define F_FLAGS_NV 0x10
 #define F_FLAGS_DZ 0x08
 #define F_FLAGS_OF 0x04
@@ -69,10 +68,12 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
 #define F32_SIG(x) (((x) >> 31) & 0x1)
 #define F32_EXP(x) (((x) >> 23) & 0xff)
 #define F32_FRAC(x) ((x) & ((1 << 23) - 1))
-#define F32_IS_SINGALING(x) (((x) & 0x7fc00000) == 0x7f800000 && ((x) & 0x3fffff))
-#define F32_COMBINE_FLOAT(sig, exp, frac) (((uint32_t)(bool)(sig) << 31 | ((exp) & 0xff) << 23) + (frac))
+#define F32_IS_SINGALING(x) (((x)&0x7fc00000) == 0x7f800000 && ((x)&0x3fffff))
+#define F32_COMBINE_FLOAT(sig, exp, frac)                                      \
+  (((uint32_t)(bool)(sig) << 31 | ((exp)&0xff) << 23) + (frac))
 
-uint32_t f32_normalize(int32_t num, const int16_t exp, uint8_t revers, uint8_t &flags) {
+uint32_t f32_normalize(int32_t num, const int16_t exp, uint8_t revers,
+                       uint8_t &flags) {
   bool sig_res(0);
   if (num < 0) {
     sig_res = 1;
@@ -85,25 +86,29 @@ uint32_t f32_normalize(int32_t num, const int16_t exp, uint8_t revers, uint8_t &
   cout << hex << "EXP : " << exp << endl;
   cout << hex << "NUM_RES : " << num << endl;
 
-  if (exp + shift >= 0xff) return F32_COMBINE_FLOAT(sig_res, 0xff, 0);
+  if (exp + shift >= 0xff)
+    return F32_COMBINE_FLOAT(sig_res, 0xff, 0);
   if (exp + shift < 0 || !num) {
-    if (num) flags |= F_FLAGS_NX;
+    if (num)
+      flags |= F_FLAGS_NX;
     return F32_COMBINE_FLOAT(sig_res, 0, num << exp >> revers);
   }
-  if (exp + shift == 0) return F32_COMBINE_FLOAT(sig_res, 0, num << -shift >> revers);
+  if (exp + shift == 0)
+    return F32_COMBINE_FLOAT(sig_res, 0, num << -shift >> revers);
 
   uint32_t frac_res;
   bool carry(0);
   if (shift >= 0) {
-      carry = (num & (1 << (shift + revers - 1))) &&
-          ((num & (1 << (shift + revers))) || (num & ((1 << (shift + revers - 1)) - 1)));
-      cout << hex << "CARRY : " << carry << endl;
-      frac_res = num >> shift >> revers;
-      if (num & ((1 << (shift + revers)) - 1)) flags |= F_FLAGS_NX;
-      frac_res += carry;
-  }
-  else {
-      frac_res = num << -shift >> revers;
+    carry = (num & (1 << (shift + revers - 1))) &&
+            ((num & (1 << (shift + revers))) ||
+             (num & ((1 << (shift + revers - 1)) - 1)));
+    cout << hex << "CARRY : " << carry << endl;
+    frac_res = num >> shift >> revers;
+    if (num & ((1 << (shift + revers)) - 1))
+      flags |= F_FLAGS_NX;
+    frac_res += carry;
+  } else {
+    frac_res = num << -shift >> revers;
   }
   frac_res &= 0x7fffff;
   return F32_COMBINE_FLOAT(sig_res, exp + shift, frac_res);
@@ -131,8 +136,7 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
 
   if (!exp_a) {
     num_a = frac_a << revers;
-  }
-  else if (exp_a == 0xff) {
+  } else if (exp_a == 0xff) {
     // nan
     if (frac_a) {
       if (F32_IS_SINGALING(a))
@@ -141,19 +145,18 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
     }
     // infinite
     is_inf_a = 1;
-  }
-  else {
+  } else {
     num_a = (0x800000 | frac_a) << revers;
   }
-  if (sig_a) num_a = -num_a;
+  if (sig_a)
+    num_a = -num_a;
 
   shift_a = exp_res - exp_a;
   if (shift_a) {
     if (shift_a < 31) {
       sticky = num_a & ((1 << shift_a) - 1);
       num_a >>= shift_a;
-    }
-    else {
+    } else {
       sticky = num_a;
       num_a >>= 31;
     }
@@ -161,8 +164,7 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
 
   if (!exp_b) {
     num_b = frac_b << revers;
-  }
-  else if (exp_b == 0xff) {
+  } else if (exp_b == 0xff) {
     // nan
     if (frac_b) {
       if (F32_IS_SINGALING(b))
@@ -171,24 +173,22 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
     }
     // infinite
     is_inf_b = 1;
-  }
-  else {
+  } else {
     num_b = (0x800000 | frac_b) << revers;
   }
-  if (sig_b) num_b = -num_b;
+  if (sig_b)
+    num_b = -num_b;
 
   shift_b = exp_res - exp_b;
   if (shift_b) {
     if (shift_b < 31) {
       sticky = num_b & ((1 << shift_b) - 1);
       num_b >>= shift_b;
-    }
-    else {
+    } else {
       sticky = num_b;
       num_b >>= 31;
     }
   }
-
 
   cout << endl;
 
@@ -199,15 +199,16 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
   cout << hex << "NUM_B : " << num_b << endl;
   cout << hex << "STICKY : " << sticky << endl;
 
-  if (is_inf_a | is_inf_b) return  is_inf_a && !is_inf_b ? a :
-                                  !is_inf_a &&  is_inf_b ? b :
-                                     !(num_a ^ num_b) ? a :
-                                  ((flags |= F_FLAGS_NV), F32_DEFAULT_NAN);
+  if (is_inf_a | is_inf_b)
+    return is_inf_a && !is_inf_b
+               ? a
+               : !is_inf_a && is_inf_b
+                     ? b
+                     : !(num_a ^ num_b)
+                           ? a
+                           : ((flags |= F_FLAGS_NV), F32_DEFAULT_NAN);
 
   return f32_normalize((num_a + num_b) | sticky, exp_res, revers, flags);
-
-
-
 
   // // Initialize flags
   // flags = 0;
@@ -227,7 +228,7 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
   //         flags |= F_FLAGS_NV;
   //       return F32_DEFAULT_NAN;
   //     }
-  //     // a and b are infinite 
+  //     // a and b are infinite
   //     if (sig_ab) {
   //       flags |= F_FLAGS_NV;
   //       return F32_DEFAULT_NAN;
@@ -245,7 +246,7 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b, uint8_t &flags) {
   //     num_res = -num_res;
   //   }
 
-  //   
+  //
 
   // }
   // float res(*((float *)&a) + *((float *)&b));

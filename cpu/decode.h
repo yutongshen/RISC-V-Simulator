@@ -183,9 +183,7 @@
 #define FUNCT7_FCVT_W_S 0x60
 #define FUNCT7_FCVT_WU_S 0x60
 #define FUNCT7_FMV_X_W 0x70
-#define FUNCT7_FEQ_S 0x50
-#define FUNCT7_FLT_S 0x50
-#define FUNCT7_FLE_S 0x50
+#define FUNCT7_FCMP_S 0x50
 #define FUNCT7_FCLASS_S 0x70
 #define FUNCT7_FCVT_S_W 0x68
 #define FUNCT7_FCVT_S_WU 0x68
@@ -197,6 +195,9 @@
 
 #define FUNCT3_FMV_X_W 0x0
 #define FUNCT3_FCLASS_S 0x1
+#define FUNCT3_FEQ_S 0x2
+#define FUNCT3_FLT_S 0x1
+#define FUNCT3_FLE_S 0x0
 
 // C extension code
 #define FUNCT3_C_ADDI4SPN 0b000
@@ -1536,11 +1537,35 @@
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FEQ_S
+#define INSTRUCT_FEQ_S                                                         \
+  sprintf(remark, "feq.s %s,%s,%s", regs_name[rd], fregs_name[rs1],            \
+          fregs_name[rs2]);                                                    \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                        \
+  regs[rd] = f32_eq(fregs[rs1], fregs[rs2]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FLT_S
+#define INSTRUCT_FLT_S                                                         \
+  sprintf(remark, "flt.s %s,%s,%s", regs_name[rd], fregs_name[rs1],            \
+          fregs_name[rs2]);                                                    \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                        \
+  regs[rd] = f32_lt(fregs[rs1], fregs[rs2]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FLE_S
+#define INSTRUCT_FLE_S                                                         \
+  sprintf(remark, "fle.s %s,%s,%s", regs_name[rd], fregs_name[rs1],            \
+          fregs_name[rs2]);                                                    \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                        \
+  regs[rd] = f32_le(fregs[rs1], fregs[rs2]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
 #define INSTRUCT_FCLASS_S                                                      \
   sprintf(remark, "fclass.s %s,%s", regs_name[rd], fregs_name[rs1]);           \

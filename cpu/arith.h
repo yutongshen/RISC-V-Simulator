@@ -75,12 +75,14 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
 #define F_CLASS_QUIET (1UL << 9)
 
 #define F32_FRAC_LEN 23
-#define F32_DEFAULT_NAN 0x7fc00000
+#define F32_DEFAULT_QUIET_NAN 0x7fc00000
+#define F32_DEFAULT_SIGNAL_NAN 0x7f800001
 #define F32_NEG(x) ((x) ^ (1 << 31))
 #define F32_SIG(x) (((x) >> 31) & 0x1)
 #define F32_EXP(x) (((x) >> 23) & 0xff)
 #define F32_FRAC(x) ((x) & ((1 << 23) - 1))
-#define F32_IS_SINGALING(x) (((x)&0x7fc00000) == 0x7f800000 && ((x)&0x3fffff))
+#define F32_IS_SINGAL_NAN(x) (((x)&0x7fc00000) == 0x7f800000 && ((x)&0x3fffff))
+#define F32_IS_QUIET_NAN(x) (((x)&0x7fc00000) == 0x7fc00000)
 #define F32_COMBINE_FLOAT(sig, exp, frac)                                      \
   (((uint32_t)(bool)(sig) << 31 | ((exp)&0xff) << 23) + (frac))
 
@@ -101,7 +103,7 @@ uint64_t f32_classify(const uint64_t &a) {
   if (exp == 0xff) {
     if (!frac)
       return !sig ? F_CLASS_POS_INF : F_CLASS_NEG_INF;
-    if (F32_IS_SINGALING(a))
+    if (F32_IS_SINGAL_NAN(a))
       return F_CLASS_SIGNALING;
     return F_CLASS_QUIET;
   }
@@ -129,6 +131,38 @@ union uint32_float32 {
   float f;
 };
 
+uint32_t f32_eq(const uint64_t &a, const uint64_t &b) {
+  union uint32_float32 _a;
+  union uint32_float32 _b;
+  _a.ui = a;
+  _b.ui = b;
+  return _a.f == _b.f;
+}
+
+uint32_t f32_le(const uint64_t &a, const uint64_t &b) {
+  union uint32_float32 _a;
+  union uint32_float32 _b;
+  _a.ui = a;
+  _b.ui = b;
+  if (F32_IS_QUIET_NAN(_a.ui))
+    _a.ui = F32_DEFAULT_SIGNAL_NAN;
+  else if (F32_IS_QUIET_NAN(_b.ui))
+    _b.ui = F32_DEFAULT_SIGNAL_NAN;
+  return _a.f < _b.f || _a.f == _b.f;
+}
+
+uint32_t f32_lt(const uint64_t &a, const uint64_t &b) {
+  union uint32_float32 _a;
+  union uint32_float32 _b;
+  _a.ui = a;
+  _b.ui = b;
+  if (F32_IS_QUIET_NAN(_a.ui))
+    _a.ui = F32_DEFAULT_SIGNAL_NAN;
+  else if (F32_IS_QUIET_NAN(_b.ui))
+    _b.ui = F32_DEFAULT_SIGNAL_NAN;
+  return _a.f < _b.f;
+}
+
 uint32_t f32_add(const uint64_t &a, const uint64_t &b) {
   union uint32_float32 _a;
   union uint32_float32 _b;
@@ -136,8 +170,8 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b) {
   _a.ui = a;
   _b.ui = b;
   res.f = _a.f + _b.f;
-  if ((res.ui & 0x7fffffff) == F32_DEFAULT_NAN)
-    return F32_DEFAULT_NAN;
+  if ((res.ui & 0x7fffffff) == F32_DEFAULT_QUIET_NAN)
+    return F32_DEFAULT_QUIET_NAN;
   return res.ui;
 }
 

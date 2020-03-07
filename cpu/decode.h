@@ -46,6 +46,39 @@
 #define REG_T5 30
 #define REG_T6 31
 
+#define REG_FT0 0
+#define REG_FT1 1
+#define REG_FT2 2
+#define REG_FT3 3
+#define REG_FT4 4
+#define REG_FT5 5
+#define REG_FT6 6
+#define REG_FT7 7
+#define REG_FS0 8
+#define REG_FS1 9
+#define REG_FA0 10
+#define REG_FA1 11
+#define REG_FA2 12
+#define REG_FA3 13
+#define REG_FA4 14
+#define REG_FA5 15
+#define REG_FA6 16
+#define REG_FA7 17
+#define REG_FS2 18
+#define REG_FS3 19
+#define REG_FS4 20
+#define REG_FS5 21
+#define REG_FS6 22
+#define REG_FS7 23
+#define REG_FS8 24
+#define REG_FS9 25
+#define REG_FS10 26
+#define REG_FS11 27
+#define REG_FT8 28
+#define REG_FT9 29
+#define REG_FT10 30
+#define REG_FT11 31
+
 #define FUNCT12_ECALL 0x000
 #define FUNCT12_EBREAK 0x001
 #define FUNCT12_WFI 0x105
@@ -136,6 +169,32 @@
 #define FUNCT3_AMO_W 0b010
 #define FUNCT3_AMO_D 0b011
 
+// F extension code
+#define FUNCT7_FADD_S    0x00
+#define FUNCT7_FSUB_S    0x04
+#define FUNCT7_FMUL_S    0x08
+#define FUNCT7_FDIV_S    0x0c
+#define FUNCT7_FSQRT_S   0x2c
+#define FUNCT7_FSGNJ_S   0x10
+#define FUNCT7_FSGNJN_S  0x10
+#define FUNCT7_FSGNJX_S  0x10
+#define FUNCT7_FMIN_S    0x14
+#define FUNCT7_FMAX_S    0x14
+#define FUNCT7_FCVT_W_S  0x60
+#define FUNCT7_FCVT_WU_S 0x60
+#define FUNCT7_FMV_X_W   0x70
+#define FUNCT7_FEQ_S     0x50
+#define FUNCT7_FLT_S     0x50
+#define FUNCT7_FLE_S     0x50
+#define FUNCT7_FCLASS_S  0x70
+#define FUNCT7_FCVT_S_W  0x68
+#define FUNCT7_FCVT_S_WU 0x68
+#define FUNCT7_FMV_W_X   0x78
+#define FUNCT7_FCVT_L_S  0x60
+#define FUNCT7_FCVT_LU_S 0x60
+#define FUNCT7_FCVT_S_L  0x68
+#define FUNCT7_FCVT_S_LU 0x68
+
 // C extension code
 #define FUNCT3_C_ADDI4SPN 0b000
 #define FUNCT3_C_LW 0b010
@@ -191,119 +250,23 @@
 #define OPCODE_OP_IMM_32 0x1B
 #define OPCODE_OP_32 0x3B
 
-// RV32M Standard Extension
-// #define OPCODE_MUL 0x33
-// #define OPCODE_MULH 0x33
-// #define OPCODE_MULHSU 0x33
-// #define OPCODE_MULHU 0x33
-// #define OPCODE_DIV 0x33
-// #define OPCODE_DIVU 0x33
-// #define OPCODE_REM 0x33
-// #define OPCODE_REMU 0x33
-
-// RV64M Standard Extension (in addition to RV32M)
-// #define OPCODE_MULW 0x3B
-// #define OPCODE_DIVW 0x3B
-// #define OPCODE_DIVUW 0x3B
-// #define OPCODE_REMW 0x3B
-// #define OPCODE_REMUW 0x3B
-
 // RV32A Standard Extension
 #define OPCODE_AMO 0x2F
-// #define OPCODE_LR_W 0x2F
-// #define OPCODE_SC_W 0x2F
-// #define OPCODE_AMOSWAP_W 0x2F
-// #define OPCODE_AMOADD_W 0x2F
-// #define OPCODE_AMOXOR_W 0x2F
-// #define OPCODE_AMOAND_W 0x2F
-// #define OPCODE_AMOOR_W 0x2F
-// #define OPCODE_AMOMIN_W 0x2F
-// #define OPCODE_AMOMAX_W 0x2F
-// #define OPCODE_AMOMINU_W 0x2F
-// #define OPCODE_AMOMAXU_W 0x2F
-
-// RV64A Standard Extension (in addition to RV32A)
-// #define OPCODE_LR_D 0x2F
-// #define OPCODE_SC_D 0x2F
-// #define OPCODE_AMOSWAP_D 0x2F
-// #define OPCODE_AMOADD_D 0x2F
-// #define OPCODE_AMOXOR_D 0x2F
-// #define OPCODE_AMOAND_D 0x2F
-// #define OPCODE_AMOOR_D 0x2F
-// #define OPCODE_AMOMIN_D 0x2F
-// #define OPCODE_AMOMAX_D 0x2F
-// #define OPCODE_AMOMINU_D 0x2F
-// #define OPCODE_AMOMAXU_D 0x2F
 
 // RV32F Standard Extension
-#define OPCODE_FLW 0x07
-#define OPCODE_FSW 0x27
+#define OPCODE_LOAD_FP 0x07
+#define OPCODE_STORE_FP 0x27
 #define OPCODE_FMADD_S 0x43
 #define OPCODE_FMSUB_S 0x47
 #define OPCODE_FNMSUB_S 0x4B
 #define OPCODE_FNMADD_S 0x4F
-#define OPCODE_FADD_S 0x53
-#define OPCODE_FSUB_S 0x53
-#define OPCODE_FMUL_S 0x53
-#define OPCODE_FDIV_S 0x53
-#define OPCODE_FSQRT_S 0x53
-#define OPCODE_FSGNJ_S 0x53
-#define OPCODE_FSGNJN_S 0x53
-#define OPCODE_FSGNJX_S 0x53
-#define OPCODE_FMIN_S 0x53
-#define OPCODE_FMAX_S 0x53
-#define OPCODE_FCVT_W_S 0x53
-#define OPCODE_FCVT_WU_S 0x53
-#define OPCODE_FMV_X_W 0x53
-#define OPCODE_FEQ_S 0x53
-#define OPCODE_FLT_S 0x53
-#define OPCODE_FLE_S 0x53
-#define OPCODE_FCLASS_S 0x53
-#define OPCODE_FCVT_S_W 0x53
-#define OPCODE_FCVT_S_WU 0x53
-#define OPCODE_FMV_W_X 0x53
-
-// RV64F Standard Extension (in addition to RV32F)
-#define OPCODE_FCVT_L_S 0x53
-#define OPCODE_FCVT_LU_S 0x53
-#define OPCODE_FCVT_S_L 0x53
-#define OPCODE_FCVT_S_LU 0x53
+#define OPCODE_OP_FP 0x53
 
 // RV32D Standard Extension
-#define OPCODE_FLD 0x07
-#define OPCODE_FSD 0x27
 #define OPCODE_FMADD_D 0x43
 #define OPCODE_FMSUB_D 0x47
 #define OPCODE_FNMSUB_D 0x4B
 #define OPCODE_FNMADD_D 0x4F
-#define OPCODE_FADD_D 0x53
-#define OPCODE_FSUB_D 0x53
-#define OPCODE_FMUL_D 0x53
-#define OPCODE_FDIV_D 0x53
-#define OPCODE_FSQRT_D 0x53
-#define OPCODE_FSGNJ_D 0x53
-#define OPCODE_FSGNJN_D 0x53
-#define OPCODE_FSGNJX_D 0x53
-#define OPCODE_FMIN_D 0x53
-#define OPCODE_FMAX_D 0x53
-#define OPCODE_FCVT_S_D 0x53
-#define OPCODE_FCVT_D_S 0x53
-#define OPCODE_FEQ_D 0x53
-#define OPCODE_FLT_D 0x53
-#define OPCODE_FLE_D 0x53
-#define OPCODE_FCLASS_D 0x53
-#define OPCODE_FCVT_W_D 0x53
-#define OPCODE_FCVT_WU_D 0x53
-#define OPCODE_FCVT_D_W 0x53
-#define OPCODE_FCVT_D_WU 0x53
-
-// RV64D Standard Extension (in addition to RV32D)
-#define OPCODE_FCVT_L_D 0x53
-#define OPCODE_FCVT_LU_D 0x53
-#define OPCODE_FMV_X_D 0x53
-#define OPCODE_FCVT_D_L 0x53
-#define OPCODE_FCVT_D_LU 0x53
-#define OPCODE_FMV_D_X 0x53
 
 // RVC Standard Extension
 #define OPCODE_C0 0x0
@@ -1301,57 +1264,6 @@
   }                                                                            \
   break;
 
-uint64_t amo_amoswap_w_func(const uint64_t &a, const uint64_t &b) { return b; }
-uint64_t amo_amoadd_w_func(const uint64_t &a, const uint64_t &b) {
-  return a + b;
-}
-uint64_t amo_amoxor_w_func(const uint64_t &a, const uint64_t &b) {
-  return a ^ b;
-}
-uint64_t amo_amoand_w_func(const uint64_t &a, const uint64_t &b) {
-  return a & b;
-}
-uint64_t amo_amoor_w_func(const uint64_t &a, const uint64_t &b) {
-  return a | b;
-}
-uint64_t amo_amomin_w_func(const uint64_t &a, const uint64_t &b) {
-  return (int32_t)a < (int32_t)b ? a : b;
-}
-uint64_t amo_amomax_w_func(const uint64_t &a, const uint64_t &b) {
-  return (int32_t)a < (int32_t)b ? b : a;
-}
-uint64_t amo_amominu_w_func(const uint64_t &a, const uint64_t &b) {
-  return (uint32_t)a < (uint32_t)b ? a : b;
-}
-uint64_t amo_amomaxu_w_func(const uint64_t &a, const uint64_t &b) {
-  return (uint32_t)a < (uint32_t)b ? b : a;
-}
-uint64_t amo_amoswap_d_func(const uint64_t &a, const uint64_t &b) { return b; }
-uint64_t amo_amoadd_d_func(const uint64_t &a, const uint64_t &b) {
-  return a + b;
-}
-uint64_t amo_amoxor_d_func(const uint64_t &a, const uint64_t &b) {
-  return a ^ b;
-}
-uint64_t amo_amoand_d_func(const uint64_t &a, const uint64_t &b) {
-  return a & b;
-}
-uint64_t amo_amoor_d_func(const uint64_t &a, const uint64_t &b) {
-  return a | b;
-}
-uint64_t amo_amomin_d_func(const uint64_t &a, const uint64_t &b) {
-  return (int64_t)a < (int64_t)b ? a : b;
-}
-uint64_t amo_amomax_d_func(const uint64_t &a, const uint64_t &b) {
-  return (int64_t)a < (int64_t)b ? b : a;
-}
-uint64_t amo_amominu_d_func(const uint64_t &a, const uint64_t &b) {
-  return a < b ? a : b;
-}
-uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
-  return a < b ? b : a;
-}
-
 #define INSTRUCT_AMOSWAP_W                                                     \
   sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),               \
           regs_name[rd], regs_name[rs2], regs_name[rs1]);                      \
@@ -1541,5 +1453,127 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
                               &amo_amomaxu_d_func);                            \
   pc += 4UL;                                                                   \
   break;
+
+#define INSTRUCT_FLW                                                     \
+  sprintf(remark, "flw %s,%ld(%s)", fregs_name[rd], (int64_t)imm_i,              \
+          regs_name[rs1]);                                                     \
+  require_extension('F'); \
+  fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);                     \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_FSW                                                    \
+  sprintf(remark, "fsw %s,%ld(%s)", fregs_name[rs2], (int64_t)imm_s,             \
+          regs_name[rs1]);                                                     \
+  require_extension('F'); \
+  mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, fregs[rs2]);                    \
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_FMADD_S                                                     \
+ 
+
+#define INSTRUCT_FMSUB_S                                                     \
+ 
+
+#define INSTRUCT_FNMSUB_S                                                     \
+ 
+
+#define INSTRUCT_FNMADD_S                                                     \
+ 
+
+#define INSTRUCT_FADD_S                                                     \
+  {\
+  sprintf(remark, "fadd.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],             \
+          fregs_name[rs2]);                                                     \
+  require_extension('F'); \
+  uint8_t flags(0);\
+  fregs[rd] = f32_add(fregs[rs1], fregs[rs2], flags);\
+  csr->set_csr(CSR_FFLAGS_ADDR, flags);\
+  pc += 4UL;                                                                   \
+  } break;
+ 
+
+#define INSTRUCT_FSUB_S                                                     \
+  {\
+  sprintf(remark, "fsub.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],             \
+          fregs_name[rs2]);                                                     \
+  require_extension('F'); \
+  uint8_t flags(0);\
+  fregs[rd] = f32_add(fregs[rs1], F32_NEG(fregs[rs2]), flags);\
+  csr->set_csr(CSR_FFLAGS_ADDR, flags);\
+  pc += 4UL;                                                                   \
+  } break;
+ 
+
+#define INSTRUCT_FMUL_S                                                     \
+ 
+
+#define INSTRUCT_FDIV_S                                                     \
+ 
+
+#define INSTRUCT_FSQRT_S                                                     \
+ 
+
+#define INSTRUCT_FSGNJ_S                                                     \
+ 
+
+#define INSTRUCT_FSGNJN_S                                                     \
+ 
+
+#define INSTRUCT_FSGNJX_S                                                     \
+ 
+
+#define INSTRUCT_FMIN_S                                                     \
+ 
+
+#define INSTRUCT_FMAX_S                                                     \
+ 
+
+#define INSTRUCT_FCVT_W_S                                                     \
+ 
+
+#define INSTRUCT_FCVT_WU_S                                                     \
+ 
+
+#define INSTRUCT_FMV_X_W                                                     \
+  sprintf(remark, "fmv.x.w %s,%s", regs_name[rd], fregs_name[rs1]);             \
+  require_extension('F'); \
+  regs[rd] = (int32_t) fregs[rs1];\
+  pc += 4UL;                                                                   \
+  break;
+
+#define INSTRUCT_FEQ_S                                                     \
+ 
+
+#define INSTRUCT_FLT_S                                                     \
+ 
+
+#define INSTRUCT_FLE_S                                                     \
+ 
+
+#define INSTRUCT_FCLASS_S                                                     \
+ 
+
+#define INSTRUCT_FCVT_S_W                                                     \
+ 
+
+#define INSTRUCT_FCVT_S_WU                                                     \
+ 
+
+#define INSTRUCT_FMV_W_X                                                     \
+ 
+
+#define INSTRUCT_FCVT_L_S                                                     \
+ 
+
+#define INSTRUCT_FCVT_LU_S                                                     \
+ 
+
+#define INSTRUCT_FCVT_S_L                                                     \
+ 
+
+#define INSTRUCT_FCVT_S_LU                                                     \
+
 
 #endif

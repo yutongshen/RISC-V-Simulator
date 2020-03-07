@@ -216,7 +216,7 @@ uint64_t MMU::fetch(const Addr &pc, const uint64_t &alignment_mask) {
 }
 
 uint64_t MMU::load(const Addr &addr, const DataType &data_type) {
-  cout << hex << "LOAD(" << addr << ", " << (int)data_type << ")" << endl;
+  // cout << hex << "LOAD(" << addr << ", " << (int)data_type << ")" << endl;
   uint64_t rdata(0);
   Addr paddr;
   switch (data_type) {
@@ -267,8 +267,8 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type) {
 void MMU::store(const Addr &addr, const DataType &data_type,
                 const uint64_t &wdata) {
   Addr paddr;
-  cout << hex << "STORE(" << addr << ", " << (int)data_type << ", " << wdata
-       << ")" << endl;
+  // cout << hex << "STORE(" << addr << ", " << (int)data_type << ", " << wdata
+  //     << ")" << endl;
   switch (data_type) {
   case DATA_TYPE_DWORD:
     if (addr & 7UL) {

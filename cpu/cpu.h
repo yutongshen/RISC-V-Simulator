@@ -13,10 +13,12 @@ typedef CSR *pCSR;
 
 class CPU : public Device {
   static const char regs_name[32][5];
+  static const char fregs_name[32][5];
   static const char *fence_flag(const uint8_t &arg);
   bool low_power;
   uint64_t pc;
   uint64_t regs[32];
+  uint64_t fregs[32];
   pCSR csr;
   pMMU mmu;
   virtual void _init();

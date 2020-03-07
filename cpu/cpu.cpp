@@ -2,6 +2,7 @@
 #include "bus/datatype.h"
 #include "cpu/decode.h"
 #include "cpu/rule_define.h"
+#include "cpu/arith.h"
 #include "util/util.h"
 #include <iostream>
 using namespace std;
@@ -10,6 +11,11 @@ const char CPU::regs_name[32][5] = {
     "zero", "ra", "sp", "gp", "tp",  "t0",  "t1", "t2", "s0", "s1", "a0",
     "a1",   "a2", "a3", "a4", "a5",  "a6",  "a7", "s2", "s3", "s4", "s5",
     "s6",   "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
+
+const char CPU::fregs_name[32][5] = {
+    "ft0", "ft1", "ft2", "ft3", "ft4",  "ft5",  "ft6", "ft7", "fs0",  "fs1", "fa0",
+    "fa1", "fa2", "fa3", "fa4", "fa5",  "fa6",  "fa7", "fs2", "fs3",  "fs4", "fs5",
+    "fs6", "fs7", "fs8", "fs9", "fs10", "fs11", "ft8", "ft9", "ft10", "ft11"};
 
 const char *CPU::fence_flag(const uint8_t &arg) {
   char *str = new char[4];
@@ -29,7 +35,7 @@ const char *CPU::fence_flag(const uint8_t &arg) {
 }
 
 CPU::CPU(uint64_t pc)
-    : low_power(0), pc(pc), regs{0}, csr(new CSR(&this->pc)),
+    : low_power(0), pc(pc), regs{0}, fregs{0}, csr(new CSR(&this->pc)),
       mmu(new MMU(csr)) {}
 
 CPU::~CPU() {
@@ -109,11 +115,10 @@ void CPU::run() {
     // regs_name[reg_num], regs[reg_num]); reg_num = REG_RA, printf("%s: %08lx
     // ", regs_name[reg_num], regs[reg_num]);
     reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
     reg_num = REG_A3, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_A5, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-    reg_num = REG_T4, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+    reg_num = REG_FT3, printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+    reg_num = REG_FT0, printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+    reg_num = REG_FT1, printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
 
 #include "cpu/exec.h"
 

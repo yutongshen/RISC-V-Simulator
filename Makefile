@@ -4,7 +4,7 @@ src_dir  := ./main ./sys ./dev ./cpu ./bus ./mem ./disk ./util
 sim_dir  := ./sim
 sim_file := sim
 rv_ext   := rv64mi rv64si rv64ui rv64um rv64ua rv64uc rv64uf
-rv_ext   := rv64uf
+# rv_ext   := rv64uf
 obj_path  = $(src_dir:=/*.o)
 
 CC      := g++

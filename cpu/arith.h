@@ -3,6 +3,7 @@
 
 #include "util/util.h"
 #include <cfenv>
+#include <math.h>
 #include <iostream>
 using namespace std;
 
@@ -81,6 +82,7 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b) {
 #define F32_SIG(x) (((x) >> 31) & 0x1)
 #define F32_EXP(x) (((x) >> 23) & 0xff)
 #define F32_FRAC(x) ((x) & ((1 << 23) - 1))
+#define F32_IS_NAN(x) (((x)&0x7f800000) == 0x7f800000 && ((x)&0x7fffff))
 #define F32_IS_SINGAL_NAN(x) (((x)&0x7fc00000) == 0x7f800000 && ((x)&0x3fffff))
 #define F32_IS_QUIET_NAN(x) (((x)&0x7fc00000) == 0x7fc00000)
 #define F32_COMBINE_FLOAT(sig, exp, frac)                                      \
@@ -91,9 +93,9 @@ uint64_t f32_classify(const uint64_t &a) {
   uint8_t exp(F32_EXP(a));
   uint32_t frac(F32_FRAC(a));
 
-  cout << hex << "SIG : " << (int)sig << endl;
-  cout << hex << "EXP : " << (int)exp << endl;
-  cout << hex << "FRAC : " << (int)frac << endl;
+  // cout << hex << "SIG : " << (int)sig << endl;
+  // cout << hex << "EXP : " << (int)exp << endl;
+  // cout << hex << "FRAC : " << (int)frac << endl;
 
   if (!exp) {
     if (!frac)
@@ -128,6 +130,7 @@ uint64_t get_fflags_value() {
 
 union uint32_float32 {
   uint32_t ui;
+  int32_t i;
   float f;
 };
 
@@ -157,9 +160,9 @@ uint32_t f32_lt(const uint64_t &a, const uint64_t &b) {
   _a.ui = a;
   _b.ui = b;
   if (F32_IS_QUIET_NAN(_a.ui))
-    _a.ui = F32_DEFAULT_SIGNAL_NAN;
+    std::feraiseexcept(FE_INVALID);
   else if (F32_IS_QUIET_NAN(_b.ui))
-    _b.ui = F32_DEFAULT_SIGNAL_NAN;
+    std::feraiseexcept(FE_INVALID);
   return _a.f < _b.f;
 }
 
@@ -183,6 +186,106 @@ uint32_t f32_mul(const uint64_t &a, const uint64_t &b) {
   _b.ui = b;
   res.f = _a.f * _b.f;
   return res.ui;
+}
+
+uint32_t f32_div(const uint64_t &a, const uint64_t &b) {
+  union uint32_float32 _a;
+  union uint32_float32 _b;
+  union uint32_float32 res;
+  _a.ui = a;
+  _b.ui = b;
+  res.f = _a.f / _b.f;
+  return res.ui;
+}
+
+uint32_t f32_sqrt(const uint64_t &a) {
+  union uint32_float32 _a;
+  union uint32_float32 res;
+  _a.ui = a;
+  res.f = sqrtf(_a.f);
+  if ((res.ui & 0x7fffffff) == F32_DEFAULT_QUIET_NAN)
+    return F32_DEFAULT_QUIET_NAN;
+  return res.ui;
+}
+
+uint32_t f32_cvt_s_w(const int32_t &a) {
+  union uint32_float32 res;
+  res.f = a;
+  return res.ui;
+}
+
+uint32_t f32_cvt_s_wu(const uint32_t &a) {
+  union uint32_float32 res;
+  res.f = a;
+  return res.ui;
+}
+
+uint32_t f32_cvt_s_l(const int64_t &a) {
+  union uint32_float32 res;
+  res.f = a;
+  return res.ui;
+}
+
+uint32_t f32_cvt_s_lu(const uint64_t &a) {
+  union uint32_float32 res;
+  res.f = a;
+  return res.ui;
+}
+
+int32_t f32_cvt_w_s(const uint64_t &a) {
+  union uint32_float32 res;
+  res.ui = a;
+  res.i = res.f;
+  if (res.i == (1 << 31) && !F32_SIG(a)) return ~res.i;
+  if (F32_EXP(a) == 0xff) {
+    if (F32_FRAC(a)) return -1U >> 1;
+    return !F32_SIG(a) ? (-1U >> 1) : (1U << 31);
+  }
+  return res.i;
+}
+
+uint32_t f32_cvt_wu_s(const uint64_t &a) {
+  union uint32_float32 res;
+  res.ui = a;
+  res.ui = res.f;
+  if (F32_EXP(a) == 0xff) {
+    if (F32_FRAC(a)) return -1U;
+    return !F32_SIG(a) ? -1U : 0U;
+  }
+  if (F32_SIG(a) && res.ui) {
+    std::feclearexcept(FE_ALL_EXCEPT);
+    std::feraiseexcept(FE_INVALID);
+    return 0;
+  }
+  return res.ui;
+}
+
+int64_t f32_cvt_l_s(const uint64_t &a) {
+  union uint32_float32 res;
+  res.ui = a;
+  if (F32_IS_NAN(a)) return -1UL >> 1;
+  if (F32_EXP(a) == 0xff) {
+    if (F32_FRAC(a)) return -1UL >> 1;
+    return !F32_SIG(a) ? (-1UL >> 1) : (1UL << 63);
+  }
+  return res.f;
+}
+
+uint64_t f32_cvt_lu_s(const uint64_t &a) {
+  uint64_t _res;
+  union uint32_float32 res;
+  res.ui = a;
+  _res = res.f;
+  if (F32_EXP(a) == 0xff) {
+    if (F32_FRAC(a)) return -1UL;
+    return !F32_SIG(a) ? -1UL : 0UL;
+  }
+  if (F32_SIG(a) && _res) {
+    std::feclearexcept(FE_ALL_EXCEPT);
+    std::feraiseexcept(FE_INVALID);
+    return 0;
+  }
+  return _res;
 }
 
 #endif

@@ -199,6 +199,11 @@
 #define FUNCT3_FLT_S 0x1
 #define FUNCT3_FLE_S 0x0
 
+#define FUNCT5_FCVT_S_W 0x0
+#define FUNCT5_FCVT_S_WU 0x1
+#define FUNCT5_FCVT_S_L 0x2
+#define FUNCT5_FCVT_S_LU 0x3
+
 // C extension code
 #define FUNCT3_C_ADDI4SPN 0b000
 #define FUNCT3_C_LW 0b010
@@ -1512,9 +1517,24 @@
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FDIV_S
+#define INSTRUCT_FDIV_S \
+  sprintf(remark, "fdiv.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],          \
+          fregs_name[rs2]);                                                    \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                        \
+  fregs[rd] = f32_div(fregs[rs1], fregs[rs2]);                                 \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FSQRT_S
+#define INSTRUCT_FSQRT_S \
+  sprintf(remark, "fsqrt.s %s,%s", fregs_name[rd], fregs_name[rs1]);          \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                        \
+  fregs[rd] = f32_sqrt(fregs[rs1]);                                 \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
 #define INSTRUCT_FSGNJ_S
 
@@ -1526,9 +1546,23 @@
 
 #define INSTRUCT_FMAX_S
 
-#define INSTRUCT_FCVT_W_S
+#define INSTRUCT_FCVT_W_S \
+  sprintf(remark, "fcvt.w.s %s,%s", regs_name[rd], fregs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  regs[rd] = f32_cvt_w_s(fregs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FCVT_WU_S
+#define INSTRUCT_FCVT_WU_S \
+  sprintf(remark, "fcvt.wu.s %s,%s", regs_name[rd], fregs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  regs[rd] = (int32_t)f32_cvt_wu_s(fregs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
 #define INSTRUCT_FMV_X_W                                                       \
   sprintf(remark, "fmv.x.w %s,%s", regs_name[rd], fregs_name[rs1]);            \
@@ -1574,9 +1608,23 @@
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FCVT_S_W
+#define INSTRUCT_FCVT_S_W \
+  sprintf(remark, "fcvt.s.w %s,%s", fregs_name[rd], regs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  fregs[rd] = f32_cvt_s_w(regs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FCVT_S_WU
+#define INSTRUCT_FCVT_S_WU \
+  sprintf(remark, "fcvt.s.wu %s,%s", fregs_name[rd], regs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  fregs[rd] = f32_cvt_s_wu(regs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
 #define INSTRUCT_FMV_W_X                                                       \
   sprintf(remark, "fmv.w.x %s,%s", fregs_name[rd], regs_name[rs1]);            \
@@ -1585,12 +1633,40 @@
   pc += 4UL;                                                                   \
   break;
 
-#define INSTRUCT_FCVT_L_S
+#define INSTRUCT_FCVT_L_S \
+  sprintf(remark, "fcvt.l.s %s,%s", regs_name[rd], fregs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  regs[rd] = f32_cvt_l_s(fregs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FCVT_LU_S
+#define INSTRUCT_FCVT_LU_S \
+  sprintf(remark, "fcvt.lu.s %s,%s", regs_name[rd], fregs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  regs[rd] = f32_cvt_lu_s(fregs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FCVT_S_L
+#define INSTRUCT_FCVT_S_L \
+  sprintf(remark, "fcvt.s.l %s,%s", fregs_name[rd], regs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  fregs[rd] = f32_cvt_s_l(regs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
-#define INSTRUCT_FCVT_S_LU
+#define INSTRUCT_FCVT_S_LU \
+  sprintf(remark, "fcvt.s.lu %s,%s", fregs_name[rd], regs_name[rs1]);            \
+  require_extension('F');                                                      \
+  clean_fflags_value();                                                       \
+  fregs[rd] = f32_cvt_s_lu(regs[rs1]);                                   \
+  csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                           \
+  pc += 4UL;                                                                   \
+  break;
 
 #endif

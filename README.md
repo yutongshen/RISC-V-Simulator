@@ -15,7 +15,7 @@ $ make
 ```
 
 ## Block diagram
-![](./figure/rv64.png)
+![](./figures/rv64.png)
 
 - Introduce all slave linked on bus  
 

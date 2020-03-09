@@ -30,7 +30,7 @@ $ make
 - Also you can modify those configuration throgh rewrite `main/main.cpp`
 ## Usage
 - We provide `prog0`~`prog9` test program that you can check processor is correct or not
-- Especially `prog9` is referenced to https://github.com/riscv/riscv-tests
+- Especially `prog9` reference to https://github.com/riscv/riscv-tests
   - There are include all extension version testbench
   - In addition, those testbench can be exacuted with virtual address
 

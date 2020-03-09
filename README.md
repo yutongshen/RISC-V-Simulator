@@ -17,7 +17,7 @@ $ make
 ## Block diagram
 ![](./figures/rv64.png)
 
-- Introduce all slave linked on bus  
+- Introduce all slave on bus  
 
 |Slave   |Base Address|Size    |Read&Write|Cacheable|
 |:------:|:----------:|:------:|:--------:|:-------:|

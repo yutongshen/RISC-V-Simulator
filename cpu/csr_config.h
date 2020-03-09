@@ -385,7 +385,6 @@ uint64_t dscratch;
 #define FFLAGS_MASK 0x1fUL
 #define FRM_MASK 0x7UL
 
-
 #define PMPADDR_MASK ((0x1UL << 54) - 1UL)
 
 #define IRQ_NONSTANDARD 12

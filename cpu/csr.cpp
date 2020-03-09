@@ -72,8 +72,10 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
 #include "cpu/csr_config.h"
 #undef CSR_WRITE_DECLARE
   case CSR_FCSR_ADDR:
-    set_csr(CSR_FFLAGS_ADDR, (fflags & ~FFLAGS_MASK) | ((value >> FCSR_FFLAGS_SHIFT) & FFLAGS_MASK));
-    set_csr(CSR_FRM_ADDR, (frm & ~FRM_MASK) | ((value >> FCSR_FRM_SHIFT) & FRM_MASK));
+    set_csr(CSR_FFLAGS_ADDR, (fflags & ~FFLAGS_MASK) |
+                                 ((value >> FCSR_FFLAGS_SHIFT) & FFLAGS_MASK));
+    set_csr(CSR_FRM_ADDR,
+            (frm & ~FRM_MASK) | ((value >> FCSR_FRM_SHIFT) & FRM_MASK));
     return;
   // Supervispr
   case CSR_SSTATUS_ADDR:
@@ -153,7 +155,8 @@ uint64_t CSR::get_csr(const uint32_t &addr) {
 #include "cpu/csr_config.h"
 #undef CSR_READ_DECLARE
   case CSR_FCSR_ADDR:
-    return (frm & FRM_MASK) << FCSR_FRM_SHIFT | (fflags & FFLAGS_MASK) << FCSR_FFLAGS_SHIFT;
+    return (frm & FRM_MASK) << FCSR_FRM_SHIFT | (fflags & FFLAGS_MASK)
+                                                    << FCSR_FFLAGS_SHIFT;
   case CSR_SSTATUS_ADDR:
     return mstatus & SSTATUS_MASK;
   case CSR_SIE_ADDR:

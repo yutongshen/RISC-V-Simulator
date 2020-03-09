@@ -3,8 +3,8 @@
 
 #include "util/util.h"
 #include <cfenv>
-#include <math.h>
 #include <iostream>
+#include <math.h>
 using namespace std;
 
 uint64_t amo_amoswap_w_func(const uint64_t &a, const uint64_t &b) { return b; }
@@ -276,9 +276,11 @@ int32_t f32_cvt_w_s(const uint64_t &a) {
   union uint32_float32 res;
   res.ui = a;
   res.i = res.f;
-  if (res.i == (1 << 31) && !F32_SIG(a)) return ~res.i;
+  if (res.i == (1 << 31) && !F32_SIG(a))
+    return ~res.i;
   if (F32_EXP(a) == 0xff) {
-    if (F32_FRAC(a)) return -1U >> 1;
+    if (F32_FRAC(a))
+      return -1U >> 1;
     return !F32_SIG(a) ? (-1U >> 1) : (1U << 31);
   }
   return res.i;
@@ -289,7 +291,8 @@ uint32_t f32_cvt_wu_s(const uint64_t &a) {
   res.ui = a;
   res.ui = res.f;
   if (F32_EXP(a) == 0xff) {
-    if (F32_FRAC(a)) return -1U;
+    if (F32_FRAC(a))
+      return -1U;
     return !F32_SIG(a) ? -1U : 0U;
   }
   if (F32_SIG(a) && res.ui) {
@@ -303,9 +306,11 @@ uint32_t f32_cvt_wu_s(const uint64_t &a) {
 int64_t f32_cvt_l_s(const uint64_t &a) {
   union uint32_float32 res;
   res.ui = a;
-  if (F32_IS_NAN(a)) return -1UL >> 1;
+  if (F32_IS_NAN(a))
+    return -1UL >> 1;
   if (F32_EXP(a) == 0xff) {
-    if (F32_FRAC(a)) return -1UL >> 1;
+    if (F32_FRAC(a))
+      return -1UL >> 1;
     return !F32_SIG(a) ? (-1UL >> 1) : (1UL << 63);
   }
   return res.f;
@@ -317,7 +322,8 @@ uint64_t f32_cvt_lu_s(const uint64_t &a) {
   res.ui = a;
   _res = res.f;
   if (F32_EXP(a) == 0xff) {
-    if (F32_FRAC(a)) return -1UL;
+    if (F32_FRAC(a))
+      return -1UL;
     return !F32_SIG(a) ? -1UL : 0UL;
   }
   if (F32_SIG(a) && _res) {

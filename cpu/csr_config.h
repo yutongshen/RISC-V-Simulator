@@ -12,7 +12,7 @@ uint64_t uip;
 // User Floating-Point CSRs
 uint64_t fflags;
 uint64_t frm;
-uint64_t fcsr;
+// uint64_t fcsr; mapping to fflag & frm
 // User Counter/Timers
 uint64_t cycle;
 uint64_t time;
@@ -379,6 +379,13 @@ uint64_t dscratch;
 #define PMP_NA4 2
 #define PMP_NAPOT 3
 
+#define FCSR_FFLAGS_SHIFT 0
+#define FCSR_FRM_SHIFT 5
+
+#define FFLAGS_MASK 0x1fUL
+#define FRM_MASK 0x7UL
+
+
 #define PMPADDR_MASK ((0x1UL << 54) - 1UL)
 
 #define IRQ_NONSTANDARD 12
@@ -621,7 +628,6 @@ CSR_READ_DECLARE(CSR_UTVAL_ADDR, utval)
 CSR_READ_DECLARE(CSR_UIP_ADDR, uip)
 CSR_READ_DECLARE(CSR_FFLAGS_ADDR, fflags)
 CSR_READ_DECLARE(CSR_FRM_ADDR, frm)
-CSR_READ_DECLARE(CSR_FCSR_ADDR, fcsr)
 CSR_READ_DECLARE(CSR_CYCLE_ADDR, cycle)
 CSR_READ_DECLARE(CSR_TIME_ADDR, time)
 CSR_READ_DECLARE(CSR_INSTRET_ADDR, instret)
@@ -778,7 +784,6 @@ CSR_WRITE_DECLARE(CSR_UTVAL_ADDR, utval, -0x1L)
 CSR_WRITE_DECLARE(CSR_UIP_ADDR, uip, -0x1L)
 CSR_WRITE_DECLARE(CSR_FFLAGS_ADDR, fflags, -0x1L)
 CSR_WRITE_DECLARE(CSR_FRM_ADDR, frm, -0x1L)
-CSR_WRITE_DECLARE(CSR_FCSR_ADDR, fcsr, -0x1L)
 CSR_WRITE_DECLARE(CSR_CYCLE_ADDR, cycle, 0x0)
 CSR_WRITE_DECLARE(CSR_TIME_ADDR, time, 0x0)
 CSR_WRITE_DECLARE(CSR_INSTRET_ADDR, instret, 0x0)

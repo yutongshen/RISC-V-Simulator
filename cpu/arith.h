@@ -151,7 +151,7 @@ uint32_t f32_le(const uint64_t &a, const uint64_t &b) {
     _a.ui = F32_DEFAULT_SIGNAL_NAN;
   else if (F32_IS_QUIET_NAN(_b.ui))
     _b.ui = F32_DEFAULT_SIGNAL_NAN;
-  return _a.f < _b.f || _a.f == _b.f;
+  return _a.f <= _b.f;
 }
 
 uint32_t f32_lt(const uint64_t &a, const uint64_t &b) {
@@ -164,6 +164,46 @@ uint32_t f32_lt(const uint64_t &a, const uint64_t &b) {
   else if (F32_IS_QUIET_NAN(_b.ui))
     std::feraiseexcept(FE_INVALID);
   return _a.f < _b.f;
+}
+
+uint32_t f32_min(const uint64_t &a, const uint64_t &b) {
+  if (!(a & (-1U >> 1)) && !(b & (-1U >> 1)))
+    return !F32_SIG(a) ? b : a;
+  if (F32_IS_SINGAL_NAN(a) || F32_IS_SINGAL_NAN(b))
+    std::feraiseexcept(FE_INVALID);
+  if (F32_IS_NAN(a) && F32_IS_NAN(b))
+    return F32_DEFAULT_QUIET_NAN;
+  if (F32_IS_NAN(a))
+    return b;
+  if (F32_IS_NAN(b))
+    return a;
+
+  union uint32_float32 _a;
+  union uint32_float32 _b;
+  _a.ui = a;
+  _b.ui = b;
+
+  return (_a.f < _b.f) ? a : b;
+}
+
+uint32_t f32_max(const uint64_t &a, const uint64_t &b) {
+  if (!(a & (-1U >> 1)) && !(b & (-1U >> 1)))
+    return !F32_SIG(a) ? a : b;
+  if (F32_IS_SINGAL_NAN(a) || F32_IS_SINGAL_NAN(b))
+    std::feraiseexcept(FE_INVALID);
+  if (F32_IS_NAN(a) && F32_IS_NAN(b))
+    return F32_DEFAULT_QUIET_NAN;
+  if (F32_IS_NAN(a))
+    return b;
+  if (F32_IS_NAN(b))
+    return a;
+
+  union uint32_float32 _a;
+  union uint32_float32 _b;
+  _a.ui = a;
+  _b.ui = b;
+
+  return (_a.f < _b.f) ? b : a;
 }
 
 uint32_t f32_add(const uint64_t &a, const uint64_t &b) {

@@ -71,6 +71,10 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     break;
 #include "cpu/csr_config.h"
 #undef CSR_WRITE_DECLARE
+  case CSR_FCSR_ADDR:
+    set_csr(CSR_FFLAGS_ADDR, (fflags & ~FFLAGS_MASK) | ((value >> FCSR_FFLAGS_SHIFT) & FFLAGS_MASK));
+    set_csr(CSR_FRM_ADDR, (frm & ~FRM_MASK) | ((value >> FCSR_FRM_SHIFT) & FRM_MASK));
+    return;
   // Supervispr
   case CSR_SSTATUS_ADDR:
     _mask = SSTATUS_MASK & ~MSTATUS_UXL;
@@ -92,7 +96,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value) {
     _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
             MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
             MSTATUS_TVM | MSTATUS_TSR | MSTATUS_UXL | MSTATUS_SXL |
-            MSTATUS_MPP | MSTATUS_SPP;
+            MSTATUS_MPP | MSTATUS_SPP | MSTATUS_FS | MSTATUS_XS;
     mstatus = (mstatus & ~_mask) | (value & _mask);
     mstatus = set_field(mstatus, MSTATUS_UXL, 2);
     mstatus = set_field(mstatus, MSTATUS_SXL, 2);
@@ -148,6 +152,8 @@ uint64_t CSR::get_csr(const uint32_t &addr) {
     return csr;
 #include "cpu/csr_config.h"
 #undef CSR_READ_DECLARE
+  case CSR_FCSR_ADDR:
+    return (frm & FRM_MASK) << FCSR_FRM_SHIFT | (fflags & FFLAGS_MASK) << FCSR_FFLAGS_SHIFT;
   case CSR_SSTATUS_ADDR:
     return mstatus & SSTATUS_MASK;
   case CSR_SIE_ADDR:

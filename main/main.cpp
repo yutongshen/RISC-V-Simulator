@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 
     Bus bus_0;
     cpu_0.bus_connect(&bus_0);
-    bus_0.s_connect(&boot_rom);
+    bus_0.s_connect(0x00000000, &boot_rom);
     bus_0.s_connect(0x00010000, &sram_0);
     bus_0.s_connect(0x00020000, &sram_1);
     bus_0.s_connect(0x20000000, &disk_0);

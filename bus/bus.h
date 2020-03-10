@@ -10,20 +10,32 @@
 typedef Master *pMaster;
 typedef Slave *pSlave;
 
+union uint64_ptr_t {
+    uint64_t ui;
+    void *ptr;
+};
+
+typedef struct {
+    bool valid;
+    bool is_ptr;
+    union uint64_ptr_t val;
+} memmap_entry_t;
+
+
 class Bus
 {
     uint8_t slave_table[64];
+    memmap_entry_t *mmap;
     uint8_t slave_cnt;
-    uint8_t pre_base_inv;
     std::vector<pMaster> masters;
     std::vector<pSlave> slaves;
-    bool _find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave);
+    bool find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave);
+    void fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound);
 
 public:
     Bus();
     ~Bus();
     void m_connect(pMaster master);
-    void s_connect(pSlave slave);
     void s_connect(const Addr &addr, pSlave slave);
     bool write(const Addr &addr,
                const DataType &data_type,

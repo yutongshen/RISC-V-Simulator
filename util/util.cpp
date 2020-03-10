@@ -43,6 +43,8 @@ uint64_t str2uint64_t(const char *str)
 
 uint8_t clz(uint64_t x)
 {
+    if (!x)
+        return 64;
     uint8_t n(0);
     if (x <= 0x00000000ffffffffUL)
         n += 32, x <<= 32;
@@ -61,6 +63,8 @@ uint8_t clz(uint64_t x)
 
 uint8_t ctz(uint64_t x)
 {
+    if (!x)
+        return 64;
     uint8_t n(0);
     if (!(x << 32))
         n += 32, x >>= 32;

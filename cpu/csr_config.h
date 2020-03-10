@@ -358,9 +358,9 @@ uint64_t dscratch;
 #define MSTATUS_UXL (0x3UL << 32)
 #define MSTATUS_SXL (0x3UL << 34)
 
-#define SSTATUS_MASK                                                           \
-  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_XS |        \
-   MSTATUS_SUM | MSTATUS_MXR | MSTATUS_UXL)
+#define SSTATUS_MASK                                                      \
+    (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_XS | \
+     MSTATUS_SUM | MSTATUS_MXR | MSTATUS_UXL)
 
 #define MIP_SSIP (0x1UL << 1)
 #define MIP_MSIP (0x1UL << 3)
@@ -684,8 +684,8 @@ CSR_READ_DECLARE(CSR_MSCRATCH_ADDR, mscratch)
 CSR_READ_DECLARE(CSR_MCAUSE_ADDR, mcause)
 CSR_READ_DECLARE(CSR_MTVAL_ADDR, mtval)
 CSR_READ_DECLARE(CSR_MIP_ADDR, mip)
-CSR_READ_DECLARE(CSR_PMPCFG0_ADDR, ((uint64_t *)pmpcfg)[0])
-CSR_READ_DECLARE(CSR_PMPCFG2_ADDR, ((uint64_t *)pmpcfg)[1])
+CSR_READ_DECLARE(CSR_PMPCFG0_ADDR, ((uint64_t *) pmpcfg)[0])
+CSR_READ_DECLARE(CSR_PMPCFG2_ADDR, ((uint64_t *) pmpcfg)[1])
 CSR_READ_DECLARE(CSR_PMPADDR0_ADDR, pmpaddr[0])
 CSR_READ_DECLARE(CSR_PMPADDR1_ADDR, pmpaddr[1])
 CSR_READ_DECLARE(CSR_PMPADDR2_ADDR, pmpaddr[2])

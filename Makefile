@@ -5,9 +5,18 @@ sim_dir  := ./sim
 sim_file := sim
 rv_ext   := rv64mi rv64si rv64ui rv64um rv64ua rv64uc rv64uf
 obj_path  = $(src_dir:=/*.o)
+test     := ${bld_dir}/main ./sim/prog9/boot.bin ./sim/prog9/rv64ui/rv64ui-p-add.bin -dump -mem_addr 0x80001000 -mem_len 0x10 -sim_end 0x80001000 -sim_end_code 0x1 -cycle 0x100 -o ./build/dump.out
 
 CC      := g++
 CFLAGS  := 
+
+ifeq (true,${debug})
+CFLAGS  += -g 
+endif
+ifeq (1,${debug})
+CFLAGS  += -g 
+endif
+
 OBJ      = $(wildcard ${obj_path})
 
 .PHONY: all
@@ -18,8 +27,8 @@ build_elf: | ${bld_dir}
 	${CC} ${OBJ} ${CFLAGS} -o ${bld_dir}/main
 
 build_obj:
-	for dir in ${src_dir}; do \
-	    make -C $${dir} root_dir=${root_dir}; \
+	@for dir in ${src_dir}; do \
+	    make -C $${dir} root_dir=${root_dir} debug=${debug}; \
 	done
 
 ${bld_dir}:
@@ -34,6 +43,9 @@ sim: all
 	  make -C ${sim_dir} prog=${prog}; \
 	  ${sim_dir}/${sim_file} ${bld_dir} ${sim_dir}/prog${prog}; \
 	fi
+
+check-leak: all
+	valgrind -q --leak-check=full ${test}
 
 copy-make:
 	@for dir in ${src_dir}; do \

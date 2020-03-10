@@ -1,5 +1,23 @@
 #include "bus/bus.h"
+#include <iostream>
 #include "util/util.h"
+using namespace std;
+
+void del_mmap(memmap_entry_t *ptr)
+{
+    for (int i = 0; i < 64; ++i) {
+        if (ptr[i].valid && ptr[i].is_ptr)
+            del_mmap((memmap_entry_t *) ptr[i].val.ptr);
+    }
+    delete[] ptr;
+}
+
+void init_mmap(memmap_entry_t *ptr)
+{
+    for (int i = 0; i < 64; ++i) {
+        ptr[i].valid = 0;
+    }
+}
 
 void Bus::fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound)
 {
@@ -15,9 +33,13 @@ void Bus::fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound)
 Bus::Bus()
     : slave_table{0}, slave_cnt(0), mmap(new memmap_entry_t[64]), slaves()
 {
+    init_mmap(mmap);
 }
 
-Bus::~Bus() {}
+Bus::~Bus()
+{
+    del_mmap(mmap);
+}
 
 bool Bus::find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave)
 {
@@ -66,6 +88,7 @@ void Bus::s_connect(const Addr &addr, pSlave slave)
             mmap_ptr[idx].valid = 1;
             mmap_ptr[idx].is_ptr = 1;
             mmap_ptr[idx].val.ptr = (memmap_entry_t *) (new memmap_entry_t[64]);
+            init_mmap((memmap_entry_t *) mmap_ptr[idx].val.ptr);
             return fill_mmap_entry((memmap_entry_t *) mmap_ptr[idx].val.ptr,
                                    slave_cnt++, clz(slave->get_size() - 1));
         } else if (mmap_ptr[idx].is_ptr) {

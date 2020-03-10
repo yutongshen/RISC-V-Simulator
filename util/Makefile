@@ -3,6 +3,13 @@ OBJCOPY := objcopy
 
 CFLAGS  := -I${root_dir}
 
+ifeq (true,${debug})
+CFLAGS  += -g 
+endif
+ifeq (1,${debug})
+CFLAGS  += -g 
+endif
+
 SRC_H   := $(wildcard *.h)
 SRC_C   := $(wildcard *.c)
 OBJ_C   := $(patsubst %.c,%.o,$(SRC_C))

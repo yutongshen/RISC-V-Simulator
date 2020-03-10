@@ -250,7 +250,7 @@ void CPU::take_interrupt(uint64_t ints)
         else
             abort();
 
-        throw Trap((1UL << 63) | lsb_leading_zero(ints_en));
+        throw Trap((1UL << 63) | ctz(ints_en));
     }
 
     // Execute instruction after wfi

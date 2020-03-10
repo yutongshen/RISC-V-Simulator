@@ -10,11 +10,9 @@ Bus::~Bus() {}
 
 bool Bus::_find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave)
 {
-    uint8_t test(leading_zero(addr));
+    uint8_t test(clz(addr));
     uint8_t base(63 - test);
     n_slave = slave_table[63 - base];
-    // cout << hex << endl << addr << " " << (int)base << " " << (int)test <<
-    // endl;
 
     if (n_slave != 1)
         offset = addr & ~(-1U << base);
@@ -31,7 +29,7 @@ void Bus::m_connect(pMaster master)
 
 void Bus::s_connect(pSlave slave)
 {
-    uint8_t base_inv(leading_zero(slave->get_size() - 1));
+    uint8_t base_inv(clz(slave->get_size() - 1));
     if (slave_cnt != 1) {
         base_inv = (pre_base_inv < base_inv ? pre_base_inv : base_inv) - 1;
         slave_table[base_inv] = slave_cnt;
@@ -49,13 +47,13 @@ void Bus::s_connect(pSlave slave)
 
 void Bus::s_connect(const Addr &addr, pSlave slave)
 {
-    uint8_t base_inv(leading_zero(addr) + 1);
+    uint8_t base_inv(clz(addr) + 1);
     if (slave_cnt != 1) {
         base_inv = (pre_base_inv < base_inv ? pre_base_inv : base_inv) - 1;
         slave_table[base_inv] = slave_cnt;
         pre_base_inv = base_inv;
     } else {
-        pre_base_inv = base_inv - leading_zero(slave->get_size() - 1);
+        pre_base_inv = base_inv - clz(slave->get_size() - 1);
         for (int i = pre_base_inv; i < base_inv; ++i)
             slave_table[i] = slave_cnt;
     }

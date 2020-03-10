@@ -6,41 +6,6 @@
 #include <iostream>
 #include <string>
 
-uint64_t mulhu(const uint64_t &a, const uint64_t &b)
-{
-    uint64_t a0(a & -1U);
-    uint64_t b0(b & -1U);
-    uint64_t a1(a >> 32);
-    uint64_t b1(b >> 32);
-    uint64_t t0, t1, t2, t3, res;
-
-    t0 = a0 * b0;  //   **
-    t1 = a1 * b0;  //  **
-    t2 = a0 * b1;  //  **
-    t3 = a1 * b1;  // **
-
-    res = (t0 >> 32) + (t1 & -1U) + (t2 & -1U);
-    res = res >> 32;
-    res += (t1 >> 32) + (t2 >> 32) + t3;
-
-    return res;
-}
-
-int64_t mulh(const int64_t &a, const int64_t &b)
-{
-    uint64_t mask((a >> 63) ^ (b >> 63));
-    uint64_t abs_a((a ^ (a >> 63)) - (a >> 63));
-    uint64_t abs_b((b ^ (b >> 63)) - (b >> 63));
-    return (mulhu(abs_a, abs_b) ^ mask) - mask * (a * b == 0);
-}
-
-int64_t mulhsu(const int64_t &a, const uint64_t &b)
-{
-    uint64_t mask(a >> 63);
-    uint64_t abs_a((a ^ mask) - mask);
-    return (mulhu(abs_a, b) ^ mask) - mask * (a * b == 0);
-}
-
 uint64_t str2uint64_t(const char *str)
 {
     std::string _str(str);
@@ -76,7 +41,7 @@ uint64_t str2uint64_t(const char *str)
     return res >> 3;
 }
 
-uint8_t leading_zero(uint64_t x)
+uint8_t clz(uint64_t x)
 {
     uint8_t n(0);
     if (x <= 0x00000000ffffffffUL)
@@ -94,7 +59,7 @@ uint8_t leading_zero(uint64_t x)
     return n;
 }
 
-uint8_t lsb_leading_zero(uint64_t x)
+uint8_t ctz(uint64_t x)
 {
     uint8_t n(0);
     if (!(x << 32))

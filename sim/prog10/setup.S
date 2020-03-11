@@ -1,7 +1,8 @@
-#define SIM_END_ADDR 0x0002fffc
-#define SIM_END_CODE -1 
+#define EXIT_CODE 1
 #define MTIMECMP_ADDR 0xc0000800
 #define MTIME_ADDR 0xc0000ff8
+#define TOHOST 0x80001000
+#define FROMHOST 0x80001040
 
 #define PGSIZE 4096
 #define TRAPFRAM_SIZE (36 * 8)
@@ -67,8 +68,11 @@ rdtime:
     lw a0, 0(a0) 
     ret
 
+tohost:
+    li t0, TOHOST
+    sd a0, 0(t0)
+    j tohost
+
 terminate:
-    la t0, SIM_END_ADDR
-    li t1, SIM_END_CODE
-    sw t1, 0(t0)
-    j terminate
+    li a0, EXIT_CODE
+    j tohost

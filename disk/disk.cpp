@@ -1,5 +1,6 @@
 #include "disk/disk.h"
 #include "util/util.h"
+using namespace std;
 
 void Disk::copyfile(const char *name, const char *cp_name)
 {
@@ -87,16 +88,28 @@ bool Disk::write(const Addr &addr,
 
 bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
+    // data.seekg(0, ios::end);
+    // std::cout << "END: " << data.tellg() << endl;
     switch (data_type) {
     case DATA_TYPE_DWORD:
         if (!_check_bound(addr, 8))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 8 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 8);
         break;
     case DATA_TYPE_WORD:
         if (!_check_bound(addr, 4))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 4 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 4);
         rdata = sext(rdata, 32);
@@ -104,6 +117,11 @@ bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case DATA_TYPE_WORD_UNSIGNED:
         if (!_check_bound(addr, 4))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 4 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 4);
         rdata = zext(rdata, 32);
@@ -111,6 +129,11 @@ bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case DATA_TYPE_HWORD:
         if (!_check_bound(addr, 2))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 2 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 2);
         rdata = sext(rdata, 16);
@@ -118,6 +141,11 @@ bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case DATA_TYPE_HWORD_UNSIGNED:
         if (!_check_bound(addr, 2))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 2 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 2);
         rdata = zext(rdata, 16);
@@ -125,6 +153,11 @@ bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case DATA_TYPE_BYTE:
         if (!_check_bound(addr, 1))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 1 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 1);
         rdata = sext(rdata, 8);
@@ -132,6 +165,11 @@ bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case DATA_TYPE_BYTE_UNSIGNED:
         if (!_check_bound(addr, 1))
             return 0;
+        data.seekg(0, ios::end);
+        if (addr + 1 > data.tellg()) {
+            rdata = 0;
+            return 1;
+        }
         data.seekg(addr);
         data.read((char *) &rdata, 1);
         rdata = zext(rdata, 8);

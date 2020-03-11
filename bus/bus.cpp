@@ -47,6 +47,11 @@ bool Bus::find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave)
     memmap_entry_t *mmap_ptr(mmap);
     offset = addr;
 
+    // uint64_t rdata;
+    // slaves[5]->read(0, DATA_TYPE_DWORD, rdata);
+    // std::cout << std::hex << "MEM[80000000]: " << rdata << std::endl;
+    // std::cout << std::hex << "ADDR : " << addr << " SLAVE : " << (int)n_slave << std::endl;
+
     do {
         idx = idx >= 64 ? 63 : idx;
         if (!mmap_ptr[idx].valid)
@@ -104,6 +109,7 @@ bool Bus::write(const Addr &addr,
 {
     Addr offset;
     uint8_t n_slave;
+
     if (!find_slave(addr, offset, n_slave))
         return 0;
     return slaves[n_slave]->write(offset, data_type, wdata);
@@ -113,7 +119,16 @@ bool Bus::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
     Addr offset;
     uint8_t n_slave;
-    if (!find_slave(addr, offset, n_slave))
+
+    if (!find_slave(addr, offset, n_slave)) {
         return 0;
+    }
+    // if (addr == 0x80001000) {
+    //     std::cout << std::hex << "ADDR : " << addr << " SLAVE : " << (int)n_slave << std::endl;
+    //     return 1;
+    // }
+    // slaves[4]->read(0, DATA_TYPE_DWORD, rdata);
+    // std::cout << std::hex << "MEM[80000000]: " << rdata << std::endl;
+    // std::cout << std::hex << "ADDR : " << addr << " SLAVE : " << (int)n_slave << std::endl;
     return slaves[n_slave]->read(offset, data_type, rdata);
 }

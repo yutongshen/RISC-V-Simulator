@@ -140,7 +140,7 @@ void CPU::run()
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_T1,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A2,
+            reg_num = REG_GP,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             // reg_num = REG_FT3,
             // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);

@@ -11,6 +11,7 @@ class HTIF
     uint64_t tohost_addr;
     uint64_t fromhost_addr;
     SysCall syscall;
+    uint64_t exitcode;
 
 public:
     HTIF();
@@ -18,7 +19,10 @@ public:
     void run();
     void bus_connect(Bus *bus);
     void set_host(uint64_t tohost_addr, uint64_t fromhost_addr);
-    inline uint64_t get_exit_code() { return syscall.get_exit_code(); }
+    uint64_t exit_code();
+    bool exit();
+
+    friend class SysCall;
 };
 
 #endif

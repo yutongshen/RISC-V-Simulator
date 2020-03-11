@@ -2,6 +2,7 @@
 #include <iostream>
 #include "bus/bus.h"
 #include "cpu/cpu.h"
+#include "dev/timer.h"
 #include "disk/disk.h"
 #include "mem/ram.h"
 #include "mem/rom.h"
@@ -39,6 +40,9 @@ int main(int argc, char **argv)
     const uint32_t SIM_END(argparser.get_int("SIMEND"));
     const uint32_t SIM_END_CODE(argparser.get_int("SIMENDCODE"));
     CPU cpu_0(argparser.get_int("PC"));
+    Timer timer_0;
+    timer_0.set_ip(cpu_0.get_mip_ptr());
+
     ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
     RAM sram_0("64kb");
     RAM sram_1("64kb");
@@ -47,6 +51,7 @@ int main(int argc, char **argv)
 
     Bus bus_0;
     cpu_0.bus_connect(&bus_0);
+    bus_0.s_connect(0xc0000000, &timer_0);
     bus_0.s_connect(0x00000000, &boot_rom);
     bus_0.s_connect(0x00010000, &sram_0);
     bus_0.s_connect(0x00020000, &sram_1);
@@ -55,6 +60,7 @@ int main(int argc, char **argv)
 
     System sys_0;
     sys_0.add(&cpu_0);
+    sys_0.add(&timer_0);
 
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));

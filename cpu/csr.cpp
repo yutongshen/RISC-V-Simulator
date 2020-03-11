@@ -142,7 +142,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         mtvec = (mtvec & ~_mask) | (value & _mask);
         return;
     case CSR_MIP_ADDR:
-        _mask = all_ints & (MIP_SSIP | MIP_STIP | MIP_MSIP | MIP_MTIP);
+        _mask = all_ints & (MIP_SSIP | MIP_STIP | MIP_SEIP | MIP_MSIP);
         mip = (mip & ~_mask) | (value & _mask);
         return;
     case CSR_MEPC_ADDR:

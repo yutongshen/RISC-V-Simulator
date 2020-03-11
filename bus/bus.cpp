@@ -76,27 +76,25 @@ void Bus::s_connect(const Addr &addr, pSlave slave)
 
     uint8_t idx(clz(addr));
     uint64_t offset(addr);
-    memmap_entry_t *mmap_ptr;
-    if (idx == 64)
-        return fill_mmap_entry(mmap, slave_cnt++, clz(slave->get_size() - 1));
+    memmap_entry_t *mmap_ptr(mmap);
 
-    mmap_ptr = mmap;
     do {
-        if (idx >= clz(slave->get_size() - 1))
-            abort();
+        if (idx == 64)
+            return fill_mmap_entry(mmap_ptr, slave_cnt++,
+                                   clz(slave->get_size() - 1));
         if (!mmap_ptr[idx].valid) {
             mmap_ptr[idx].valid = 1;
             mmap_ptr[idx].is_ptr = 1;
             mmap_ptr[idx].val.ptr = (memmap_entry_t *) (new memmap_entry_t[64]);
             init_mmap((memmap_entry_t *) mmap_ptr[idx].val.ptr);
-            return fill_mmap_entry((memmap_entry_t *) mmap_ptr[idx].val.ptr,
-                                   slave_cnt++, clz(slave->get_size() - 1));
+            mmap_ptr = (memmap_entry_t *) mmap_ptr[idx].val.ptr;
         } else if (mmap_ptr[idx].is_ptr) {
             mmap_ptr = (memmap_entry_t *) mmap_ptr[idx].val.ptr;
-            offset &= ~(1 << (64 - (idx + 1)));
-            idx = clz(offset);
-        } else
+        } else {
             abort();
+        }
+        offset &= ~(1 << (64 - (idx + 1)));
+        idx = clz(offset);
     } while (1);
 }
 

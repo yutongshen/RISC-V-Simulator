@@ -169,6 +169,7 @@ void CPU::run()
     // cout << hex << "SEPC : " << csr->sepc << endl;
     // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;
     // cout << hex << "SIP : " << csr->get_csr(CSR_SIP_ADDR) << endl;
+    // cout << hex << "MIP : " << csr->mip << endl;
     // cout << hex << "SATP : " << csr->satp << endl;
 }
 

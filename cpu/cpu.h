@@ -32,6 +32,7 @@ public:
     virtual void run();
     void bus_connect(pBus bus);
     bool support_extension(char ext);
+    inline uint64_t *get_mip_ptr() { return &csr->mip; }
 };
 
 #endif

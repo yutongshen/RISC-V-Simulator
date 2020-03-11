@@ -7,6 +7,8 @@ using namespace std;
 void ROM::_init_data(const char *init_file)
 {
     std::ifstream data_stream(init_file, std::ios::binary | std::ios::in);
+    if (!data_stream)
+        abort();
     data_stream.read((char *) data, size);
 }
 

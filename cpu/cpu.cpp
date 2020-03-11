@@ -7,6 +7,8 @@
 #include "util/util.h"
 using namespace std;
 
+extern bool verbose;
+
 const char CPU::regs_name[32][5] = {
     "zero", "ra", "sp", "gp", "tp",  "t0",  "t1", "t2", "s0", "s1", "a0",
     "a1",   "a2", "a3", "a4", "a5",  "a6",  "a7", "s2", "s3", "s4", "s5",
@@ -123,38 +125,44 @@ void CPU::run()
         _c_rs2 = (_c_rs2 & 0x7) | 0x8;
         _c_rd = (_c_rd & 0x7) | 0x8;
 
-        int reg_num(0);
-        printf("%08lx: %08x ", pc, insn);
-        // reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num],
-        // regs[reg_num]); reg_num = REG_S0, printf("%s: %08lx ",
-        // regs_name[reg_num], regs[reg_num]); reg_num = REG_RA, printf("%s:
-        // %08lx
-        // ", regs_name[reg_num], regs[reg_num]);
-        reg_num = REG_A0,
-        printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-        reg_num = REG_A3,
-        printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-        reg_num = REG_A1,
-        printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-        reg_num = REG_FT3,
-        printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-        reg_num = REG_FT0,
-        printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-        reg_num = REG_FT1,
-        printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-
+        if (verbose) {
+            int reg_num(0);
+            printf("%08lx: %08x ", pc, insn);
+            reg_num = REG_SP, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A2, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_T0,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_T1,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A2,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            // reg_num = REG_FT3,
+            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+            // reg_num = REG_FT0,
+            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+            // reg_num = REG_FT1,
+            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+        }
 #include "cpu/exec.h"
 
-        cout << remark << endl;
+        if (verbose) {
+            cout << remark << endl;
+        }
     } catch (Trap &t) {
         if ((int64_t) t.get_cause() >= 0)
             cout << remark << endl;
-        cout << hex << "MSTATUS : " << csr->mstatus << endl;
-        printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc,
-               t.get_tval());
+        if (verbose) {
+            cout << hex << "MSTATUS : " << csr->mstatus << endl;
+            // printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc,
+            //        t.get_tval());
+        }
         trap_handling(t, pc);
     } catch (WaitForInterrupt &t) {
-        cout << remark << endl;
+        if (verbose) {
+            cout << remark << endl;
+        }
         low_power = 1;
     }
     regs[0] = 0UL;
@@ -260,7 +268,7 @@ void CPU::take_interrupt(uint64_t ints)
 
 void CPU::bus_connect(pBus bus)
 {
-    mmu->connect(bus);
+    mmu->mb_connect(bus);
 }
 
 bool CPU::support_extension(char ext)

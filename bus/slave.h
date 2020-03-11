@@ -25,13 +25,13 @@ public:
     Slave(uint64_t size = 0x40000L);
     Slave(const char *str_size);
     ~Slave();
-    void connect(pBus bus);
     virtual bool write(const Addr &addr,
                        const DataType &data_type,
                        const uint64_t &wdata) = 0;
     virtual bool read(const Addr &addr,
                       const DataType &data_type,
                       uint64_t &rdata) = 0;
+    void sb_connect(pBus bus);
     uint64_t get_size();
 };
 

@@ -17,14 +17,6 @@ Master::Master() : m_id(num), p_bus(NULL), connected(0)
 
 Master::~Master() {}
 
-void Master::connect(pBus bus)
-{
-    assert(!connected);
-    this->p_bus = bus;
-    bus->m_connect(this);
-    connected = 1;
-}
-
 bool Master::write(const Addr &addr,
                    const DataType &data_type,
                    const uint64_t &wdata)
@@ -39,3 +31,12 @@ bool Master::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         return p_bus->read(addr, data_type, rdata);
     return 0;
 }
+
+void Master::mb_connect(pBus bus)
+{
+    assert(!connected);
+    this->p_bus = bus;
+    bus->m_connect(this);
+    connected = 1;
+}
+

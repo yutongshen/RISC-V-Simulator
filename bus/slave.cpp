@@ -27,7 +27,7 @@ Slave::Slave(const char *str_size)
 
 Slave::~Slave() {}
 
-void Slave::connect(pBus bus)
+void Slave::sb_connect(pBus bus)
 {
     assert(!connected);
     this->p_bus = bus;

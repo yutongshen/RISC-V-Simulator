@@ -29,7 +29,7 @@ protected:
 public:
     Master();
     ~Master();
-    void connect(pBus bus);
+    void mb_connect(pBus bus);
 };
 
 #endif

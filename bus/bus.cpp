@@ -72,7 +72,7 @@ void Bus::m_connect(pMaster master)
 void Bus::s_connect(const Addr &addr, pSlave slave)
 {
     slaves.push_back(slave);
-    slave->connect(this);
+    slave->sb_connect(this);
 
     uint8_t idx(clz(addr));
     uint64_t offset(addr);

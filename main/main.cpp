@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
     RAM sram_0("64kb");
     RAM sram_1("64kb");
-    // Disk disk_0(argparser.get_str(1).c_str(), "2mb");
+    Disk disk_0(argparser.get_str(1).c_str(), "2mb");
     Disk disk_1(argparser.get_str(1).c_str(), "2mb");
 
     Bus bus_0;
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     bus_0.s_connect(0x00000000, &boot_rom);
     bus_0.s_connect(0x00010000, &sram_0);
     bus_0.s_connect(0x00020000, &sram_1);
-    // bus_0.s_connect(0x20000000, &disk_0);
+    bus_0.s_connect(0x20000000, &disk_0);
     bus_0.s_connect(0x80000000, &disk_1);
 
     System sys_0;

@@ -128,10 +128,14 @@ void CPU::run()
         if (verbose) {
             int reg_num(0);
             printf("%08lx: %08x ", pc, insn);
-            reg_num = REG_SP, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A0, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A1, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A2, printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_SP,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A0,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A1,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A2,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_T0,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_T1,
@@ -152,12 +156,12 @@ void CPU::run()
         }
     } catch (Trap &t) {
         if ((int64_t) t.get_cause() >= 0)
-            cout << remark << endl;
-        if (verbose) {
-            cout << hex << "MSTATUS : " << csr->mstatus << endl;
-            // printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc,
-            //        t.get_tval());
-        }
+            if (verbose) {
+                cout << remark << endl;
+                cout << hex << "MSTATUS : " << csr->mstatus << endl;
+                printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc,
+                       t.get_tval());
+            }
         trap_handling(t, pc);
     } catch (WaitForInterrupt &t) {
         if (verbose) {
@@ -166,6 +170,10 @@ void CPU::run()
         low_power = 1;
     }
     regs[0] = 0UL;
+
+    ++csr->time;
+    ++csr->mcycle;
+    ++csr->minstret;
 
     // uint64_t addr(0x80002008), rdata;
     // cout << hex

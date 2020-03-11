@@ -4,13 +4,14 @@
 #include "cpu/cpu.h"
 #include "dev/timer.h"
 #include "disk/disk.h"
+#include "fesvr/htif.h"
 #include "mem/ram.h"
 #include "mem/rom.h"
 #include "sys/system.h"
 #include "util/util.h"
 using namespace std;
 
-bool verbose(1);
+bool verbose(0);
 
 int main(int argc, char **argv)
 {
@@ -64,13 +65,18 @@ int main(int argc, char **argv)
     sys_0.add(&cpu_0);
     sys_0.add(&timer_0);
 
+    HTIF htif_0;
+    htif_0.bus_connect(&bus_0);
+    htif_0.set_host(0x80001000, 0x80001040);
+
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));
     uint64_t end_code;
     while ((bus_0.read(SIM_END, DATA_TYPE_WORD, end_code),
             (uint32_t) end_code) != SIM_END_CODE &&
-           cycle--) {
+           cycle-- && !htif_0.get_exit_code()) {
         sys_0.run();
+        htif_0.run();
     }
 
     // Dump

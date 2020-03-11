@@ -39,4 +39,3 @@ void Master::mb_connect(pBus bus)
     bus->m_connect(this);
     connected = 1;
 }
-

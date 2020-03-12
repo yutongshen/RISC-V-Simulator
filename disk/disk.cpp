@@ -52,130 +52,80 @@ bool Disk::write(const Addr &addr,
                  const DataType &data_type,
                  const uint64_t &wdata)
 {
+    uint8_t len(0);
+
     switch (data_type) {
     case DATA_TYPE_DWORD:
-        if (!_check_bound(addr, 8))
-            return 0;
-        data.seekg(addr);
-        data.write((char *) &wdata, 8);
+        len = 8;
         break;
     case DATA_TYPE_WORD:
     case DATA_TYPE_WORD_UNSIGNED:
-        if (!_check_bound(addr, 4))
-            return 0;
-        data.seekg(addr);
-        data.write((char *) &wdata, 4);
+        len = 4;
         break;
     case DATA_TYPE_HWORD:
     case DATA_TYPE_HWORD_UNSIGNED:
-        if (!_check_bound(addr, 2))
-            return 0;
-        data.seekg(addr);
-        data.write((char *) &wdata, 2);
+        len = 2;
         break;
     case DATA_TYPE_BYTE:
     case DATA_TYPE_BYTE_UNSIGNED:
-        if (!_check_bound(addr, 1))
-            return 0;
-        data.seekg(addr);
-        data.write((char *) &wdata, 1);
+        len = 1;
         break;
     default:
         abort();
     }
+
+    // std::cout << std::hex << "ADDR: " << addr << " DATA: " << wdata <<
+    // std::endl;
+    if (!_check_bound(addr, len))
+        return 0;
+    data.seekg(addr);
+    data.write((char *) &wdata, len);
     return 1;
 }
 
 bool Disk::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
-    // data.seekg(0, ios::end);
-    // std::cout << "END: " << data.tellg() << endl;
+    uint8_t len(0);
+    bool _is_signed(0);
+
     switch (data_type) {
     case DATA_TYPE_DWORD:
-        if (!_check_bound(addr, 8))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 8 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 8);
+        len = 8;
         break;
     case DATA_TYPE_WORD:
-        if (!_check_bound(addr, 4))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 4 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 4);
-        rdata = sext(rdata, 32);
-        break;
+        _is_signed = 1;
     case DATA_TYPE_WORD_UNSIGNED:
-        if (!_check_bound(addr, 4))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 4 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 4);
-        rdata = zext(rdata, 32);
+        len = 4;
         break;
     case DATA_TYPE_HWORD:
-        if (!_check_bound(addr, 2))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 2 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 2);
-        rdata = sext(rdata, 16);
-        break;
+        _is_signed = 1;
     case DATA_TYPE_HWORD_UNSIGNED:
-        if (!_check_bound(addr, 2))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 2 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 2);
-        rdata = zext(rdata, 16);
+        len = 2;
         break;
     case DATA_TYPE_BYTE:
-        if (!_check_bound(addr, 1))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 1 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 1);
-        rdata = sext(rdata, 8);
-        break;
+        _is_signed = 1;
     case DATA_TYPE_BYTE_UNSIGNED:
-        if (!_check_bound(addr, 1))
-            return 0;
-        data.seekg(0, ios::end);
-        if (addr + 1 > data.tellg()) {
-            rdata = 0;
-            return 1;
-        }
-        data.seekg(addr);
-        data.read((char *) &rdata, 1);
-        rdata = zext(rdata, 8);
+        len = 1;
         break;
     default:
         abort();
     }
+
+    if (!_check_bound(addr, len))
+        return 0;
+
+    // Solve that the file's data at read address is empty
+    data.seekg(0, ios::end);
+    if (addr + len > data.tellg()) {
+        char buff(0);
+        data.seekg(addr + len - 1);
+        data.write(&buff, 1);
+        rdata = 0;
+        return 1;
+    }
+
+    data.seekg(addr);
+    data.read((char *) &rdata, len);
+    rdata = _is_signed ? sext(rdata, len << 3) : zext(rdata, len << 3);
     return 1;
 }

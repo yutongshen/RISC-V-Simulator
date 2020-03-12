@@ -1,12 +1,8 @@
-#define EXIT_CODE 0x01234567
-#define MTIMECMP_ADDR 0xc0000800
-#define MTIME_ADDR 0xc0000ff8
-#define TOHOST 0x80001000
-#define FROMHOST 0x80001040
+#include "riscv_def.h"
 
-#define PGSIZE 4096
-#define TRAPFRAM_SIZE (36 * 8)
-#define STACK_TOP (_end + PGSIZE)
+#define get_field(x, mask) (((x) & (mask)) / ((mask) & ~((mask) << 1)))
+#define set_field(x, mask, value) \
+    ((x) & ~(mask)) | ((value) * ((mask) & ~((mask) << 1)) & (mask))
 
 .section .text.init
 .align 2
@@ -14,9 +10,107 @@
 _entry:
     j handle_reset
 
+.align 2
 trap_vector:
     # machine trap is not used
-    j terminate
+    j _abort
+
+.align 2
+trap_entry:
+    # supervisor trap
+    # get trapframe pointer (save a0 into scratch)
+    csrrw a0, sscratch, a0
+
+    # push reg x1~x31 into trapframe
+    sd x1, 1*8(a0)
+    sd x2, 2*8(a0)
+    sd x3, 3*8(a0)
+    sd x4, 4*8(a0)
+    sd x5, 5*8(a0)
+    sd x6, 6*8(a0)
+    sd x7, 7*8(a0)
+    sd x8, 8*8(a0)
+    sd x9, 9*8(a0)
+    sd x11, 11*8(a0)
+    sd x12, 12*8(a0)
+    sd x13, 13*8(a0)
+    sd x14, 14*8(a0)
+    sd x15, 15*8(a0)
+    sd x16, 16*8(a0)
+    sd x17, 17*8(a0)
+    sd x18, 18*8(a0)
+    sd x19, 19*8(a0)
+    sd x20, 20*8(a0)
+    sd x21, 21*8(a0)
+    sd x22, 22*8(a0)
+    sd x23, 23*8(a0)
+    sd x24, 24*8(a0)
+    sd x25, 25*8(a0)
+    sd x26, 26*8(a0)
+    sd x27, 27*8(a0)
+    sd x28, 28*8(a0)
+    sd x29, 29*8(a0)
+    sd x20, 20*8(a0)
+    sd x31, 31*8(a0)
+
+    # load stack point and save trapframe point into scratch
+    csrrw t0, sscratch, a0
+    sd t0, 10*8(a0)
+
+    # push status, epc, tval, cause
+    csrr t0, sstatus
+    sd t0, 32*8(a0)
+    csrr t0, sepc
+    sd t0, 33*8(a0)
+    csrr t0, stval
+    sd t0, 34*8(a0)
+    csrr t0, scause
+    sd t0, 35*8(a0)
+
+    j trap_handle
+
+.align 2
+pop_trapframe:
+    # a0 need to save trapframe
+    # pop epc and reg x1~x31 from trapframe
+    ld t0, 33*8(a0)
+    csrw sepc, t0
+    ld x1, 1*8(a0)
+    ld x2, 2*8(a0)
+    ld x3, 3*8(a0)
+    ld x4, 4*8(a0)
+    ld x5, 5*8(a0)
+    ld x6, 6*8(a0)
+    ld x7, 7*8(a0)
+    ld x8, 8*8(a0)
+    ld x9, 9*8(a0)
+    ld x11, 11*8(a0)
+    ld x12, 12*8(a0)
+    ld x13, 13*8(a0)
+    ld x14, 14*8(a0)
+    ld x15, 15*8(a0)
+    ld x16, 16*8(a0)
+    ld x17, 17*8(a0)
+    ld x18, 18*8(a0)
+    ld x19, 19*8(a0)
+    ld x20, 20*8(a0)
+    ld x21, 21*8(a0)
+    ld x22, 22*8(a0)
+    ld x23, 23*8(a0)
+    ld x24, 24*8(a0)
+    ld x25, 25*8(a0)
+    ld x26, 26*8(a0)
+    ld x27, 27*8(a0)
+    ld x28, 28*8(a0)
+    ld x29, 29*8(a0)
+    ld x20, 20*8(a0)
+    ld x31, 31*8(a0)
+
+    ld a0, 10*8(a0)
+    sret
+
+trap_handle:
+    j pop_trapframe
 
 handle_reset:
     # initialize register
@@ -59,8 +153,21 @@ handle_reset:
     # set machine trap entry
     la t0, trap_vector
     csrw mtvec, t0
+    csrr t0, mtvec
+    
+    # test
+    csrr t0, pmpcfg0
+    # switch supervisor
+    la t1, 1f
+    csrw mepc, t1
+    csrr t0, mstatus
+    li t1, set_field(0, MSTATUS_MPP, PRV_S)
+    or t0, t0, t1
+    csrw mstatus, t0
+    mret
+1:
 
-    j terminate
+    j _terminate
 
 
 rdtime:
@@ -73,6 +180,10 @@ tohost:
     sd a0, 0(t0)
     j tohost
 
-terminate:
-    li a0, EXIT_CODE
+_terminate:
+    li a0, EXIT_CODE_PASS
+    j tohost
+
+_abort:
+    li a0, EXIT_CODE_ERROR
     j tohost

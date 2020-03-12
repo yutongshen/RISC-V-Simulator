@@ -18,6 +18,9 @@ CSR::CSR(uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
 
     mstatus = set_field(mstatus, MSTATUS_UXL, 2);
     mstatus = set_field(mstatus, MSTATUS_SXL, 2);
+    
+    pmpaddr[0] = -1UL;
+    pmpcfg[0]  = PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT);
 }
 
 CSR::~CSR() {}

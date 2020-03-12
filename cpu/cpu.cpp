@@ -127,6 +127,17 @@ void CPU::run()
 
         if (verbose) {
             int reg_num(0);
+            switch (csr->prv) {
+            case 0:
+                printf("[U] ");
+                break;
+            case 1:
+                printf("[S] ");
+                break;
+            case 3:
+                printf("[M] ");
+                break;
+            }
             printf("%08lx: %08x ", pc, insn);
             reg_num = REG_SP,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
@@ -180,7 +191,6 @@ void CPU::run()
     //      << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata),
     //      rdata)
     //      << endl;
-    // cout << hex << "PRV : " << csr->prv << endl;
     // cout << hex << "STVAL : " << csr->stval << endl;
     // cout << hex << "SEPC : " << csr->sepc << endl;
     // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;

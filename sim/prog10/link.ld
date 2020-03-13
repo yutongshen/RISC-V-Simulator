@@ -18,6 +18,9 @@ SECTIONS
 {
   /*. = 0x00000000;
   .text.boot : { *(.text.boot) }*/
+  . = ALIGN(0x1000);
+  .comment : { *(.comment) }
+  .riscv.attributes : { *(.riscv.attributes) }
   . = 0x80000000;
   .text.init : { *(.text.init) }
   . = ALIGN(0x1000);

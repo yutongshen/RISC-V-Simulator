@@ -136,40 +136,40 @@ load_page_fault:
 store_page_fault:
     j _abort # no interrupt
 
-putchar:
-    # a0 is char
-    # push t0, t1 into stack
-    addi sp, sp, -2*8
-    sd t0, 0(sp)
-    sd t1, 8(sp)
-
-    # allocate sys_id, fd, pbuff, len
-    addi sp, sp, -4*8
-    sw a0, -4(sp)    # char
-    li t0, 0x40     # sys_id
-    sd t0, 0(sp)
-    li t0, 0x1      # fd
-    sd t0, 8(sp)
-    addi t0, sp, -4 # pbuff
-    sd t0, 16(sp)
-    li t0, 0x1      # len
-    sd t0, 24(sp)
-    li t1, TOHOST_ADDR
-    sd sp, 0(t1)
-    addi sp, sp, 4*8
-
-    li t1, FROMHOST_ADDR
-    fence
-1:
-    ld t0, 0(t1)
-    beqz t0, 1b
-    fence
-
-    # pop t0, t1 and return
-    ld t0, 0(sp)
-    ld t1, 8(sp)
-    addi sp, sp, 2*8
-    ret
+# putchar:
+#     # a0 is char
+#     # push t0, t1 into stack
+#     addi sp, sp, -2*8
+#     sd t0, 0(sp)
+#     sd t1, 8(sp)
+# 
+#     # allocate sys_id, fd, pbuff, len
+#     addi sp, sp, -4*8
+#     sw a0, -4(sp)    # char
+#     li t0, 0x40     # sys_id
+#     sd t0, 0(sp)
+#     li t0, 0x1      # fd
+#     sd t0, 8(sp)
+#     addi t0, sp, -4 # pbuff
+#     sd t0, 16(sp)
+#     li t0, 0x1      # len
+#     sd t0, 24(sp)
+#     la t1, tohost
+#     sd sp, 0(t1)
+#     addi sp, sp, 4*8
+# 
+#     la t1, fromhost
+#     fence
+# 1:
+#     ld t0, 0(t1)
+#     beqz t0, 1b
+#     fence
+# 
+#     # pop t0, t1 and return
+#     ld t0, 0(sp)
+#     ld t1, 8(sp)
+#     addi sp, sp, 2*8
+#     ret
 
     
 
@@ -225,6 +225,12 @@ handle_reset:
            (1 << CAUSE_STORE_PAGE_FAULT)
     csrw medeleg, t0
 
+    # Set pmp
+    li t0, -1;
+    csrw pmpaddr0, t0
+    li t0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT)
+    csrw pmpcfg0, t0
+
     # set supervisor trap entry
     la t0, trap_entry
     csrw stvec, t0
@@ -276,7 +282,7 @@ rdtime:
     ret
 
 write_tohost:
-    li t0, TOHOST_ADDR
+    la t0, tohost
 1:  sd a0, 0(t0)
     j 1b
 
@@ -290,9 +296,11 @@ _abort:
 
 .section .tohost
 .align 6
+.globl tohost
 tohost:
     .word 0
 .align 6
+.globl fromhost
 fromhost:
     .word 0
 

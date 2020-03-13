@@ -38,7 +38,7 @@ Addr MMU::translate(const Addr &addr, const uint64_t &len, uint8_t type)
 
     paddr = trace_pt(addr, len, type, prv);
     if (!pmp_ok(paddr, len, type, csr->prv))
-        std::cout << "yoooooooooooo\n", throw_access_exception(addr, type);
+        throw_access_exception(addr, type);
 
     return paddr;
 }

@@ -42,10 +42,11 @@ uint64_t SysCall::SysWrite(uint64_t args)
 
     for (int i = 0; i < len; ++i) {
         sysbus->read(pbuf + i, DATA_TYPE_BYTE, tmp);
-        buff[i] = tmp;
+        putchar((char) tmp);
+        // buff[i] = tmp;
     }
 
-    printf("%s", buff);
+    // printf("%s", buff);
 
     return 1;
 }

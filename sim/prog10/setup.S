@@ -4,6 +4,8 @@
 #define set_field(x, mask, value) \
     ((x) & ~(mask)) | ((value) * ((mask) & ~((mask) << 1)) & (mask))
 
+#define TOHOST_ADDR 0x80001000
+#define FROMHOST_ADDR 0x80001040
 .section .text.init
 .align 2
 .globl _entry
@@ -110,7 +112,66 @@ pop_trapframe:
     sret
 
 trap_handle:
-    j pop_trapframe
+    csrr t0, scause
+    bltz t0, interrupt_handle
+    li t1, CAUSE_MISALIGNED_FETCH
+    beq t0, t1, misaligned_fetch
+    li t1, CAUSE_BREAKPOINT
+    beq t0, t1, sbreak
+    li t1, CAUSE_USER_ECALL
+    beq t0, t1, ucall
+    li t1, CAUSE_INSTRUCTION_PAGE_FAULT
+    beq t0, t1, insn_page_fault
+    li t1, CAUSE_LOAD_PAGE_FAULT
+    beq t0, t1, load_page_fault
+    li t1, CAUSE_STORE_PAGE_FAULT
+    beq t0, t1, store_page_fault
+
+interrupt_handle:
+misaligned_fetch:
+sbreak:
+ucall:
+insn_page_fault:
+load_page_fault:
+store_page_fault:
+    j _abort # no interrupt
+
+putchar:
+    # a0 is char
+    # push t0, t1 into stack
+    addi sp, sp, -2*8
+    sd t0, 0(sp)
+    sd t1, 8(sp)
+
+    # allocate sys_id, fd, pbuff, len
+    addi sp, sp, -4*8
+    sw a0, -4(sp)    # char
+    li t0, 0x40     # sys_id
+    sd t0, 0(sp)
+    li t0, 0x1      # fd
+    sd t0, 8(sp)
+    addi t0, sp, -4 # pbuff
+    sd t0, 16(sp)
+    li t0, 0x1      # len
+    sd t0, 24(sp)
+    li t1, TOHOST_ADDR
+    sd sp, 0(t1)
+    addi sp, sp, 4*8
+
+    li t1, FROMHOST_ADDR
+    fence
+1:
+    ld t0, 0(t1)
+    beqz t0, 1b
+    fence
+
+    # pop t0, t1 and return
+    ld t0, 0(sp)
+    ld t1, 8(sp)
+    addi sp, sp, 2*8
+    ret
+
+    
 
 handle_reset:
     # initialize register
@@ -154,19 +215,58 @@ handle_reset:
     la t0, trap_vector
     csrw mtvec, t0
     csrr t0, mtvec
+
+    # delegate exception for supervisor
+    li t0, (1 << CAUSE_MISALIGNED_FETCH) |\
+           (1 << CAUSE_BREAKPOINT) |\
+           (1 << CAUSE_USER_ECALL) |\
+           (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |\
+           (1 << CAUSE_LOAD_PAGE_FAULT) |\
+           (1 << CAUSE_STORE_PAGE_FAULT)
+    csrw medeleg, t0
+
+    # set supervisor trap entry
+    la t0, trap_entry
+    csrw stvec, t0
+    csrr t0, stvec
+    la t0, (STACK_TOP - TRAPFRAM_SIZE)
+    csrw sscratch, t0
     
-    # test
-    csrr t0, pmpcfg0
     # switch supervisor
-    la t1, 1f
-    csrw mepc, t1
+    la t0, 1f
+    csrw mepc, t0
     csrr t0, mstatus
     li t1, set_field(0, MSTATUS_MPP, PRV_S)
     or t0, t0, t1
     csrw mstatus, t0
     mret
-1:
-
+1:  
+    la a0, 'H'
+    call putchar
+    la a0, 'E'
+    call putchar
+    la a0, 'L'
+    call putchar
+    la a0, 'L'
+    call putchar
+    la a0, 'O'
+    call putchar
+    la a0, ' '
+    call putchar
+    la a0, 'W'
+    call putchar
+    la a0, 'O'
+    call putchar
+    la a0, 'R'
+    call putchar
+    la a0, 'L'
+    call putchar
+    la a0, 'D'
+    call putchar
+    la a0, '\n'
+    call putchar
+    la a0, 0
+    call putchar
     j _terminate
 
 
@@ -175,15 +275,33 @@ rdtime:
     lw a0, 0(a0) 
     ret
 
-tohost:
-    li t0, TOHOST
-    sd a0, 0(t0)
-    j tohost
+write_tohost:
+    li t0, TOHOST_ADDR
+1:  sd a0, 0(t0)
+    j 1b
 
 _terminate:
     li a0, EXIT_CODE_PASS
-    j tohost
+    j write_tohost
 
 _abort:
     li a0, EXIT_CODE_ERROR
-    j tohost
+    j write_tohost
+
+.section .tohost
+.align 6
+tohost:
+    .word 0
+.align 6
+fromhost:
+    .word 0
+
+.section .data
+.align 4
+str:
+.dword 0x40
+.dword 1
+.dword hello
+.dword 13
+hello:
+.string "hello word!\n"

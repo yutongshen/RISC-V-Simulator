@@ -11,7 +11,7 @@
 #include "util/util.h"
 using namespace std;
 
-bool verbose(1);
+bool verbose(0);
 
 int main(int argc, char **argv)
 {

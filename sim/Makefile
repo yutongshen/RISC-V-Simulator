@@ -41,6 +41,9 @@ build_elf: ${OBJ}
 	${OBJCOPY} -I binary -O elf64-x86-64 -B i386 $^ $@
 
 auto-format:
+	@for dir in ${PROG_DIR}; do \
+	    make -C $${dir} auto-format; \
+	done
 	@if [ "${SRC_H}" != "" ] || [ "${SRC_C}" != "" ] || [ "${SRC_CPP}" != "" ]; then \
 	    clang-format -i ${SRC_H} ${SRC_C} ${SRC_CPP}; \
     fi

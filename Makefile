@@ -48,14 +48,14 @@ sim: all
 check-leak: all
 	valgrind -q --leak-check=full ${test}
 
-copy-make:
+link-make:
 	@for dir in ${src_dir}; do \
-	    cp .Makefile $${dir}/Makefile; \
+		ln -sf ../.Makefile $${dir}/Makefile; \
 	done
 
-copy-clang-format:
+link-clang-format:
 	@for dir in ${src_dir}; do \
-	    cp .clang-format $${dir}/.clang-format; \
+	    ln -sf ../.clang-format $${dir}/.clang-format; \
 	done
 
 auto-format:

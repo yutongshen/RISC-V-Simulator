@@ -1,4 +1,5 @@
-void merge(int *list, int a, int b, int b_end) {
+void merge(int *list, int a, int b, int b_end)
+{
     int start = a;
     int a_end = b;
     int i = 0;
@@ -7,15 +8,19 @@ void merge(int *list, int a, int b, int b_end) {
     while (a != a_end && b != b_end) {
         if (list[a] <= list[b])
             buff[i++] = list[a++];
-        else 
+        else
             buff[i++] = list[b++];
     }
-    while (a != a_end) buff[i++] = list[a++];
-    while (b != b_end) buff[i++] = list[b++];
-    while (i--) list[start + i] = buff[i];
+    while (a != a_end)
+        buff[i++] = list[a++];
+    while (b != b_end)
+        buff[i++] = list[b++];
+    while (i--)
+        list[start + i] = buff[i];
 }
 
-void merge_sort(int *list, int left, int right) {
+void merge_sort(int *list, int left, int right)
+{
     if (left >= right) {
         return;
     }
@@ -25,7 +30,8 @@ void merge_sort(int *list, int left, int right) {
     merge(list, left, mid + 1, right + 1);
 }
 
-int main(void) {
+int main(void)
+{
     extern int array_size;
     extern int array_addr[];
     extern int _test_start[];

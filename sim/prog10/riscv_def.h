@@ -10,6 +10,18 @@
 #define TRAPFRAM_SIZE (35 * 8)
 #define STACK_TOP (_end + PGSIZE)
 
+#define write_csr(name, value) { \
+    asm volatile("csrw " #name ", %0"::"r"(value)); \
+}
+
+#define read_csr(name, value) { \
+    asm volatile("csrr %0, " #name:"=r"(value)); \
+}
+
+#define get_field(x, mask) (((x) & (mask)) / ((mask) & ~((mask) << 1)))
+#define set_field(x, mask, value) \
+    ((x) & ~(mask)) | ((value) * ((mask) & ~((mask) << 1)) & (mask))
+
 #define PRV_U 0x0
 #define PRV_S 0x1
 #define PRV_H 0x2

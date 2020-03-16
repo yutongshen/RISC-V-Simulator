@@ -1,4 +1,4 @@
-void boot(void) 
+void boot(void)
 {
     extern unsigned char __text_start[];
     extern unsigned char __text_end[];

@@ -43,6 +43,11 @@ build_hex: $(ELF_NAME)
 %.o: %.c
 	$(RISCV_GCC) -c $(CFLAGS) $^
 
+auto-format:
+	@if [ "${SRC_H}" != "" ] || [ "${SRC_C}" != "" ] || [ "${SRC_CPP}" != "" ]; then \
+	    clang-format -i ${SRC_H} ${SRC_C} ${SRC_CPP}; \
+    fi
+
 .PHONY: clean
 
 clean:

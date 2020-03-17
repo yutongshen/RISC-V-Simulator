@@ -1,19 +1,50 @@
 #include "util.h"
 #include <stdarg.h>
 
-#define assert(x)                                                     \
-    do {                                                              \
-        if (!x) {                                                     \
-            printf("Failed assertion '%s' at line %d of '%s'.\n", #x, \
-                   __LINE__, __FILE__);                               \
-            tohost = 3;                                               \
-        }                                                             \
-    } while (0)
-
 #define SYS_WRITE 0x40
 
 extern volatile uint64_t tohost;
 extern volatile uint64_t fromhost;
+
+void *memset(void *ptr, int val, size_t len)
+{
+    uint64_t *dword_ptr = ptr;
+    uint64_t write_dword = (char) val;
+    write_dword |= write_dword << 8;
+    write_dword |= write_dword << 16;
+    write_dword |= write_dword << 32;
+
+    while (len >= 8) {
+        *dword_ptr++ = write_dword;
+        len -= 8;
+    }
+
+    char *byte_ptr = (char *) dword_ptr;
+    while (len--) {
+        *byte_ptr++ = val;
+    }
+
+    return ptr;
+}
+
+void *memcpy(void *ptr, void *src, size_t len)
+{
+    uint64_t *dword_ptr = ptr;
+    uint64_t *dword_src = src;
+
+    while (len >= 8) {
+        *dword_ptr++ = *dword_src++;
+        len -= 8;
+    }
+
+    char *byte_ptr = (char *) dword_ptr;
+    char *byte_src = (char *) dword_src;
+    while (len--) {
+        *byte_ptr++ = *byte_src++;
+    }
+
+    return ptr;
+}
 
 static void syscall(uint64_t sys_id,
                     uint64_t arg0,
@@ -26,7 +57,7 @@ static void syscall(uint64_t sys_id,
     tohost_msg[2] = arg1;
     tohost_msg[3] = arg2;
 
-    tohost = (uint64_t) tohost_msg;
+    tohost = (uint64_t) tohost_msg & ((1UL << 21) - 1UL) | 0x80000000;
     while (!fromhost)
         ;
 
@@ -40,7 +71,8 @@ int putchar(int ch)
     buff[len++] = ch;
 
     if (ch == '\n' || len == sizeof(buff)) {
-        syscall(SYS_WRITE, 1, (uint64_t) buff, len);
+        syscall(SYS_WRITE, 1,
+                (uint64_t) buff & ((1UL << 21) - 1UL) | 0x80000000, len);
         len = 0;
     }
 

@@ -1,16 +1,5 @@
 #include "riscv_def.h"
 
-#define PRV_M2S \
-    la t0, 1f; \
-    csrw mepc, t0; \
-    csrr t0, mstatus; \
-    li t1, set_field(0, MSTATUS_MPP, PRV_S); \
-    or t0, t0, t1; \
-    csrw mstatus, t0; \
-    mret; \
-1:
-
-
 .section .text.init
 .align 2
 .globl _entry
@@ -19,101 +8,111 @@ _entry:
 
 .align 2
 trap_vector:
-    # machine trap is not used
+    csrr t0, mcause;
+    li t1, CAUSE_SUPERVISOR_ECALL;
+    beq t0, t1, scall;
+    li t1, CAUSE_USER_ECALL;
+    beq t0, t1, ucall;
+    j _abort;
+scall:
+ucall:
     j _abort;
 
 .align 2
+.globl trap_entry
 trap_entry:
     # supervisor trap
     # get trapframe pointer (save a0 into scratch)
     csrrw a0, sscratch, a0;
 
     # push reg x1~x31 into trapframe
-    sd x1, 1*8(a0);
-    sd x2, 2*8(a0);
-    sd x3, 3*8(a0);
-    sd x4, 4*8(a0);
-    sd x5, 5*8(a0);
-    sd x6, 6*8(a0);
-    sd x7, 7*8(a0);
-    sd x8, 8*8(a0);
-    sd x9, 9*8(a0);
-    sd x11, 11*8(a0);
-    sd x12, 12*8(a0);
-    sd x13, 13*8(a0);
-    sd x14, 14*8(a0);
-    sd x15, 15*8(a0);
-    sd x16, 16*8(a0);
-    sd x17, 17*8(a0);
-    sd x18, 18*8(a0);
-    sd x19, 19*8(a0);
-    sd x20, 20*8(a0);
-    sd x21, 21*8(a0);
-    sd x22, 22*8(a0);
-    sd x23, 23*8(a0);
-    sd x24, 24*8(a0);
-    sd x25, 25*8(a0);
-    sd x26, 26*8(a0);
-    sd x27, 27*8(a0);
-    sd x28, 28*8(a0);
-    sd x29, 29*8(a0);
-    sd x20, 20*8(a0);
-    sd x31, 31*8(a0);
+    sd x1, 0*8(a0);
+    sd x2, 1*8(a0);
+    sd x3, 2*8(a0);
+    sd x4, 3*8(a0);
+    sd x5, 4*8(a0);
+    sd x6, 5*8(a0);
+    sd x7, 6*8(a0);
+    sd x8, 7*8(a0);
+    sd x9, 8*8(a0);
+    sd x11, 10*8(a0);
+    sd x12, 11*8(a0);
+    sd x13, 12*8(a0);
+    sd x14, 13*8(a0);
+    sd x15, 14*8(a0);
+    sd x16, 15*8(a0);
+    sd x17, 16*8(a0);
+    sd x18, 17*8(a0);
+    sd x19, 18*8(a0);
+    sd x20, 19*8(a0);
+    sd x21, 20*8(a0);
+    sd x22, 21*8(a0);
+    sd x23, 22*8(a0);
+    sd x24, 23*8(a0);
+    sd x25, 24*8(a0);
+    sd x26, 25*8(a0);
+    sd x27, 26*8(a0);
+    sd x28, 27*8(a0);
+    sd x29, 28*8(a0);
+    sd x20, 29*8(a0);
+    sd x31, 30*8(a0);
 
     # load stack point and save trapframe point into scratch
     csrrw t0, sscratch, a0;
-    sd t0, 10*8(a0);
+    sd t0, 9*8(a0);
 
     # push status, epc, tval, cause
     csrr t0, sstatus;
-    sd t0, 32*8(a0);
+    sd t0, 31*8(a0);
     csrr t0, sepc;
-    sd t0, 33*8(a0);
+    sd t0, 32*8(a0);
     csrr t0, stval;
-    sd t0, 34*8(a0);
+    sd t0, 33*8(a0);
     csrr t0, scause;
-    sd t0, 35*8(a0);
+    sd t0, 34*8(a0);
 
+    csrr sp, sscratch;
     j trap_handle;
 
 .align 2
+.globl pop_trapframe
 pop_trapframe:
-    # a0 need to save trapframe
+    # a0 need to save trapframe pointer
     # pop epc and reg x1~x31 from trapframe
-    ld t0, 33*8(a0);
+    ld t0, 32*8(a0);
     csrw sepc, t0;
-    ld x1, 1*8(a0);
-    ld x2, 2*8(a0);
-    ld x3, 3*8(a0);
-    ld x4, 4*8(a0);
-    ld x5, 5*8(a0);
-    ld x6, 6*8(a0);
-    ld x7, 7*8(a0);
-    ld x8, 8*8(a0);
-    ld x9, 9*8(a0);
-    ld x11, 11*8(a0);
-    ld x12, 12*8(a0);
-    ld x13, 13*8(a0);
-    ld x14, 14*8(a0);
-    ld x15, 15*8(a0);
-    ld x16, 16*8(a0);
-    ld x17, 17*8(a0);
-    ld x18, 18*8(a0);
-    ld x19, 19*8(a0);
-    ld x20, 20*8(a0);
-    ld x21, 21*8(a0);
-    ld x22, 22*8(a0);
-    ld x23, 23*8(a0);
-    ld x24, 24*8(a0);
-    ld x25, 25*8(a0);
-    ld x26, 26*8(a0);
-    ld x27, 27*8(a0);
-    ld x28, 28*8(a0);
-    ld x29, 29*8(a0);
-    ld x20, 20*8(a0);
-    ld x31, 31*8(a0);
+    ld x1, 0*8(a0);
+    ld x2, 1*8(a0);
+    ld x3, 2*8(a0);
+    ld x4, 3*8(a0);
+    ld x5, 4*8(a0);
+    ld x6, 5*8(a0);
+    ld x7, 6*8(a0);
+    ld x8, 7*8(a0);
+    ld x9, 8*8(a0);
+    ld x11, 10*8(a0);
+    ld x12, 11*8(a0);
+    ld x13, 12*8(a0);
+    ld x14, 13*8(a0);
+    ld x15, 14*8(a0);
+    ld x16, 15*8(a0);
+    ld x17, 16*8(a0);
+    ld x18, 17*8(a0);
+    ld x19, 18*8(a0);
+    ld x20, 19*8(a0);
+    ld x21, 20*8(a0);
+    ld x22, 21*8(a0);
+    ld x23, 22*8(a0);
+    ld x24, 23*8(a0);
+    ld x25, 24*8(a0);
+    ld x26, 25*8(a0);
+    ld x27, 26*8(a0);
+    ld x28, 27*8(a0);
+    ld x29, 28*8(a0);
+    ld x20, 29*8(a0);
+    ld x31, 30*8(a0);
 
-    ld a0, 10*8(a0);
+    ld a0, 9*8(a0);
     sret;
 
 trap_handle:
@@ -123,8 +122,6 @@ trap_handle:
     beq t0, t1, misaligned_fetch;
     li t1, CAUSE_BREAKPOINT;
     beq t0, t1, sbreak;
-    li t1, CAUSE_USER_ECALL;
-    beq t0, t1, ucall;
     li t1, CAUSE_INSTRUCTION_PAGE_FAULT;
     beq t0, t1, insn_page_fault;
     li t1, CAUSE_LOAD_PAGE_FAULT;
@@ -135,11 +132,16 @@ trap_handle:
 interrupt_handle:
 misaligned_fetch:
 sbreak:
-ucall:
+    j _abort; # no interrupt
 insn_page_fault:
 load_page_fault:
 store_page_fault:
-    j _abort; # no interrupt
+    csrr a0, stval;
+    csrr a1, scause;
+    jal fault_handle;
+    csrr a0, sscratch;
+    j pop_trapframe;
+    
 
 handle_reset:
     # initialize register
@@ -184,35 +186,8 @@ handle_reset:
     csrw mtvec, t0;
     csrr t0, mtvec;
 
-    # delegate exception for supervisor
-    li t0, (1 << CAUSE_MISALIGNED_FETCH) |\
-           (1 << CAUSE_BREAKPOINT) |\
-           (1 << CAUSE_USER_ECALL) |\
-           (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |\
-           (1 << CAUSE_LOAD_PAGE_FAULT) |\
-           (1 << CAUSE_STORE_PAGE_FAULT);
-    csrw medeleg, t0;
-
-    # Set pmp
-    li t0, -1;
-    csrw pmpaddr0, t0;
-    li t0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT);
-    csrw pmpcfg0, t0;
-
-    # set supervisor trap entry
-    la t0, trap_entry;
-    csrw stvec, t0;
-    csrr t0, stvec;
-    la t0, (STACK_TOP - TRAPFRAM_SIZE)
-    csrw sscratch, t0;
-    
     # Initialize virtual memory
-    jal vm_boot;
-
-    # switch supervisor
-    # PRV_M2S;
-
-    j _terminate;
+    j vm_boot;
 
 
 rdtime:
@@ -232,6 +207,15 @@ _terminate:
 _abort:
     li a0, EXIT_CODE_ERROR;
     j write_tohost;
+
+.align 2
+.globl user_space
+user_space:
+    # set stack point
+    la sp, (STACK_TOP - TRAPFRAM_SIZE);
+    jal main;
+    ecall;
+
 
 .section .tohost
 .align 6

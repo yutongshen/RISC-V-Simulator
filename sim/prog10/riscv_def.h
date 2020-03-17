@@ -10,6 +10,14 @@
 #define TRAPFRAM_SIZE (35 * 8)
 #define STACK_TOP (_end + PGSIZE)
 
+#define set_csr(name, value) { \
+    asm volatile("csrs " #name ", %0"::"r"(value)); \
+}
+
+#define clear_csr(name, value) { \
+    asm volatile("csrc " #name ", %0"::"r"(value)); \
+}
+
 #define write_csr(name, value) { \
     asm volatile("csrw " #name ", %0"::"r"(value)); \
 }

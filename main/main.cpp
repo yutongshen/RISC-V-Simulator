@@ -1,5 +1,6 @@
 #include <string.h>
 #include <iostream>
+#include <vector>
 #include "bus/bus.h"
 #include "cpu/cpu.h"
 #include "dev/timer.h"
@@ -12,6 +13,29 @@
 using namespace std;
 
 bool verbose(1);
+
+void print_pt(Bus *bus, const uint64_t &base)
+{
+    vector<uint64_t> fifo;
+    uint64_t pte;
+    printf("\nPAGE TABLE %08lx\n", base);
+    printf("%3s %8s %s %s %s %s %s %s %s\n", "ID", "ADDR", "V", "R", "W", "X",
+           "U", "A", "D");
+    for (uint16_t i = 0; i < 512; ++i) {
+        bus->read(base + (i << 3), DATA_TYPE_DWORD, pte);
+        if (pte & PTE_V) {
+            printf("%03x %08lx %d %d %d %d %d %d %d\n", i,
+                   pte >> PTE_PPN_SHIFT << PAGE_SHIFT, !!(pte & PTE_V),
+                   !!(pte & PTE_R), !!(pte & PTE_W), !!(pte & PTE_X),
+                   !!(pte & PTE_U), !!(pte & PTE_A), !!(pte & PTE_D));
+            if (!(pte & (PTE_X | PTE_W | PTE_R)))
+                fifo.push_back(pte >> PTE_PPN_SHIFT << PAGE_SHIFT);
+        }
+    }
+    for (uint16_t i = 0; i < fifo.size(); ++i) {
+        print_pt(bus, fifo[i]);
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -78,6 +102,10 @@ int main(int argc, char **argv)
         sys_0.run();
         htif_0.run();
     }
+
+    // Print page-table
+    uint64_t pt_base((cpu_0.get_satp() & SATP_PPN) << PAGE_SHIFT);
+    print_pt(&bus_0, pt_base);
 
     // Dump
     if (argparser.get_bool("DUMP")) {

@@ -10,10 +10,6 @@ class MMU : public Master
     CSR *csr;
     virtual void _init();
     Addr translate(const Addr &addr, const uint64_t &len, uint8_t type);
-    Addr trace_pt(const Addr &addr,
-                  const uint64_t &len,
-                  uint8_t type,
-                  uint8_t prv);
     void throw_access_exception(const Addr &addr, uint8_t type);
 
 public:
@@ -35,6 +31,10 @@ public:
                          const uint64_t &src,
                          uint64_t (*func)(const uint64_t &rdata,
                                           const uint64_t &src));
+    Addr trace_pt(const Addr &addr,
+                  const uint64_t &len,
+                  uint8_t type,
+                  uint8_t prv);
     bool pmp_ok(const Addr &addr,
                 const uint64_t &len,
                 uint8_t type,

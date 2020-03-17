@@ -127,6 +127,7 @@ void CPU::run()
 
         if (verbose) {
             int reg_num(0);
+            uint64_t ppc;
             switch (csr->prv) {
             case 0:
                 printf("[U] ");
@@ -138,14 +139,18 @@ void CPU::run()
                 printf("[M] ");
                 break;
             }
-            printf("%08lx: %08x ", pc, insn);
+            printf("%08x", (uint32_t) pc);
+            ppc = mmu->trace_pt(pc, 8, ACCESS_TYPE_FETCH, csr->prv);
+            if (pc != ppc)
+                printf("(%08lx)", ppc);
+            printf(": %08x ", insn);
+            // reg_num = REG_SP,
+            // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_SP,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A0,
+            reg_num = REG_A4,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A1,
-            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A2,
+            reg_num = REG_A5,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_T0,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);

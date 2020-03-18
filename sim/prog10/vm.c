@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "riscv_def.h"
+#include "type_def.h"
 #include "util.h"
 
 #define N_PAGE 32  // 0x10000 ~ 0x2ffff
@@ -16,14 +17,6 @@
 #define pa2kva(x) ((pte_t)(x) - (pte_t) _entry - MEGAPAGE)
 #define pa2uva(x) ((pte_t)(x) - (pte_t) _entry)
 #define uva2kva(x) ((pte_t)(x) -MEGAPAGE)
-
-typedef struct {
-    uint64_t regs[31];
-    uint64_t status;
-    uint64_t epc;
-    uint64_t tval;
-    uint64_t cause;
-} trapframe_t;
 
 typedef uint64_t pte_t;
 typedef struct {
@@ -101,16 +94,15 @@ void vm_boot()
     free_node_tail = (page_list_t *) pa2kva(free_node + N_PAGE - 1);
 
     // set supervisor legal address range for longest virtual - sv57
-    // write_csr(pmpaddr0, 1UL << (57 - 3));
-    write_csr(pmpaddr0, -1UL);
+    write_csr(pmpaddr0, (1UL << (57 - 3)) - 1U);
     write_csr(pmpcfg0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT))
 
         // delegate exception for supervisor
-        write_csr(medeleg, (1 << CAUSE_MISALIGNED_FETCH) |
-                               (1 << CAUSE_BREAKPOINT) |
-                               (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
-                               (1 << CAUSE_LOAD_PAGE_FAULT) |
-                               (1 << CAUSE_STORE_PAGE_FAULT));
+        write_csr(
+            medeleg,
+            (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
+                (1 << CAUSE_BREAKPOINT) | (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
+                (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT));
 
 
     // set supervisor trap entry

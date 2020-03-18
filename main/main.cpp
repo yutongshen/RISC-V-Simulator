@@ -12,12 +12,14 @@
 #include "util/util.h"
 using namespace std;
 
-bool verbose(1);
+bool verbose(0);
 
 void print_pt(Bus *bus, const uint64_t &base)
 {
-    vector<uint64_t> fifo;
-    uint64_t pte;
+    if (!base)
+        return;
+    vector<uint64_t> fifo(0);
+    uint64_t pte(0);
     printf("\nPAGE TABLE %08lx\n", base);
     printf("%3s %8s %s %s %s %s %s %s %s\n", "ID", "ADDR", "V", "R", "W", "X",
            "U", "A", "D");

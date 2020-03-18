@@ -146,7 +146,7 @@ void CPU::run()
             printf(": %08x ", insn);
             // reg_num = REG_SP,
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_SP,
+            reg_num = REG_A0,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_A4,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);

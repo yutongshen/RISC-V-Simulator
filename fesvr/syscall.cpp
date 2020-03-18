@@ -4,27 +4,37 @@
 #include "fesvr/htif.h"
 #include "util/util.h"
 
-SysCall::SysCall(HTIF *htif) : htif(htif), sysbus(0), table{0}
+SysCall::SysCall(HTIF *htif) : table{0}, FrontEndDevice(htif)
 {
     table[64] = &SysCall::SysWrite;
+    register_command(0, std::bind(&SysCall::func, this, std::placeholders::_1));
 }
 
-SysCall::~SysCall() {}
-
-uint64_t SysCall::func(uint64_t sys_id, uint64_t args)
+SysCall::~SysCall()
 {
-    if (sys_id >= TABLE_SIZE || !table[sys_id]) {
-        printf("Unknown Syscall ID : 0x%lx\n", sys_id);
-        htif->exitcode = sys_id;
+    std::cout << "SysCall die!!\n";
+}
+
+uint64_t SysCall::func(uint64_t args)
+{
+    if (args & 1) {  // pass or fail
+        write_exitcode(get_cmd_value(args));
+        if (exit_code()) {  // meaning fail
+            std::cerr << std::hex << "There is error (tohost: 0x" << exit_code()
+                      << ")" << std::endl;
+        }
         return 0;
-    }
-    // std::cout << std::hex << "SYS_ID: " << sys_id << std::endl;
-    return (this->*(table[sys_id]))(args);
-}
+    } else {
+        uint64_t sys_id;
+        sysbus_read(args, DATA_TYPE_DWORD, sys_id);
 
-void SysCall::bus_connect(Bus *bus)
-{
-    sysbus = bus;
+        if (sys_id >= TABLE_SIZE || !table[sys_id]) {
+            printf("Unknown Syscall ID : 0x%lx\n", sys_id);
+            abort();
+        }
+        // std::cout << std::hex << "SYS_ID: " << sys_id << std::endl;
+        return (this->*(table[sys_id]))(args);
+    }
 }
 
 uint64_t SysCall::SysWrite(uint64_t args)
@@ -33,15 +43,15 @@ uint64_t SysCall::SysWrite(uint64_t args)
     uint64_t pbuf;
     uint64_t len;
 
-    sysbus->read(args + 1 * 8, DATA_TYPE_DWORD, fd);
-    sysbus->read(args + 2 * 8, DATA_TYPE_DWORD, pbuf);
-    sysbus->read(args + 3 * 8, DATA_TYPE_DWORD, len);
+    sysbus_read(args + 1 * 8, DATA_TYPE_DWORD, fd);
+    sysbus_read(args + 2 * 8, DATA_TYPE_DWORD, pbuf);
+    sysbus_read(args + 3 * 8, DATA_TYPE_DWORD, len);
 
     char *buff(new char[len]);
     uint64_t tmp;
 
     for (int i = 0; i < len; ++i) {
-        sysbus->read(pbuf + i, DATA_TYPE_BYTE, tmp);
+        sysbus_read(pbuf + i, DATA_TYPE_BYTE, tmp);
         putchar((char) tmp);
         // buff[i] = tmp;
     }

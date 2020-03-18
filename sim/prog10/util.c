@@ -1,7 +1,6 @@
 #include "util.h"
 #include <stdarg.h>
-
-#define SYS_WRITE 0x40
+#include "riscv_def.h"
 
 extern volatile uint64_t tohost;
 extern volatile uint64_t fromhost;
@@ -46,46 +45,60 @@ void *memcpy(void *ptr, void *src, size_t len)
     return ptr;
 }
 
-static void syscall(uint64_t sys_id,
-                    uint64_t arg0,
-                    uint64_t arg1,
-                    uint64_t arg2)
+uint64_t write_tohost(trapframe_t *ft)
 {
-    volatile uint64_t tohost_msg[4];
-    tohost_msg[0] = sys_id;
-    tohost_msg[1] = arg0;
-    tohost_msg[2] = arg1;
-    tohost_msg[3] = arg2;
+    __sync_synchronize();
 
-    tohost = (uint64_t) tohost_msg & ((1UL << 21) - 1UL) | 0x80000000;
+    tohost = ft->a0;
     while (!fromhost)
         ;
-
     fromhost = 0;
+
+    __sync_synchronize();
+
+    return (uint64_t) ft;
+}
+
+uint64_t syscall(uint64_t sys_id, uint64_t arg)
+{
+    asm volatile(
+        "slli a0, a0, 48; \
+                  or a0, a0, a1; \
+                  ecall;" ::
+            : "a0");
+    return 0;
+}
+
+void abort(void)
+{
+    syscall(SYSCALL_SYS, 3);
+    while (1)
+        ;
 }
 
 int putchar(int ch)
 {
-    static char buff[64];
-    static uint64_t len = 0;
-    buff[len++] = ch;
-
-    if (ch == '\n' || len == sizeof(buff)) {
-        syscall(SYS_WRITE, 1,
-                (uint64_t) buff & ((1UL << 21) - 1UL) | 0x80000000, len);
-        len = 0;
-    }
+    syscall(SYSCALL_PUTCHAR, ch);
 
     return 0;
 }
 
-int puts(const char *s)
+int _puts(const char *s)
 {
     int res = 0;
     while (*s) {
         putchar(*(s++));
         ++res;
     }
+
+    return res;
+}
+
+int puts(const char *s)
+{
+    int res = 1;
+    res += _puts(s);
+    putchar('\n');
 
     return res;
 }
@@ -130,12 +143,12 @@ int printf(const char *format, ...)
                 break;
             case 's':
                 assert(!(min_len || fill_char));
-                res += puts(va_arg(va, const char *));
+                res += _puts(va_arg(va, const char *));
                 break;
             case 'x': {
                 assert(!(!fill_char ^ !min_len));
                 uint64_t n = va_arg(va, uint64_t);
-                res += puts(itoa(n, 16, min_len, fill_char));
+                res += _puts(itoa(n, 16, min_len, fill_char));
             } break;
             case 'd': {
                 assert(!(!fill_char ^ !min_len));
@@ -145,7 +158,7 @@ int printf(const char *format, ...)
                     putchar('-');
                     n = -n;
                 }
-                res += puts(itoa(n, 10, min_len, fill_char));
+                res += _puts(itoa(n, 10, min_len, fill_char));
             } break;
             case '%':
                 ++res;

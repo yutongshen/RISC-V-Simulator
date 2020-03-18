@@ -11,11 +11,8 @@ trap_vector:
     csrr t0, mcause;
     li t1, CAUSE_SUPERVISOR_ECALL;
     beq t0, t1, scall;
-    li t1, CAUSE_USER_ECALL;
-    beq t0, t1, ucall;
     j _abort;
 scall:
-ucall:
     j _abort;
 
 .align 2
@@ -122,6 +119,8 @@ trap_handle:
     beq t0, t1, misaligned_fetch;
     li t1, CAUSE_BREAKPOINT;
     beq t0, t1, sbreak;
+    li t1, CAUSE_USER_ECALL;
+    beq t0, t1, ucall;
     li t1, CAUSE_INSTRUCTION_PAGE_FAULT;
     beq t0, t1, insn_page_fault;
     li t1, CAUSE_LOAD_PAGE_FAULT;
@@ -133,12 +132,22 @@ interrupt_handle:
 misaligned_fetch:
 sbreak:
     j _abort; # no interrupt
+ucall:
+    jal write_tohost;
+    csrr t0, sepc;
+    addi t0, t0, 4;
+    sd t0, 32*8(a0);
+    j trap_ret;
+
 insn_page_fault:
 load_page_fault:
 store_page_fault:
     csrr a0, stval;
     csrr a1, scause;
     jal fault_handle;
+    j trap_ret;
+
+trap_ret:
     csrr a0, sscratch;
     j pop_trapframe;
     
@@ -195,11 +204,6 @@ rdtime:
     lw a0, 0(a0);
     ret;
 
-write_tohost:
-    la t0, tohost;
-1:  sd a0, 0(t0);
-    j 1b;
-
 _terminate:
     li a0, EXIT_CODE_PASS;
     j write_tohost;
@@ -214,6 +218,7 @@ user_space:
     # set stack point
     la sp, (STACK_TOP - TRAPFRAM_SIZE);
     jal main;
+    li a0, 1;
     ecall;
 
 

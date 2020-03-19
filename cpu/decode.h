@@ -245,8 +245,10 @@
 
 // C extension code
 #define FUNCT3_C_ADDI4SPN 0b000
+#define FUNCT3_C_FLD 0b001
 #define FUNCT3_C_LW 0b010
 #define FUNCT3_C_LD 0b011
+#define FUNCT3_C_FSD 0b101
 #define FUNCT3_C_SW 0b110
 #define FUNCT3_C_SD 0b111
 #define FUNCT3_C_ADDI 0b000
@@ -1060,6 +1062,15 @@
     pc += 2UL;                                                          \
     break;
 
+#define INSTRUCT_C_FLD                                                   \
+    sprintf(remark, "c.fld %s,%ld(%s)", fregs_name[_c_rd], imm_c_sld,    \
+            regs_name[_c_rs1]);                                          \
+    require_extension('C');                                              \
+    require_extension('D');                                              \
+    fregs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD); \
+    pc += 2UL;                                                           \
+    break;
+
 #define INSTRUCT_C_SW                                                   \
     sprintf(remark, "c.sw %s,%ld(%s)", regs_name[_c_rs2], imm_c_slw,    \
             regs_name[_c_rs1]);                                         \
@@ -1074,6 +1085,15 @@
     require_extension('C');                                              \
     mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, regs[_c_rs2]); \
     pc += 2UL;                                                           \
+    break;
+
+#define INSTRUCT_C_FSD                                                    \
+    sprintf(remark, "c.fsd %s,%ld(%s)", fregs_name[_c_rs2], imm_c_sld,    \
+            regs_name[_c_rs1]);                                           \
+    require_extension('C');                                               \
+    require_extension('D');                                               \
+    mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, fregs[_c_rs2]); \
+    pc += 2UL;                                                            \
     break;
 
 #define INSTRUCT_C_ADDI                                                        \
@@ -1243,6 +1263,15 @@
     pc += 2UL;                                                        \
     break;
 
+#define INSTRUCT_C_FLDSP                                               \
+    sprintf(remark, "c.fldsp %s,%ld(%s)", fregs_name[rd], imm_c_ldsp,  \
+            regs_name[REG_SP]);                                        \
+    require_extension('C');                                            \
+    require_extension('D');                                            \
+    fregs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD); \
+    pc += 2UL;                                                         \
+    break;
+
 #define INSTRUCT_C_JR                                 \
     {                                                 \
         sprintf(remark, "c.jr %s", regs_name[c_rs1]); \
@@ -1299,6 +1328,15 @@
     require_extension('C');                                              \
     mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]); \
     pc += 2UL;                                                           \
+    break;
+
+#define INSTRUCT_C_FSDSP                                                  \
+    sprintf(remark, "c.fsdsp %s,%ld(%s)", fregs_name[c_rs2], imm_c_sdsp,  \
+            regs_name[REG_SP]);                                           \
+    require_extension('C');                                               \
+    require_extension('D');                                               \
+    mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, fregs[c_rs2]); \
+    pc += 2UL;                                                            \
     break;
 
 #define STR_AQ_RL(_aq, _rl) \

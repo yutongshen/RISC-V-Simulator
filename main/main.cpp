@@ -12,7 +12,7 @@
 #include "util/util.h"
 using namespace std;
 
-bool verbose(1);
+bool verbose(0);
 
 void print_pt(Bus *bus, const uint64_t &base)
 {

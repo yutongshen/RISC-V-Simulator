@@ -10,10 +10,7 @@ SysCall::SysCall(HTIF *htif) : table{0}, FrontEndDevice(htif)
     register_command(0, std::bind(&SysCall::func, this, std::placeholders::_1));
 }
 
-SysCall::~SysCall()
-{
-    std::cout << "SysCall die!!\n";
-}
+SysCall::~SysCall() {}
 
 uint64_t SysCall::func(uint64_t args)
 {
@@ -23,7 +20,7 @@ uint64_t SysCall::func(uint64_t args)
             std::cerr << std::hex << "There is error (tohost: 0x" << exit_code()
                       << ")" << std::endl;
         }
-        return 0;
+        return args;
     } else {
         uint64_t sys_id;
         sysbus_read(args, DATA_TYPE_DWORD, sys_id);

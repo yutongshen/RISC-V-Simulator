@@ -3,8 +3,7 @@ bld_dir  := ./build
 src_dir  := ./main ./sys ./dev ./cpu ./bus ./mem ./disk ./fesvr ./util
 sim_dir  := ./sim
 sim_file := sim
-rv_ext   := rv64mi rv64si rv64ui rv64um rv64ua rv64uc rv64uf benchmarks
-# rv_ext   := benchmarks
+rv_ext   := rv64mi rv64si rv64ui rv64um rv64ua rv64uc rv64uf rv64ud #benchmarks
 obj_path  = $(src_dir:=/*.o)
 test     := ${bld_dir}/main ./sim/prog9/boot.bin ./sim/prog9/rv64ui/rv64ui-p-add.bin -dump -mem_addr 0x80001000 -mem_len 0x10 -sim_end 0x80001000 -sim_end_code 0x1 -cycle 0x100 -o ./build/dump.out
 

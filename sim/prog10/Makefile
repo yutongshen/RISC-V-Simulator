@@ -6,8 +6,8 @@ export RISCV_OBJDUMP ?= $(CROSS_PREFIX)objdump -xsd
 export RISCV_OBJCOPY ?= $(CROSS_PREFIX)objcopy -O binary
 
 LDFILE := link.ld
-CFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64imafc -mabi=lp64
-LDFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64imafc -mabi=lp64 -T$(LDFILE) -lgcc
+CFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g -mabi=lp64
+LDFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g -mabi=lp64 -T$(LDFILE) -lgcc
 
 
 SRC_C   := $(wildcard *.c)

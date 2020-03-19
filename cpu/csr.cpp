@@ -12,6 +12,7 @@ CSR::CSR(uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
     max_isa |= 1UL << ('M' - 'A');
     max_isa |= 1UL << ('A' - 'A');
     max_isa |= 1UL << ('F' - 'A');
+    max_isa |= 1UL << ('D' - 'A');
     max_isa |= 1UL << ('C' - 'A');
     max_isa |= 1UL << ('S' - 'A');
     misa = max_isa;

@@ -140,21 +140,32 @@ uint64_t amo_amomaxu_d_func(const uint64_t &a, const uint64_t &b)
 #define F32_EXP(x) (((x) >> 23) & 0xff)
 #define F32_FRAC(x) ((x) & ((1 << 23) - 1))
 #define F32_IS_NAN(x) (((x) &0x7f800000) == 0x7f800000 && ((x) &0x7fffff))
-#define F32_IS_SINGAL_NAN(x) \
+#define F32_IS_SIGNAL_NAN(x) \
     (((x) &0x7fc00000) == 0x7f800000 && ((x) &0x3fffff))
 #define F32_IS_QUIET_NAN(x) (((x) &0x7fc00000) == 0x7fc00000)
-#define F32_COMBINE_FLOAT(sig, exp, frac) \
-    (((uint32_t)(bool) (sig) << 31 | ((exp) &0xff) << 23) + (frac))
+#define F32_IS_VALID(x) (((x) &0xffffffff00000000UL) == 0xffffffff00000000UL)
+
+#define F64_FRAC_LEN 52
+#define F64_DEFAULT_QUIET_NAN 0x7ff8000000000000UL
+#define F64_DEFAULT_SIGNAL_NAN 0x7ff0000000000001UL
+#define F64_NEG(x) ((x) ^ (1UL << 63))
+#define F64_SIG(x) (((x) >> 63) & 0x1)
+#define F64_EXP(x) (((x) >> 52) & 0x7ff)
+#define F64_FRAC(x) ((x) & ((1UL << 52) - 1))
+#define F64_IS_NAN(x)                                       \
+    (((x) &0x7ff0000000000000UL) == 0x7ff0000000000000UL && \
+     ((x) &0xfffffffffffffUL))
+#define F64_IS_SIGNAL_NAN(x)                                \
+    (((x) &0x7ff8000000000000UL) == 0x7ff0000000000000UL && \
+     ((x) &0x7ffffffffffffUL))
+#define F64_IS_QUIET_NAN(x) \
+    (((x) &0x7ff8000000000000UL) == 0x7ff8000000000000UL)
 
 uint64_t f32_classify(const uint64_t &a)
 {
     bool sig(F32_SIG(a));
     uint8_t exp(F32_EXP(a));
     uint32_t frac(F32_FRAC(a));
-
-    // cout << hex << "SIG : " << (int)sig << endl;
-    // cout << hex << "EXP : " << (int)exp << endl;
-    // cout << hex << "FRAC : " << (int)frac << endl;
 
     if (!exp) {
         if (!frac)
@@ -164,12 +175,34 @@ uint64_t f32_classify(const uint64_t &a)
     if (exp == 0xff) {
         if (!frac)
             return !sig ? F_CLASS_POS_INF : F_CLASS_NEG_INF;
-        if (F32_IS_SINGAL_NAN(a))
+        if (F32_IS_SIGNAL_NAN(a))
             return F_CLASS_SIGNALING;
         return F_CLASS_QUIET;
     }
     return !sig ? F_CLASS_POS_NORM : F_CLASS_NEG_NORM;
 }
+
+uint64_t f64_classify(const uint64_t &a)
+{
+    bool sig(F64_SIG(a));
+    uint16_t exp(F64_EXP(a));
+    uint64_t frac(F64_FRAC(a));
+
+    if (!exp) {
+        if (!frac)
+            return !sig ? F_CLASS_POS_ZERO : F_CLASS_NEG_ZERO;
+        return !sig ? F_CLASS_POS_DENORM : F_CLASS_NEG_DENORM;
+    }
+    if (exp == 0x7ff) {
+        if (!frac)
+            return !sig ? F_CLASS_POS_INF : F_CLASS_NEG_INF;
+        if (F64_IS_SIGNAL_NAN(a))
+            return F_CLASS_SIGNALING;
+        return F_CLASS_QUIET;
+    }
+    return !sig ? F_CLASS_POS_NORM : F_CLASS_NEG_NORM;
+}
+
 void clean_fflags_value()
 {
     std::feclearexcept(FE_ALL_EXCEPT);
@@ -197,8 +230,27 @@ union uint32_float32 {
     float f;
 };
 
+union uint64_float64 {
+    uint64_t ui;
+    double f;
+};
+
 uint32_t f32_eq(const uint64_t &a, const uint64_t &b)
 {
+    if (!F32_IS_VALID(a) || !F32_IS_VALID(b)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F32_IS_NAN(a)) {
+        if (F32_IS_SIGNAL_NAN(a))
+            std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F32_IS_NAN(b)) {
+        if (F32_IS_SIGNAL_NAN(b))
+            std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
     union uint32_float32 _a;
     union uint32_float32 _b;
     _a.ui = a;
@@ -206,29 +258,98 @@ uint32_t f32_eq(const uint64_t &a, const uint64_t &b)
     return _a.f == _b.f;
 }
 
+uint64_t f64_eq(const uint64_t &a, const uint64_t &b)
+{
+    if (F64_IS_NAN(a)) {
+        if (F64_IS_SIGNAL_NAN(a))
+            std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F64_IS_NAN(b)) {
+        if (F64_IS_SIGNAL_NAN(b))
+            std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    _a.ui = a;
+    _b.ui = b;
+    return _a.f == _b.f;
+}
+
 uint32_t f32_le(const uint64_t &a, const uint64_t &b)
 {
+    if (!F32_IS_VALID(a) || !F32_IS_VALID(b)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F32_IS_NAN(a)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F32_IS_NAN(b)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
     union uint32_float32 _a;
     union uint32_float32 _b;
     _a.ui = a;
     _b.ui = b;
-    if (F32_IS_QUIET_NAN(_a.ui))
-        _a.ui = F32_DEFAULT_SIGNAL_NAN;
-    else if (F32_IS_QUIET_NAN(_b.ui))
-        _b.ui = F32_DEFAULT_SIGNAL_NAN;
+    return _a.f <= _b.f;
+}
+
+uint64_t f64_le(const uint64_t &a, const uint64_t &b)
+{
+    if (F64_IS_NAN(a)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F64_IS_NAN(b)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    _a.ui = a;
+    _b.ui = b;
     return _a.f <= _b.f;
 }
 
 uint32_t f32_lt(const uint64_t &a, const uint64_t &b)
 {
+    if (!F32_IS_VALID(a) || !F32_IS_VALID(b)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F32_IS_NAN(a)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    if (F32_IS_NAN(b)) {
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
     union uint32_float32 _a;
     union uint32_float32 _b;
     _a.ui = a;
     _b.ui = b;
-    if (F32_IS_QUIET_NAN(_a.ui))
+    return _a.f < _b.f;
+}
+
+uint64_t f64_lt(const uint64_t &a, const uint64_t &b)
+{
+    if (F64_IS_NAN(a)) {
         std::feraiseexcept(FE_INVALID);
-    else if (F32_IS_QUIET_NAN(_b.ui))
+        return 0;
+    }
+    if (F64_IS_NAN(b)) {
         std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    _a.ui = a;
+    _b.ui = b;
     return _a.f < _b.f;
 }
 
@@ -236,7 +357,7 @@ uint32_t f32_min(const uint64_t &a, const uint64_t &b)
 {
     if (!(a & (-1U >> 1)) && !(b & (-1U >> 1)))
         return !F32_SIG(a) ? b : a;
-    if (F32_IS_SINGAL_NAN(a) || F32_IS_SINGAL_NAN(b))
+    if (F32_IS_SIGNAL_NAN(a) || F32_IS_SIGNAL_NAN(b))
         std::feraiseexcept(FE_INVALID);
     if (F32_IS_NAN(a) && F32_IS_NAN(b))
         return F32_DEFAULT_QUIET_NAN;
@@ -253,11 +374,32 @@ uint32_t f32_min(const uint64_t &a, const uint64_t &b)
     return (_a.f < _b.f) ? a : b;
 }
 
+uint64_t f64_min(const uint64_t &a, const uint64_t &b)
+{
+    if (!(a & (-1UL >> 1)) && !(b & (-1UL >> 1)))
+        return !F64_SIG(a) ? b : a;
+    if (F64_IS_SIGNAL_NAN(a) || F64_IS_SIGNAL_NAN(b))
+        std::feraiseexcept(FE_INVALID);
+    if (F64_IS_NAN(a) && F64_IS_NAN(b))
+        return F64_DEFAULT_QUIET_NAN;
+    if (F64_IS_NAN(a))
+        return b;
+    if (F64_IS_NAN(b))
+        return a;
+
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    _a.ui = a;
+    _b.ui = b;
+
+    return (_a.f < _b.f) ? a : b;
+}
+
 uint32_t f32_max(const uint64_t &a, const uint64_t &b)
 {
     if (!(a & (-1U >> 1)) && !(b & (-1U >> 1)))
         return !F32_SIG(a) ? a : b;
-    if (F32_IS_SINGAL_NAN(a) || F32_IS_SINGAL_NAN(b))
+    if (F32_IS_SIGNAL_NAN(a) || F32_IS_SIGNAL_NAN(b))
         std::feraiseexcept(FE_INVALID);
     if (F32_IS_NAN(a) && F32_IS_NAN(b))
         return F32_DEFAULT_QUIET_NAN;
@@ -274,6 +416,27 @@ uint32_t f32_max(const uint64_t &a, const uint64_t &b)
     return (_a.f < _b.f) ? b : a;
 }
 
+uint64_t f64_max(const uint64_t &a, const uint64_t &b)
+{
+    if (!(a & (-1UL >> 1)) && !(b & (-1UL >> 1)))
+        return !F64_SIG(a) ? a : b;
+    if (F64_IS_SIGNAL_NAN(a) || F64_IS_SIGNAL_NAN(b))
+        std::feraiseexcept(FE_INVALID);
+    if (F64_IS_NAN(a) && F64_IS_NAN(b))
+        return F64_DEFAULT_QUIET_NAN;
+    if (F64_IS_NAN(a))
+        return b;
+    if (F64_IS_NAN(b))
+        return a;
+
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    _a.ui = a;
+    _b.ui = b;
+
+    return (_a.f < _b.f) ? b : a;
+}
+
 uint32_t f32_add(const uint64_t &a, const uint64_t &b)
 {
     union uint32_float32 _a;
@@ -282,8 +445,21 @@ uint32_t f32_add(const uint64_t &a, const uint64_t &b)
     _a.ui = a;
     _b.ui = b;
     res.f = _a.f + _b.f;
-    if ((res.ui & 0x7fffffff) == F32_DEFAULT_QUIET_NAN)
+    if (F32_IS_QUIET_NAN(res.ui))
         return F32_DEFAULT_QUIET_NAN;
+    return res.ui;
+}
+
+uint64_t f64_add(const uint64_t &a, const uint64_t &b)
+{
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    union uint64_float64 res;
+    _a.ui = a;
+    _b.ui = b;
+    res.f = _a.f + _b.f;
+    if (F64_IS_QUIET_NAN(res.ui))
+        return F64_DEFAULT_QUIET_NAN;
     return res.ui;
 }
 
@@ -292,6 +468,17 @@ uint32_t f32_mul(const uint64_t &a, const uint64_t &b)
     union uint32_float32 _a;
     union uint32_float32 _b;
     union uint32_float32 res;
+    _a.ui = a;
+    _b.ui = b;
+    res.f = _a.f * _b.f;
+    return res.ui;
+}
+
+uint64_t f64_mul(const uint64_t &a, const uint64_t &b)
+{
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    union uint64_float64 res;
     _a.ui = a;
     _b.ui = b;
     res.f = _a.f * _b.f;
@@ -309,20 +496,71 @@ uint32_t f32_div(const uint64_t &a, const uint64_t &b)
     return res.ui;
 }
 
+uint64_t f64_div(const uint64_t &a, const uint64_t &b)
+{
+    union uint64_float64 _a;
+    union uint64_float64 _b;
+    union uint64_float64 res;
+    _a.ui = a;
+    _b.ui = b;
+    res.f = _a.f / _b.f;
+    return res.ui;
+}
+
 uint32_t f32_sqrt(const uint64_t &a)
 {
     union uint32_float32 _a;
     union uint32_float32 res;
     _a.ui = a;
     res.f = sqrtf(_a.f);
-    if ((res.ui & 0x7fffffff) == F32_DEFAULT_QUIET_NAN)
+    if (F32_IS_QUIET_NAN(res.ui))
         return F32_DEFAULT_QUIET_NAN;
+    return res.ui;
+}
+
+uint64_t f64_sqrt(const uint64_t &a)
+{
+    union uint64_float64 _a;
+    union uint64_float64 res;
+    _a.ui = a;
+    res.f = sqrt(_a.f);
+    if (F64_IS_QUIET_NAN(res.ui))
+        return F64_DEFAULT_QUIET_NAN;
+    return res.ui;
+}
+
+uint32_t f64_cvt_s_d(const int64_t &a)
+{
+    if (F64_IS_QUIET_NAN(a))
+        return F32_DEFAULT_QUIET_NAN;
+    union uint64_float64 _a;
+    union uint32_float32 res;
+    _a.ui = a;
+    res.f = _a.f;
+    return res.ui;
+}
+
+uint64_t f64_cvt_d_s(const int32_t &a)
+{
+    if (F32_IS_QUIET_NAN(a))
+        return F64_DEFAULT_QUIET_NAN;
+    union uint32_float32 _a;
+    union uint64_float64 res;
+    _a.ui = a;
+    res.f = _a.f;
     return res.ui;
 }
 
 uint32_t f32_cvt_s_w(const int32_t &a)
 {
     union uint32_float32 res;
+    res.f = a;
+    return res.ui;
+}
+
+uint64_t f64_cvt_d_w(const int32_t &a)
+{
+    union uint64_float64 res;
     res.f = a;
     return res.ui;
 }
@@ -334,6 +572,13 @@ uint32_t f32_cvt_s_wu(const uint32_t &a)
     return res.ui;
 }
 
+uint64_t f64_cvt_d_wu(const uint32_t &a)
+{
+    union uint64_float64 res;
+    res.f = a;
+    return res.ui;
+}
+
 uint32_t f32_cvt_s_l(const int64_t &a)
 {
     union uint32_float32 res;
@@ -341,9 +586,23 @@ uint32_t f32_cvt_s_l(const int64_t &a)
     return res.ui;
 }
 
+uint64_t f64_cvt_d_l(const int64_t &a)
+{
+    union uint64_float64 res;
+    res.f = a;
+    return res.ui;
+}
+
 uint32_t f32_cvt_s_lu(const uint64_t &a)
 {
     union uint32_float32 res;
+    res.f = a;
+    return res.ui;
+}
+
+uint64_t f64_cvt_d_lu(const uint64_t &a)
+{
+    union uint64_float64 res;
     res.f = a;
     return res.ui;
 }
@@ -363,7 +622,23 @@ int32_t f32_cvt_w_s(const uint64_t &a)
     return res.i;
 }
 
-uint32_t f32_cvt_wu_s(const uint64_t &a)
+int32_t f64_cvt_w_d(const uint64_t &a)
+{
+    union uint64_float64 _a;
+    int32_t res;
+    _a.ui = a;
+    res = _a.f;
+    if (res == (1 << 31) && !F64_SIG(a))
+        return ~res;
+    if (F64_EXP(a) == 0x7ff) {
+        if (F64_FRAC(a))
+            return -1U >> 1;
+        return !F64_SIG(a) ? (-1U >> 1) : (1U << 31);
+    }
+    return res;
+}
+
+int32_t f32_cvt_wu_s(const uint64_t &a)
 {
     union uint32_float32 res;
     res.ui = a;
@@ -381,18 +656,51 @@ uint32_t f32_cvt_wu_s(const uint64_t &a)
     return res.ui;
 }
 
+int32_t f64_cvt_wu_d(const uint64_t &a)
+{
+    union uint64_float64 _a;
+    uint32_t res;
+    _a.ui = a;
+    res = _a.f;
+    if (F64_EXP(a) == 0x7ff) {
+        if (F64_FRAC(a))
+            return -1U;
+        return !F64_SIG(a) ? -1U : 0U;
+    }
+    if (F64_SIG(a) && res) {
+        std::feclearexcept(FE_ALL_EXCEPT);
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    return res;
+}
+
 int64_t f32_cvt_l_s(const uint64_t &a)
 {
     union uint32_float32 res;
     res.ui = a;
-    if (F32_IS_NAN(a))
-        return -1UL >> 1;
     if (F32_EXP(a) == 0xff) {
         if (F32_FRAC(a))
             return -1UL >> 1;
         return !F32_SIG(a) ? (-1UL >> 1) : (1UL << 63);
     }
     return res.f;
+}
+
+int64_t f64_cvt_l_d(const uint64_t &a)
+{
+    union uint64_float64 _a;
+    int64_t res;
+    _a.ui = a;
+    res = _a.f;
+    if (res == (1UL << 63) && !F64_SIG(a))
+        return ~res;
+    if (F64_EXP(a) == 0x7ff) {
+        if (F64_FRAC(a))
+            return -1UL >> 1;
+        return !F64_SIG(a) ? (-1UL >> 1) : (1UL << 63);
+    }
+    return res;
 }
 
 uint64_t f32_cvt_lu_s(const uint64_t &a)
@@ -412,6 +720,25 @@ uint64_t f32_cvt_lu_s(const uint64_t &a)
         return 0;
     }
     return _res;
+}
+
+uint64_t f64_cvt_lu_d(const uint64_t &a)
+{
+    union uint64_float64 _a;
+    uint64_t res;
+    _a.ui = a;
+    res = _a.f;
+    if (F64_EXP(a) == 0x7ff) {
+        if (F64_FRAC(a))
+            return -1UL;
+        return !F64_SIG(a) ? -1UL : 0UL;
+    }
+    if (F64_SIG(a) && res) {
+        std::feclearexcept(FE_ALL_EXCEPT);
+        std::feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    return res;
 }
 
 #endif

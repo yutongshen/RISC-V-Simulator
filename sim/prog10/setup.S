@@ -8,6 +8,7 @@ _entry:
 
 .align 2
 trap_vector:
+    csrr sp, mscratch;
     csrr t0, mcause;
     li t1, CAUSE_SUPERVISOR_ECALL;
     beq t0, t1, scall;
@@ -186,6 +187,10 @@ handle_reset:
     li x30, 0;
     li x31, 0;
 
+    # set fs
+    li t0, MSTATUS_FS;
+    csrs mstatus, t0;
+
     # set stack point
     la sp, (STACK_TOP - TRAPFRAM_SIZE);
     csrw mscratch, sp;
@@ -206,11 +211,16 @@ rdtime:
 
 _terminate:
     li a0, EXIT_CODE_PASS;
-    j write_tohost;
+    j _write_tohost;
 
 _abort:
     li a0, EXIT_CODE_ERROR;
-    j write_tohost;
+    j _write_tohost;
+
+_write_tohost:
+    la t0, tohost;
+1:  sd a0, 0(t0);
+    j 1b;
 
 .align 2
 .globl user_space

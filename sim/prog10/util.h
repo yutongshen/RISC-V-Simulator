@@ -21,5 +21,9 @@ uint64_t syscall(uint64_t sys_id, uint64_t arg);
 void abort(void) __attribute__((noreturn));
 int putchar(int ch);
 int puts(const char *s);
+double log_2(double x);
+double log10(double x);
+char *ftoa(double value);
+char *itoa(uint64_t value, int base, int min_len, char fill_char);
 int printf(const char *format, ...);
 #endif

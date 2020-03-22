@@ -146,9 +146,9 @@ void CPU::run()
             printf(": %08x ", insn);
             // reg_num = REG_SP,
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A0,
+            reg_num = REG_A4,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_T4,
+            reg_num = REG_A5,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             // reg_num = REG_A5,
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
@@ -160,9 +160,9 @@ void CPU::run()
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             reg_num = REG_FT2,
             printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-            reg_num = REG_FT0,
+            reg_num = REG_FA4,
             printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-            reg_num = REG_FT1,
+            reg_num = REG_FA5,
             printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
         }
 #include "cpu/exec.h"

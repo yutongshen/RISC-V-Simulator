@@ -1,4 +1,5 @@
 #include "util.h"
+#include <math.h>
 #include <stdarg.h>
 #include "riscv_def.h"
 
@@ -103,6 +104,142 @@ int puts(const char *s)
     return res;
 }
 
+int fclass(double x)
+{
+    int cls;
+    asm volatile("fclass.d %0, %1;" : "=r"(cls) : "f"(x));
+    return cls;
+}
+
+double log_2(double x)
+{
+    int cls = fclass(x);
+    if (!(cls & 0x60))
+        return NAN;
+    union {
+        double d;
+        int64_t i;
+    } _x;
+    double res = 0;
+    _x.d = x;
+    if (cls == 0x20) {
+        res -= 1022 + 52;
+        _x.d = (double) _x.i;
+    }
+    res += (double) (((_x.i >> 52) & 0x7ff) - 0x400L);
+    // if (!(_x.i & ((1UL << 52) - 1)))
+    //    return res + 1;
+    _x.i &= ~(0x7ffUL << 52);
+    _x.i |= 0x3ffUL << 52;
+    res += ((-0.3358287811) * _x.d + 2.) * _x.d - 0.65871759316667;
+    return res;
+}
+
+double log10(double x)
+{
+    if (!(fclass(x) & 0x60))
+        return NAN;
+    return log_2(x) / 3.3219280948873626;
+}
+
+double fabs(double x)
+{
+    union {
+        double d;
+        int64_t i;
+    } _x;
+    _x.d = x;
+    _x.i &= -1UL >> 1;
+    return _x.d;
+}
+
+char *ftoa(double value)
+{
+    static double base[] = {1e+1,  1e+2,  1e+4,   1e+8,  1e+16,
+                            1e+32, 1e+64, 1e+128, 1e+256};
+    static char str[32];
+    uint16_t cls = fclass(value);
+    if (cls & (1 << 0))
+        return "-inf";
+    if (cls & (1 << 7))
+        return "inf";
+    if (cls & (1 << 8))
+        return "snan";
+    if (cls & (1 << 9))
+        return "qnan";
+
+    char *ptr = str;
+    int64_t exp = log10(fabs(value));
+    if (exp < 6 && exp >= -2) {
+        uint64_t l;
+        char *tmp;
+        ++ptr;
+        *str = ' ';
+        if (value < 0.) {
+            *ptr++ = '-';
+            value = -value;
+        }
+        l = value;
+        tmp = itoa(l, 10, 0, '0');
+        while (*tmp)
+            *ptr++ = *tmp++;
+        *ptr++ = '.';
+        value -= l;
+        l = (value * 1e+7);
+        tmp = itoa(l, 10, 7, '0');
+        while (*tmp)
+            *ptr++ = *tmp++;
+        if (*--ptr >= '5') {
+            *ptr = 0;
+            while (1) {
+                ++*--ptr;
+                if (*(ptr) <= '9')
+                    break;
+                *ptr = '0';
+                if (*(ptr - 1) == '.')
+                    --ptr;
+                else if (*(ptr - 1) == '-') {
+                    *(ptr - 2) = *(ptr - 1);
+                    *(ptr - 1) = '1';
+                    return str;
+                } else if (*(ptr - 1) == ' ') {
+                    *(ptr - 1) = '1';
+                    return str;
+                }
+            }
+        } else
+            *ptr = 0;
+        return str + 1;
+    } else {
+        double _base = 1.;
+        char *tmp;
+        if (exp >= 0) {
+            for (int i = 0; exp >> i; ++i)
+                if ((exp >> i) & 1)
+                    _base *= base[i];
+            tmp = ftoa(value / _base);
+            while (*tmp)
+                *ptr++ = *tmp++;
+            *ptr++ = 'e';
+            *ptr++ = '+';
+        } else {
+            exp = -exp + 1;
+            for (int i = 0; exp >> i; ++i)
+                if ((exp >> i) & 1)
+                    _base *= base[i];
+            tmp = ftoa(value * _base);
+            while (*tmp)
+                *ptr++ = *tmp++;
+            *ptr++ = 'e';
+            *ptr++ = '-';
+        }
+        tmp = itoa(exp, 10, 0, '0');
+        while (*tmp)
+            *ptr++ = *tmp++;
+        return str;
+    }
+}
+
 char *itoa(uint64_t value, int base, int min_len, char fill_char)
 {
     static char digitals[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
@@ -148,7 +285,7 @@ int printf(const char *format, ...)
             case 'x': {
                 assert(!(!fill_char ^ !min_len));
                 uint64_t n = va_arg(va, uint64_t);
-                res += _puts(itoa(n, 16, min_len, fill_char));
+                res += _puts(itoa(n, 16, min_len, min_len ? fill_char : '0'));
             } break;
             case 'd': {
                 assert(!(!fill_char ^ !min_len));
@@ -158,7 +295,12 @@ int printf(const char *format, ...)
                     putchar('-');
                     n = -n;
                 }
-                res += _puts(itoa(n, 10, min_len, fill_char));
+                res += _puts(itoa(n, 10, min_len, min_len ? fill_char : '0'));
+            } break;
+            case 'f': {
+                assert(!(!fill_char ^ !min_len));
+                double n = va_arg(va, double);
+                res += _puts(ftoa(n));
             } break;
             case '%':
                 ++res;

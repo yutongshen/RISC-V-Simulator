@@ -37,9 +37,6 @@ page_list_t *free_node_head, *free_node_tail;
 
 void fault_handle(uint64_t addr, uint64_t cause)
 {
-    // printf("ADDR: %08x, CAUSE: %08x\n", addr, cause);
-    // if (cause == 0xf)
-    //     asm volatile("ecall;");
     addr = addr >> PAGE_SHIFT << PAGE_SHIFT;
     pte_t *pte = l2_user_pt + ((addr >> PAGE_SHIFT) & ((1UL << 9) - 1UL));
     if (*pte & PTE_V) {
@@ -51,8 +48,6 @@ void fault_handle(uint64_t addr, uint64_t cause)
         return;
     }
 
-    // printf("ADDR: %08x, VAL: %08x\n", (uint64_t) pte, *pte);
-    // printf("FREE_NODE_HEAD_ADDR: %08x\n", (uint64_t) free_node_head->addr);
     // allocat new page
     assert(free_node_head);
     pte_t paddr = free_node_head->addr;
@@ -95,15 +90,14 @@ void vm_boot()
 
     // set supervisor legal address range for longest virtual - sv57
     write_csr(pmpaddr0, (1UL << (57 - 3)) - 1U);
-    write_csr(pmpcfg0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT))
+    write_csr(pmpcfg0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT));
 
-        // delegate exception for supervisor
-        write_csr(
-            medeleg,
-            (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
-                (1 << CAUSE_BREAKPOINT) | (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
-                (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT));
-
+    // delegate exception for supervisor
+    write_csr(
+        medeleg,
+        (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
+            (1 << CAUSE_BREAKPOINT) | (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
+            (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT));
 
     // set supervisor trap entry
     write_csr(stvec, pa2kva(&trap_entry));

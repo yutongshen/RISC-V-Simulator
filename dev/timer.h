@@ -3,12 +3,6 @@
 #include "bus/slave.h"
 #include "dev/device.h"
 
-
-#define MIP_BASE 0x0000
-#define TIMECMP_BASE 0x0800
-#define TIME_BASE 0x0ff8
-
-
 class Timer : public Device, public Slave
 {
     virtual void _init();

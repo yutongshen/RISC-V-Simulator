@@ -1,4 +1,5 @@
 #include "timer.h"
+#include "timer_reg.h"
 #include <iostream>
 #include "cpu/csr_config.h"
 #include "util/util.h"
@@ -18,6 +19,7 @@ void Timer::run()
         *ip |= MIP_MTIP;
     else
         *ip &= ~MIP_MTIP;
+    std::cout << "IRQ : " << *ip << ", TIMECMP : " << timecmp << ", TIME : " << time <<  std::endl;
 }
 
 bool Timer::write(const Addr &addr,
@@ -53,30 +55,30 @@ bool Timer::write(const Addr &addr,
     _wdata = wdata & mask;
 
     // Illegal space
-    if (addr < MIP_BASE)
+    if (addr < RG_MIP)
         return 0;
-    if (addr + len > MIP_BASE + sizeof(*ip) && addr < TIMECMP_BASE)
+    if (addr + len > RG_MIP + sizeof(*ip) && addr < RG_TIMECMP)
         return 0;
-    if (addr + len > TIMECMP_BASE + sizeof(timecmp) && addr < TIME_BASE)
+    if (addr + len > RG_TIMECMP + sizeof(timecmp) && addr < RG_TIME)
         return 0;
-    if (addr + len > TIME_BASE + sizeof(time))
+    if (addr + len > RG_TIME + sizeof(time))
         return 0;
 
-    if (addr >= MIP_BASE && addr + len <= MIP_BASE + sizeof(*ip)) {
+    if (addr >= RG_MIP && addr + len <= RG_MIP + sizeof(*ip)) {
         if (!is_mip_set)
             abort();
-        if (_wdata << (addr - MIP_BASE << 3))
+        if (_wdata << (addr - RG_MIP << 3))
             *ip |= MIP_MTIP;
         else
             *ip &= ~MIP_MTIP;
     }
-    if (addr >= TIMECMP_BASE && addr + len <= TIMECMP_BASE + sizeof(timecmp)) {
-        timecmp &= ~(mask << (addr - TIMECMP_BASE << 3));
-        timecmp |= _wdata << (addr - TIMECMP_BASE << 3);
+    if (addr >= RG_TIMECMP && addr + len <= RG_TIMECMP + sizeof(timecmp)) {
+        timecmp &= ~(mask << (addr - RG_TIMECMP << 3));
+        timecmp |= _wdata << (addr - RG_TIMECMP << 3);
     }
-    if (addr >= TIME_BASE && addr + len <= TIME_BASE + sizeof(time)) {
-        time &= ~(mask << (addr - TIME_BASE << 3));
-        time |= _wdata << (addr - TIME_BASE << 3);
+    if (addr >= RG_TIME && addr + len <= RG_TIME + sizeof(time)) {
+        time &= ~(mask << (addr - RG_TIME << 3));
+        time |= _wdata << (addr - RG_TIME << 3);
     }
     return 1;
 }
@@ -117,26 +119,26 @@ bool Timer::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     rdata = 0;
 
     // Illegal space
-    if (addr < MIP_BASE)
+    if (addr < RG_MIP)
         return 0;
-    if (addr + len > MIP_BASE + sizeof(*ip) && addr < TIMECMP_BASE)
+    if (addr + len > RG_MIP + sizeof(*ip) && addr < RG_TIMECMP)
         return 0;
-    if (addr + len > TIMECMP_BASE + sizeof(timecmp) && addr < TIME_BASE)
+    if (addr + len > RG_TIMECMP + sizeof(timecmp) && addr < RG_TIME)
         return 0;
-    if (addr + len > TIME_BASE + sizeof(time))
+    if (addr + len > RG_TIME + sizeof(time))
         return 0;
 
-    if (addr >= MIP_BASE && addr + len <= MIP_BASE + sizeof(*ip)) {
+    if (addr >= RG_MIP && addr + len <= RG_MIP + sizeof(*ip)) {
         if (*ip & MIP_MTIP)
-            rdata |= 1 >> (addr - MIP_BASE >> 3);
+            rdata |= 1 >> (addr - RG_MIP << 3);
         else
             rdata |= 0;
     }
-    if (addr >= TIMECMP_BASE && addr + len <= TIMECMP_BASE + sizeof(timecmp)) {
-        rdata |= timecmp >> (addr - TIMECMP_BASE >> 3);
+    if (addr >= RG_TIMECMP && addr + len <= RG_TIMECMP + sizeof(timecmp)) {
+        rdata |= timecmp >> (addr - RG_TIMECMP << 3);
     }
-    if (addr >= TIME_BASE && addr + len <= TIME_BASE + sizeof(time)) {
-        rdata |= time >> (addr - TIME_BASE >> 3);
+    if (addr >= RG_TIME && addr + len <= RG_TIME + sizeof(time)) {
+        rdata |= time >> (addr - RG_TIME << 3);
     }
 
     rdata = _is_signed ? sext(rdata, len << 3) : zext(rdata, len << 3);

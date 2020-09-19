@@ -10,9 +10,10 @@
 #include "mem/rom.h"
 #include "sys/system.h"
 #include "util/util.h"
+#include "bus/mmap.h"
 using namespace std;
 
-bool verbose(0);
+bool verbose(1);
 
 void print_pt(Bus *bus, const uint64_t &base)
 {
@@ -80,12 +81,12 @@ int main(int argc, char **argv)
 
     Bus bus_0;
     cpu_0.bus_connect(&bus_0);
-    bus_0.s_connect(0xc0000000, &timer_0);
-    bus_0.s_connect(0x00000000, &boot_rom);
-    bus_0.s_connect(0x00010000, &sram_0);
-    bus_0.s_connect(0x00020000, &sram_1);
-    bus_0.s_connect(0x20000000, &disk_0);
-    bus_0.s_connect(0x80000000, &disk_1);
+    bus_0.s_connect(TIMER_BASE,  &timer_0);
+    bus_0.s_connect(BROM_BASE,   &boot_rom);
+    bus_0.s_connect(SRAM_0_BASE, &sram_0);
+    bus_0.s_connect(SRAM_1_BASE, &sram_1);
+    bus_0.s_connect(DISK_0_BASE, &disk_0);
+    bus_0.s_connect(DISK_1_BASE, &disk_1);
 
     System sys_0;
     sys_0.add(&cpu_0);

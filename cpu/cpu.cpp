@@ -175,8 +175,6 @@ void CPU::run()
             if (verbose) {
                 cout << remark << endl;
                 cout << hex << "MSTATUS : " << csr->mstatus << endl;
-                printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), pc,
-                       t.get_tval());
             }
         trap_handling(t, pc);
     } catch (WaitForInterrupt &t) {
@@ -204,11 +202,15 @@ void CPU::run()
     // cout << hex << "SATP : " << csr->satp << endl;
 }
 
-void CPU::trap_handling(const Trap &t, uint64_t epc)
+void CPU::trap_handling(Trap &t, uint64_t epc)
 {
     uint64_t n(t.get_cause());
     uint64_t deleg(csr->medeleg);
     bool interrupt((int64_t) n < 0L);
+    if (verbose) {
+        printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), epc,
+               t.get_tval());
+    }
     if (interrupt) {
         deleg = csr->mideleg;
         n &= ~(1UL << 63);

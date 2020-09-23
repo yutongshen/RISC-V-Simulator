@@ -19,7 +19,7 @@ void Timer::run()
         *ip |= MIP_MTIP;
     else
         *ip &= ~MIP_MTIP;
-    std::cout << "IRQ : " << *ip << ", TIMECMP : " << timecmp << ", TIME : " << time <<  std::endl;
+    // std::cout << "IRQ : " << *ip << ", TIMECMP : " << timecmp << ", TIME : " << time <<  std::endl;
 }
 
 bool Timer::write(const Addr &addr,

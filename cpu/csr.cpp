@@ -2,7 +2,7 @@
 #include "cpu/rule_define.h"
 #include "util/util.h"
 
-CSR::CSR(uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
+CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : mhartid(cpuid), prv(PRV_M), pc_ptr(pc_ptr)
 {
 #define CSR_READ_DECLARE(addr, csr) csr = 0;
 #include "cpu/csr_config.h"

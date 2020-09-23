@@ -27,11 +27,12 @@ class CPU : public Device
     void take_interrupt(uint64_t interrupts);
 
 public:
-    CPU(uint64_t pc = 0UL);
+    CPU(uint64_t cpuid = 0, uint64_t pc = 0UL);
     ~CPU();
     virtual void run();
     void bus_connect(pBus bus);
     bool support_extension(char ext);
+    inline uint64_t get_cpuid() { return csr->mhartid; }
     inline uint64_t *get_mip_ptr() { return &csr->mip; }
     inline uint64_t get_satp() { return csr->satp; }
 };

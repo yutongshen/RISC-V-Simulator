@@ -12,7 +12,7 @@ class CSR
 #include "cpu/csr_config.h"
 #undef CSR_DECLARE
 public:
-    CSR(uint64_t *pc_ptr);
+    CSR(uint64_t cpuid, uint64_t *pc_ptr);
     ~CSR();
     static const char *csr_name(const uint32_t &addr);
     void set_csr(const uint32_t &addr, uint64_t value);

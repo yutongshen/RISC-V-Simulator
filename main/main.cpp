@@ -3,6 +3,7 @@
 #include <vector>
 #include "bus/bus.h"
 #include "cpu/cpu.h"
+#include "dev/plic.h"
 #include "dev/timer.h"
 #include "disk/disk.h"
 #include "fesvr/htif.h"
@@ -69,18 +70,47 @@ int main(int argc, char **argv)
     // Main
     const uint32_t SIM_END(argparser.get_int("SIMEND"));
     const uint32_t SIM_END_CODE(argparser.get_int("SIMENDCODE"));
-    CPU cpu_0(argparser.get_int("PC"));
+
+    // ==========================================================
+    //                     Define CPU
+    // ==========================================================
+    CPU cpu_0(CPU0, argparser.get_int("PC"));
+
+    // ==========================================================
+    //                     Define PLIC
+    // ==========================================================
+    PLIC plic_0;
+    plic_0.bind_irqdst(cpu_0.get_mip_ptr(), cpu_0.get_cpuid());
+
+    // ==========================================================
+    //                     Define Systimer
+    // ==========================================================
     Timer timer_0;
     timer_0.set_ip(cpu_0.get_mip_ptr());
 
+    // ==========================================================
+    //                     Define BootROM
+    // ==========================================================
     ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
+
+    // ==========================================================
+    //                     Define SRAM
+    // ==========================================================
     RAM sram_0("64kb");
     RAM sram_1("64kb");
+
+    // ==========================================================
+    //                     Define DISK
+    // ==========================================================
     Disk disk_0(argparser.get_str(1).c_str(), "2mb");
     Disk disk_1(argparser.get_str(1).c_str(), "2mb");
 
+    // ==========================================================
+    //                     Define Bus
+    // ==========================================================
     Bus bus_0;
     cpu_0.bus_connect(&bus_0);
+    bus_0.s_connect(PLIC_BASE,   &plic_0);
     bus_0.s_connect(TIMER_BASE,  &timer_0);
     bus_0.s_connect(BROM_BASE,   &boot_rom);
     bus_0.s_connect(SRAM_0_BASE, &sram_0);
@@ -90,6 +120,7 @@ int main(int argc, char **argv)
 
     System sys_0;
     sys_0.add(&cpu_0);
+    sys_0.add(&plic_0);
     sys_0.add(&timer_0);
 
     HTIF htif_0;
@@ -102,6 +133,7 @@ int main(int argc, char **argv)
     while ((bus_0.read(SIM_END, DATA_TYPE_WORD, end_code),
             (uint32_t) end_code) != SIM_END_CODE &&
            cycle-- && !htif_0.exit()) {
+        if (!(cycle & 0xf)) plic_0.get_pending()[0] = -1U;
         sys_0.run();
         htif_0.run();
     }

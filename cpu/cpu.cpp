@@ -38,12 +38,12 @@ const char *CPU::fence_flag(const uint8_t &arg)
     return str;
 }
 
-CPU::CPU(uint64_t pc)
+CPU::CPU(uint64_t cpuid, uint64_t pc)
     : low_power(0),
       pc(pc),
       regs{0},
       fregs{0},
-      csr(new CSR(&this->pc)),
+      csr(new CSR(cpuid, &this->pc)),
       mmu(new MMU(csr))
 {
 }
@@ -144,11 +144,11 @@ void CPU::run()
             if (pc != ppc)
                 printf("(%08lx)", ppc);
             printf(": %08x ", insn);
-            // reg_num = REG_SP,
-            // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A4,
+            reg_num = REG_A0,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A5,
+            reg_num = REG_A1,
+            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
+            reg_num = REG_A4,
             printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             // reg_num = REG_A5,
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
@@ -158,12 +158,12 @@ void CPU::run()
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
             // reg_num = REG_GP,
             // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_FT2,
-            printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-            reg_num = REG_FA4,
-            printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-            reg_num = REG_FA5,
-            printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+            // reg_num = REG_FT2,
+            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+            // reg_num = REG_FA4,
+            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
+            // reg_num = REG_FA5,
+            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
         }
 #include "cpu/exec.h"
 
@@ -196,10 +196,13 @@ void CPU::run()
     //      << endl;
     // cout << hex << "STVAL : " << csr->stval << endl;
     // cout << hex << "SEPC : " << csr->sepc << endl;
+    // cout << hex << "MSTATUS : " << csr->get_csr(CSR_MSTATUS_ADDR) << endl;
     // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;
     // cout << hex << "SIP : " << csr->get_csr(CSR_SIP_ADDR) << endl;
-    // cout << hex << "MIP : " << csr->mip << endl;
+    cout << hex << "MIP : " << csr->mip << endl;
     // cout << hex << "SATP : " << csr->satp << endl;
+    // cout << hex << "MSCRATCH : " << csr->mscratch << endl;
+    // cout << hex << "SSCRATCH : " << csr->sscratch << endl;
 }
 
 void CPU::trap_handling(Trap &t, uint64_t epc)

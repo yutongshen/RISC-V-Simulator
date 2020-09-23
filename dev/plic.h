@@ -5,15 +5,17 @@
 
 #define TARGET_NUM 8
 #define INT_NUM 32
+#define INT_REG_NUM ((INT_NUM >> 5) + !!(INT_NUM & 0x1f))
 
 class PLIC : public Device, public Slave
 {
     virtual void _init();
     bool csr_connect[TARGET_NUM];
-    uint64_t *ip[TARGET_NUM];
+    uint64_t *irqdst[TARGET_NUM];
     uint32_t prior[INT_NUM];
-    uint32_t pending[INT_NUM];
-    uint32_t enable[TARGET_NUM * INT_NUM];
+    uint32_t pending[INT_REG_NUM];
+    uint32_t dispatch[INT_NUM];
+    uint32_t enable[TARGET_NUM * INT_REG_NUM];
     uint32_t int_id[TARGET_NUM];
     uint32_t threshold[TARGET_NUM];
 
@@ -27,7 +29,7 @@ public:
     virtual bool read(const Addr &addr,
                       const DataType &data_type,
                       uint64_t &rdata);
-    void set_ip(uint64_t *ip, uint8_t target);
+    void bind_irqdst(uint64_t *irqsrc, uint8_t target);
     uint32_t *get_pending();
 };
 

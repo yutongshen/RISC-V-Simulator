@@ -1,5 +1,6 @@
 #include "riscv_def.h"
-#define MTIMER_TEST
+// #define MTIMER_TEST
+#define PLIC_TEST
 
 .section .text.init
 .align 2
@@ -343,19 +344,79 @@ rtime:
 
 #endif
 
+#ifdef PLIC_TEST
+    # Set Enable
+    li a1, (PLIC_BASE + RG_ENABLE);
+    li a0, -1U;
+    sw a0, 0(a1);
+
+    # Set Priority
+    li a1, (PLIC_BASE + RG_PRIOR);
+    li a0, 0x100;
+    sw a0, 0x14(a1);
+    sw a0, 0x00(a1);
+    sw a0, 0x04(a1);
+    sw a0, 0x08(a1);
+    sw a0, 0x0c(a1);
+    sw a0, 0x10(a1);
+    sw a0, 0x18(a1);
+    sw a0, 0x1c(a1);
+    sw a0, 0x20(a1);
+    sw a0, 0x24(a1);
+    sw a0, 0x28(a1);
+    sw a0, 0x2c(a1);
+    sw a0, 0x30(a1);
+    sw a0, 0x34(a1);
+    sw a0, 0x38(a1);
+    sw a0, 0x3c(a1);
+    sw a0, 0x40(a1);
+    sw a0, 0x44(a1);
+    sw a0, 0x48(a1);
+    sw a0, 0x4c(a1);
+    sw a0, 0x50(a1);
+    sw a0, 0x54(a1);
+    sw a0, 0x58(a1);
+    sw a0, 0x5c(a1);
+    sw a0, 0x60(a1);
+    sw a0, 0x64(a1);
+    sw a0, 0x68(a1);
+    sw a0, 0x6c(a1);
+    sw a0, 0x70(a1);
+    sw a0, 0x74(a1);
+    sw a0, 0x78(a1);
+    sw a0, 0x7c(a1);
+
+    # Enable interrupt
+    li a0, MSTATUS_MPIE;
+    csrs mstatus, a0;
+
+    # Enable EINT
+    li a0, MIP_MEIP;
+    csrs mie, a0;
+
+    # Set Priority
+    li a1, (PLIC_BASE + RG_INTID);
+    lw a0, 0(a1);
+
+    nop;
+    nop;
+    nop;
+    sw a0, 0(a1);
+#endif
+
     # Initialize virtual memory
     j vm_boot;
 
 set_timer_interval:
-    li a1, MTIME_ADDR;
+    li a1, (TIMER_BASE + RG_TIME);
     lw a1, 0(a1);
     add a0, a0, a1;
-    li a1, MTIMECMP_ADDR;
+    li a1, (TIMER_BASE + RG_TIMECMP);
     sw a0, 0(a1);
     ret;
 
 get_time:
-    li a0, MTIME_ADDR;
+    li a0, (TIMER_BASE + RG_TIME);
     lw a0, 0(a0);
     ret;
 

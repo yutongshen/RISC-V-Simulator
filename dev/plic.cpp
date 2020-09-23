@@ -6,7 +6,7 @@
 
 void PLIC::_init() {}
 
-PLIC::PLIC() : csr_connect({0}), prior({0}), pending({0}), enable({0}), int_id({0}), threshold({0}), Device(), Slave(0x40000000) {}
+PLIC::PLIC() : csr_connect{0}, prior{0}, pending{0}, enable{0}, int_id{0}, threshold{0}, Device(), Slave(0x40000000) {}
 
 PLIC::~PLIC() {}
 
@@ -16,11 +16,16 @@ void PLIC::run()
 
     for (int i = 0; i < TARGET_NUM; ++i)
     {
-        max_id = 1;
-        for (int j =0; j < (INT_NUM >> 5) + !!(INT_NUM & 0x1f); ++j)
+        if (!csr_connect[i]) continue;
+        #ifndef IRQ_PREEMPTION
+        if (*(irqdst[i]) & MIP_MEIP) continue;
+        #endif
+
+        max_id = 0;
+        for (int j = 0; j < INT_REG_NUM; ++j)
         {
             id = j << 5;
-            int_valid = enable[i * INT_NUM + j] & pending[j];
+            int_valid = enable[i * INT_REG_NUM + j] & pending[j] & ~dispatch[j];
             while (int_valid)
             {
                 if (int_valid & 0x1)
@@ -31,8 +36,21 @@ void PLIC::run()
                 ++id;
             }
         }
-        int_id[i] = max_id;
+        if (max_id && prior[max_id] > threshold[i])
+        {
+            *(irqdst[i]) |= MIP_MEIP;
+            int_id[i] = max_id;
+            dispatch[max_id >> 5] |= 1U << (max_id & 0x1f);
+        }
     }
+    // std::cout << "PENDING     : " << pending[0] << std::endl;
+    // std::cout << "ENABLE      : " << enable[0] << std::endl;
+    // std::cout << "DISPATCH    : " << dispatch[0] << std::endl;
+    // std::cout << "INT_ID      : " << int_id[0] << std::endl;
+    // std::cout << "PRIORITY[0] : " << prior[0] << std::endl;
+    // std::cout << "PRIORITY[1] : " << prior[1] << std::endl;
+    // std::cout << "PRIORITY[2] : " << prior[2] << std::endl;
+    // std::cout << "PRIORITY[3] : " << prior[3] << std::endl;
 }
 
 bool PLIC::write(const Addr &addr,
@@ -81,8 +99,8 @@ bool PLIC::write(const Addr &addr,
         tar_n = (addr - 0x2000) >> 7;
         if (tar_n < TARGET_NUM)
         {
-            int_n = (addr % 0x7f);
-            if (int_n < (INT_NUM >> 5) + !!(INT_NUM & 0x1f))
+            int_n = addr & 0x7f;
+            if (int_n < INT_REG_NUM)
             {
                 enable[tar_n * INT_NUM + int_n] = _wdata;
             }
@@ -96,6 +114,7 @@ bool PLIC::write(const Addr &addr,
             if (addr & 0x4) 
             {
                 int_id[tar_n] = _wdata;
+                *(irqdst[tar_n]) &= ~MIP_MEIP; // Clear target
             }
             else
             {
@@ -124,7 +143,7 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     else if (addr < 0x2000) // Pending
     {
         int_n = (addr - 0x1000) >> 2;
-        if (int_n < (INT_NUM >> 5) + !!(INT_NUM & 0x1f))
+        if (int_n < INT_REG_NUM)
         {
             rdata = pending[int_n];
         }
@@ -135,8 +154,8 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         tar_n = (addr - 0x2000) >> 7;
         if (tar_n < TARGET_NUM)
         {
-            int_n = (addr % 0x7f);
-            if (int_n < (INT_NUM >> 5) + !!(INT_NUM & 0x1f))
+            int_n = (addr & 0x7f);
+            if (int_n < INT_REG_NUM)
             {
                 rdata = enable[tar_n * INT_NUM + int_n];
             }
@@ -150,6 +169,8 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
             if (addr & 0x4) 
             {
                 rdata = int_id[tar_n];
+                pending [(rdata >> 5) % INT_REG_NUM] &= ~(1U << (rdata & 0x1f)); // Clear pending
+                dispatch[(rdata >> 5) % INT_REG_NUM] &= ~(1U << (rdata & 0x1f)); // Clear dispatch
             }
             else
             {
@@ -187,11 +208,11 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     return 1;
 }
 
-void PLIC::set_ip(uint64_t *ip, uint8_t target)
+void PLIC::bind_irqdst(uint64_t *dst, uint8_t target)
 {
     if (csr_connect[target]) abort();
     csr_connect[target] = 1;
-    this->ip[target] = ip;
+    this->irqdst[target] = dst;
 }
 
 uint32_t *PLIC::get_pending()

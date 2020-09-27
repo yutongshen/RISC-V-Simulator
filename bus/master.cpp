@@ -34,8 +34,8 @@ bool Master::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 
 void Master::mb_connect(pBus bus)
 {
-    assert(!connected);
+    // assert(!connected);
     this->p_bus = bus;
-    bus->m_connect(this);
+    // bus->m_connect(this);
     connected = 1;
 }

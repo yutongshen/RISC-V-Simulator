@@ -1,5 +1,5 @@
 #include "timer.h"
-#include "timer_reg.h"
+#include "mmap/timer_reg.h"
 #include <iostream>
 #include "cpu/csr_config.h"
 #include "util/util.h"

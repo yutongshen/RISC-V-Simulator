@@ -1,5 +1,5 @@
 #include "plic.h"
-#include "plic_reg.h"
+#include "mmap/plic_reg.h"
 #include <iostream>
 #include "cpu/csr_config.h"
 #include "util/util.h"
@@ -128,7 +128,6 @@ bool PLIC::write(const Addr &addr,
 
 bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
-    uint64_t mask;
     uint32_t int_n, tar_n;
 
     rdata = 0L;

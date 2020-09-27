@@ -7,6 +7,19 @@
 #include "util/util.h"
 using namespace std;
 
+#define RD_NONE      0
+#define RD_NORM      1
+#define RD_CTYPE     2
+#define RD_RS1_CTYPE 3
+#define RD_F_NORM    4
+#define RD_F_CTYPE   5
+#define RD_RA        6
+#define RD_SP        7
+
+#define CSR_NONE   0
+#define CSR_NORM   1
+#define CSR_FFLAGS 2
+
 extern bool verbose;
 
 const char CPU::regs_name[32][5] = {
@@ -39,7 +52,8 @@ const char *CPU::fence_flag(const uint8_t &arg)
 }
 
 CPU::CPU(uint64_t cpuid, uint64_t pc)
-    : low_power(0),
+    : power_sta(0),
+      low_power(0),
       pc(pc),
       regs{0},
       fregs{0},
@@ -58,6 +72,8 @@ void CPU::_init() {}
 
 void CPU::run()
 {
+    if (!power_sta) return;
+
     char remark[100] = "Unknown instruction";
 
     try {
@@ -68,6 +84,7 @@ void CPU::run()
             return;
 
         // Instruction Execute
+        uint8_t instr_len(0), rd_sta(RD_NONE), csr_sta(CSR_NONE);
         uint32_t insn(mmu->fetch(pc, pc_alignment_mask));
         bool aq(bit(insn, 26)), rl(bit(insn, 25));
         uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
@@ -126,7 +143,6 @@ void CPU::run()
         _c_rd = (_c_rd & 0x7) | 0x8;
 
         if (verbose) {
-            int reg_num(0);
             uint64_t ppc;
             switch (csr->prv) {
             case 0:
@@ -144,31 +160,47 @@ void CPU::run()
             if (pc != ppc)
                 printf("(%08lx)", ppc);
             printf(": %08x ", insn);
-            reg_num = REG_A0,
-            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A1,
-            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            reg_num = REG_A4,
-            printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            // reg_num = REG_A5,
-            // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            // reg_num = REG_T0,
-            // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            // reg_num = REG_T1,
-            // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            // reg_num = REG_GP,
-            // printf("%s: %08lx ", regs_name[reg_num], regs[reg_num]);
-            // reg_num = REG_FT2,
-            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-            // reg_num = REG_FA4,
-            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
-            // reg_num = REG_FA5,
-            // printf("%s: %08lx ", fregs_name[reg_num], fregs[reg_num]);
         }
 #include "cpu/exec.h"
 
         if (verbose) {
-            cout << remark << endl;
+            printf("%s", remark);
+            switch (rd_sta) {
+            case RD_NONE     :
+                break;
+            case RD_NORM     :
+                printf(" [%s: %08lx]", regs_name[rd], regs[rd]);
+                break;
+            case RD_CTYPE    :
+                printf(" [%s: %08lx]", regs_name[_c_rd], regs[_c_rd]);
+                break;
+            case RD_RS1_CTYPE:
+                printf(" [%s: %08lx]", regs_name[_c_rs1], regs[_c_rs1]);
+                break;
+            case RD_RA       :
+                printf(" [%s: %08lx]", regs_name[REG_RA], regs[REG_RA]);
+                break;
+            case RD_SP       :
+                printf(" [%s: %08lx]", regs_name[REG_SP], regs[REG_SP]);
+                break;
+            case RD_F_NORM   :
+                printf(" [%s: %08lx]", fregs_name[rd], fregs[rd]);
+                break;
+            case RD_F_CTYPE  :
+                printf(" [%s: %08lx]", fregs_name[_c_rd], fregs[_c_rd]);
+                break;
+            }
+            switch (csr_sta) {
+            case CSR_NONE  :
+                break;
+            case CSR_NORM  :
+                printf(" [%s: %08lx]", csr->csr_name(csr_addr), csr->get_csr(csr_addr));
+                break;
+            case CSR_FFLAGS:
+                printf(" [%s: %08lx]", csr->csr_name(CSR_FFLAGS_ADDR), csr->get_csr(CSR_FFLAGS_ADDR));
+                break;
+            }
+            printf("\n");
         }
     } catch (Trap &t) {
         if ((int64_t) t.get_cause() >= 0)
@@ -199,7 +231,7 @@ void CPU::run()
     // cout << hex << "MSTATUS : " << csr->get_csr(CSR_MSTATUS_ADDR) << endl;
     // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;
     // cout << hex << "SIP : " << csr->get_csr(CSR_SIP_ADDR) << endl;
-    cout << hex << "MIP : " << csr->mip << endl;
+    // cout << hex << "MIP : " << csr->mip << endl;
     // cout << hex << "SATP : " << csr->satp << endl;
     // cout << hex << "MSCRATCH : " << csr->mscratch << endl;
     // cout << hex << "SSCRATCH : " << csr->sscratch << endl;
@@ -292,6 +324,11 @@ void CPU::take_interrupt(uint64_t ints)
 
     // Execute instruction after wfi
     pc = npc;
+}
+
+void CPU::set_power_on(bool power_sta)
+{
+    this->power_sta = power_sta;
 }
 
 void CPU::bus_connect(pBus bus)

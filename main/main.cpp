@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include "bus/bus.h"
+#include "cpu/cluster.h"
 #include "cpu/cpu.h"
 #include "dev/plic.h"
 #include "dev/timer.h"
@@ -11,7 +12,7 @@
 #include "mem/rom.h"
 #include "sys/system.h"
 #include "util/util.h"
-#include "bus/mmap.h"
+#include "mmap/mmap.h"
 using namespace std;
 
 bool verbose(1);
@@ -75,6 +76,34 @@ int main(int argc, char **argv)
     //                     Define CPU
     // ==========================================================
     CPU cpu_0(CPU0, argparser.get_int("PC"));
+    CPU cpu_1(CPU1);
+    CPU cpu_2(CPU2);
+    CPU cpu_3(CPU3);
+    CPU cpu_4(CPU4);
+    CPU cpu_5(CPU5);
+    CPU cpu_6(CPU6);
+    CPU cpu_7(CPU7);
+    cpu_0.set_power_on(true);
+    // cpu_1.set_power_on(true);
+    // cpu_2.set_power_on(true);
+    // cpu_3.set_power_on(true);
+    // cpu_4.set_power_on(true);
+    // cpu_5.set_power_on(true);
+    // cpu_6.set_power_on(true);
+    // cpu_7.set_power_on(true);
+
+    // ==========================================================
+    //                     Define Cluster
+    // ==========================================================
+    Cluster cluster_0;
+    cluster_0.add(CPU0, &cpu_0);
+    cluster_0.add(CPU1, &cpu_1);
+    cluster_0.add(CPU2, &cpu_2);
+    cluster_0.add(CPU3, &cpu_3);
+    cluster_0.add(CPU4, &cpu_4);
+    cluster_0.add(CPU5, &cpu_5);
+    cluster_0.add(CPU6, &cpu_6);
+    cluster_0.add(CPU7, &cpu_7);
 
     // ==========================================================
     //                     Define PLIC
@@ -109,7 +138,8 @@ int main(int argc, char **argv)
     //                     Define Bus
     // ==========================================================
     Bus bus_0;
-    cpu_0.bus_connect(&bus_0);
+    cluster_0.bus_connect(&bus_0);
+    bus_0.s_connect(CLST_0_BASE, &cluster_0);
     bus_0.s_connect(PLIC_BASE,   &plic_0);
     bus_0.s_connect(TIMER_BASE,  &timer_0);
     bus_0.s_connect(BROM_BASE,   &boot_rom);
@@ -119,7 +149,7 @@ int main(int argc, char **argv)
     bus_0.s_connect(DISK_1_BASE, &disk_1);
 
     System sys_0;
-    sys_0.add(&cpu_0);
+    sys_0.add(&cluster_0);
     sys_0.add(&plic_0);
     sys_0.add(&timer_0);
 

@@ -2,7 +2,7 @@
 #include "cpu/rule_define.h"
 #include "util/util.h"
 
-CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : mhartid(cpuid), prv(PRV_M), pc_ptr(pc_ptr)
+CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
 {
 #define CSR_READ_DECLARE(addr, csr) csr = 0;
 #include "cpu/csr_config.h"
@@ -20,6 +20,7 @@ CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : mhartid(cpuid), prv(PRV_M), pc_ptr(
     mstatus = set_field(mstatus, MSTATUS_UXL, 2);
     mstatus = set_field(mstatus, MSTATUS_SXL, 2);
 
+    mhartid = cpuid;
     // pmpaddr[0] = -1UL;
     // pmpcfg[0] = PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT);
 }

@@ -6,6 +6,7 @@
 #include "cpu/mmu.h"
 #include "cpu/trap.h"
 #include "dev/device.h"
+#include <fstream>
 
 typedef MMU *pMMU;
 typedef Bus *pBus;
@@ -16,6 +17,7 @@ class CPU : public Device
     static const char regs_name[32][5];
     static const char fregs_name[32][5];
     static const char *fence_flag(const uint8_t &arg);
+    std::ofstream cpu_trace;
     bool low_power;
     bool power_sta;
     uint64_t pc;

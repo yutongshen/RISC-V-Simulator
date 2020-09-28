@@ -1,6 +1,8 @@
 #include "riscv_def.h"
+#include "mmap_soc.h"
 // #define MTIMER_TEST
-#define PLIC_TEST
+// #define PLIC_TEST
+#define CPU_NUM 8
 
 .section .text.init
 .align 2
@@ -346,12 +348,12 @@ rtime:
 
 #ifdef PLIC_TEST
     # Set Enable
-    li a1, (PLIC_BASE + RG_ENABLE);
+    li a1, PLIC_RG_ENABLE;
     li a0, -1U;
     sw a0, 0(a1);
 
     # Set Priority
-    li a1, (PLIC_BASE + RG_PRIOR);
+    li a1, PLIC_RG_PRIOR;
     li a0, 0x100;
     sw a0, 0x14(a1);
     sw a0, 0x00(a1);
@@ -395,34 +397,80 @@ rtime:
     csrs mie, a0;
 
     # Set Priority
-    li a1, (PLIC_BASE + RG_INTID);
+    li a1, PLIC_RG_INTID;
     lw a0, 0(a1);
 
-    nop;
-    nop;
-    nop;
     sw a0, 0(a1);
 #endif
+
+#if (CPU_NUM > 1)
+    li a0, 1;
+    jal set_cpu_power_on;
+#endif
+
+#if (CPU_NUM > 2)
+    li a0, 2;
+    jal set_cpu_power_on;
+#endif
+
+#if (CPU_NUM > 3)
+    li a0, 3;
+    jal set_cpu_power_on;
+#endif
+
+#if (CPU_NUM > 4)
+    li a0, 4;
+    jal set_cpu_power_on;
+#endif
+
+#if (CPU_NUM > 5)
+    li a0, 5;
+    jal set_cpu_power_on;
+#endif
+
+#if (CPU_NUM > 6)
+    li a0, 6;
+    jal set_cpu_power_on;
+#endif
+
+#if (CPU_NUM > 7)
+    li a0, 7;
+    jal set_cpu_power_on;
+#endif
+
+    csrr a0, mhartid;
+    bnez a0, _wfi;
 
     # Initialize virtual memory
     j vm_boot;
 
 set_timer_interval:
-    li a1, (TIMER_BASE + RG_TIME);
+    li a1, TIMER_RG_TIME;
     lw a1, 0(a1);
     add a0, a0, a1;
-    li a1, (TIMER_BASE + RG_TIMECMP);
+    li a1, TIMER_RG_TIMECMP;
     sw a0, 0(a1);
     ret;
 
 get_time:
-    li a0, (TIMER_BASE + RG_TIME);
+    li a0, TIMER_RG_TIME;
     lw a0, 0(a0);
     ret;
+
+set_cpu_power_on:
+    li a1, 1;
+    sll a0, a1, a0;
+    li a1, CLST_0_RG_PWR_REQ;
+    sw a0, 0(a1);
+    ret;
+    
 
 _terminate:
     li a0, EXIT_CODE_PASS;
     j _write_tohost;
+
+_wfi:
+    wfi;
 
 _abort:
     li a0, EXIT_CODE_ERROR;

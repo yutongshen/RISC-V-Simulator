@@ -2,6 +2,7 @@
 #include "mmap/cluster_reg.h"
 #include "cpu/csr_config.h"
 #include "util/util.h"
+#include <iostream>
 
 void Cluster::_init() {}
 
@@ -51,9 +52,9 @@ bool Cluster::write(const Addr &addr,
     {
     case RG_PWR_REQ:
         _wdata &= 0xff;
-        for (i = 0; _wdata; ++i, _wdata >> 1)
+        for (i = 0; _wdata; ++i, _wdata >>= 1)
         {
-            if (cores[i]) cores[i]->set_power_on(true);
+            if (cores[i] && (_wdata & 0x1)) cores[i]->set_power_on(true);
         }
         break;
     case RG_CPU7_PC:

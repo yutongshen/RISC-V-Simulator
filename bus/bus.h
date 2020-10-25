@@ -24,7 +24,6 @@ typedef struct {
 
 class Bus
 {
-    uint8_t slave_table[64];
     memmap_entry_t *mmap;
     uint8_t slave_cnt;
     std::vector<pMaster> masters;

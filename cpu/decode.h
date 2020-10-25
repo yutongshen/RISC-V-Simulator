@@ -1280,8 +1280,8 @@
     require_extension('C');                                    \
     throw TrapIllegalInstruction(insn); /* RV32C only */       \
     regs[REG_RA] = pc + 2UL;                                   \
-    rd_sta = RD_RA;   `                                         \
-    pc += imm_c_j;                                             \
+    rd_sta = RD_RA;                                            \
+    ` pc += imm_c_j;                                           \
     break;
 
 #define INSTRUCT_C_LI                                                    \
@@ -1678,7 +1678,7 @@
     break;
 
 #define INSTRUCT_LR_D                                                    \
-    instr_len = 4;                                                    \
+    instr_len = 4;                                                       \
     sprintf(remark, "lr.d%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
             regs_name[rs1]);                                             \
     sprintf(remark, "%s (check)", remark);                               \

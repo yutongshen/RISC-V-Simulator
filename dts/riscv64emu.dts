@@ -1,0 +1,194 @@
+/dts-v1/;
+
+/ {
+    model = "yt_rv64emu";
+    compatible = "yutong", "yt_rv64emu";
+    #address-cells = <2>;
+    #size-cells = <2>;
+    interrupt-parent = <&plic>;
+
+    cpus {
+        linux,phandle = <1>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+        cpu0: cpu@0 {
+            device_type = "cpu";
+            reg = <0x0>;
+            linux,boot-cpu;
+            cpu0_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu1: cpu@1 {
+            device_type = "cpu";
+            reg = <0x1>;
+            cpu1_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu2: cpu@2 {
+            device_type = "cpu";
+            reg = <0x2>;
+            cpu2_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu3: cpu@3 {
+            device_type = "cpu";
+            reg = <0x3>;
+            cpu3_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu4: cpu@4 {
+            device_type = "cpu";
+            reg = <0x4>;
+            cpu4_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu5: cpu@5 {
+            device_type = "cpu";
+            reg = <0x5>;
+            cpu5_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu6: cpu@6 {
+            device_type = "cpu";
+            reg = <0x6>;
+            cpu6_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        cpu7: cpu@7 {
+            device_type = "cpu";
+            reg = <0x7>;
+            cpu7_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+        
+        cpu-map {
+            cluster0 {
+                core0 {
+                    cpu = <&cpu0>;
+                };
+                core1 {
+                    cpu = <&cpu1>;
+                };
+                core2 {
+                    cpu = <&cpu2>;
+                };
+                core3 {
+                    cpu = <&cpu3>;
+                };
+                core4 {
+                    cpu = <&cpu4>;
+                };
+                core5 {
+                    cpu = <&cpu5>;
+                };
+                core6 {
+                    cpu = <&cpu6>;
+                };
+                core7 {
+                    cpu = <&cpu7>;
+                };
+            };
+        };
+    };
+
+    bootrom: bootrom@0 {
+        device_type = "bootrom";
+        reg = <0x00000000 0x00000000 0x00000000 0x00001000>;
+    };
+
+    sram1: sram@10000 {
+        device_type = "memory";
+        reg = <0x00000000 0x00010000 0x00000000 0x00010000>;
+    };
+
+    sram2: sram@20000 {
+        device_type = "memory";
+        reg = <0x00000000 0x00020000 0x00000000 0x00010000>;
+    };
+
+    dram1: dram@20000000 {
+        device_type = "memory";
+        reg = <0x00000000 0x20000000 0x00000000 0x00200000>;
+    };
+
+    dram2: dram@80000000 {
+        device_type = "memory";
+        reg = <0x00000000 0x80000000 0x00000000 0x00200000>;
+    };
+
+    flash: flash@100000000 {
+        device_type = "memory";
+        reg = <0x00000001 0x00000000 0x00000000 0x40000000>;
+    };
+
+    peribus: peribus@10000000 {
+        compatible = "riscv,bus";
+        #address-cells = <1>;
+        #size-cells = <1>;
+        reg = <0x00000000 0x10000000 0x00000000 0x10000000>;
+        
+        clint0: clint@10000000 {
+            compatible = "riscv,clint0";
+            reg = <0x10000000 0x1000>;
+            interrupts-extended = <&cpu0_intc 7>, <&cpu0_intc 3>,
+                                  <&cpu1_intc 7>, <&cpu1_intc 3>,
+                                  <&cpu2_intc 7>, <&cpu2_intc 3>,
+                                  <&cpu3_intc 7>, <&cpu3_intc 3>,
+                                  <&cpu4_intc 7>, <&cpu4_intc 3>,
+                                  <&cpu5_intc 7>, <&cpu5_intc 3>,
+                                  <&cpu6_intc 7>, <&cpu6_intc 3>,
+                                  <&cpu7_intc 7>, <&cpu7_intc 3>;
+        };
+
+        uart0: uart@10010000 {
+            compatible = "sifive,uart0";
+            reg = <0x10010000 0x1000>;
+            interrupts = <0>;
+        };
+
+        plic: interrupt-controller@14000000{
+            #interrupt-cells = <1>;
+            interrupt-controller;
+            compatible = "riscv,plic0";
+            riscv,ndev = <16>;
+            reg = <0x14000000 0x0 0x4000000>;
+            interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>,
+                                  <&cpu1_intc 11>, <&cpu1_intc 9>,
+                                  <&cpu2_intc 11>, <&cpu2_intc 9>,
+                                  <&cpu3_intc 11>, <&cpu3_intc 9>,
+                                  <&cpu4_intc 11>, <&cpu4_intc 9>,
+                                  <&cpu5_intc 11>, <&cpu5_intc 9>,
+                                  <&cpu6_intc 11>, <&cpu6_intc 9>,
+                                  <&cpu7_intc 11>, <&cpu7_intc 9>;
+        };
+    };
+
+    chosen {
+        bootargs = "root=/dev/sda2";
+        linux,platform = <0x00000600>;
+    };
+};

@@ -1,12 +1,12 @@
 #ifndef __CPU__
 #define __CPU__
 
+#include <fstream>
 #include "bus/bus.h"
 #include "cpu/csr.h"
 #include "cpu/mmu.h"
 #include "cpu/trap.h"
 #include "dev/device.h"
-#include <fstream>
 
 typedef MMU *pMMU;
 typedef Bus *pBus;

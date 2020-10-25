@@ -72,15 +72,6 @@ uint64_t dpc;
 uint64_t dscratch;
 #endif
 
-#define CPU0 0
-#define CPU1 1
-#define CPU2 2
-#define CPU3 3
-#define CPU4 4
-#define CPU5 5
-#define CPU6 6
-#define CPU7 7
-
 #define PRV_U 0x0
 #define PRV_S 0x1
 #define PRV_H 0x2

@@ -93,11 +93,11 @@ void vm_boot()
     write_csr(pmpcfg0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT));
 
     // delegate exception for supervisor
-    write_csr(
-        medeleg,
-        (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
-            (1 << CAUSE_BREAKPOINT) | (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
-            (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT));
+    write_csr(medeleg, (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
+                           (1 << CAUSE_BREAKPOINT) |
+                           (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
+                           (1 << CAUSE_LOAD_PAGE_FAULT) |
+                           (1 << CAUSE_STORE_PAGE_FAULT));
 
     // set supervisor trap entry
     write_csr(stvec, pa2kva(&trap_entry));

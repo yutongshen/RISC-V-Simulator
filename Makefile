@@ -1,6 +1,8 @@
 root_dir := $(PWD)
 bld_dir  := ./build
-src_dir  := ./main ./sys ./dev ./cpu ./bus ./mem ./disk ./fesvr ./util
+src_dir  := ./main ./sys ./dev ./cpu ./bus ./mem ./fesvr ./util
+dts_dir  := ./dts
+dts_file := riscv64emu.dts
 sim_dir  := ./sim
 sim_file := sim
 mmap_dir := ./mmap
@@ -43,7 +45,9 @@ sim: all
 	@for file in ${mmap_dir}/*_reg.h; do \
 	  ${XTEND_MMAP} ${bld_dir}/mmap_soc.h $${file}; \
 	done
-	@cp ${bld_dir}/mmap_soc.h ${sim_dir}/prog${prog};
+	@cp ${bld_dir}/mmap_soc.h ${sim_dir}/prog${prog}/include;
+
+	@dtc -I dts -O dtb ${dts_dir}/${dts_file} > ${sim_dir}/prog${prog}/riscv64emu.dtb;
 
 	@if [ "${prog}" == "9" ]; then \
 	  for ext in ${rv_ext}; do \
@@ -71,6 +75,7 @@ auto-format:
 	@for dir in ${src_dir}; do \
 	    make -C $${dir} auto-format; \
 	done
+	@make -C ${mmap_dir} auto-format;
 	@make -C ${sim_dir} auto-format;
 
 clean:
@@ -78,4 +83,5 @@ clean:
 	@for dir in ${src_dir}; do \
 	    make -C $${dir} clean; \
 	done
+	@make -C ${mmap_dir} clean;
 	@make -C ${sim_dir} clean;

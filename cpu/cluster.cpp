@@ -1,8 +1,8 @@
 #include "cluster.h"
-#include "mmap/cluster_reg.h"
-#include "cpu/csr_config.h"
-#include "util/util.h"
 #include <iostream>
+#include "cpu/csr_config.h"
+#include "mmap/cluster_reg.h"
+#include "util/util.h"
 
 void Cluster::_init() {}
 
@@ -12,15 +12,15 @@ Cluster::~Cluster() {}
 
 void Cluster::run()
 {
-    for (int i = 0; i < 8; ++i)
-    {
-        if (cores[i]) cores[i]->run();
+    for (int i = 0; i < 8; ++i) {
+        if (cores[i])
+            cores[i]->run();
     }
 }
 
 bool Cluster::write(const Addr &addr,
-                  const DataType &data_type,
-                  const uint64_t &wdata)
+                    const DataType &data_type,
+                    const uint64_t &wdata)
 {
     uint64_t mask, _wdata;
     uint32_t i;
@@ -48,13 +48,12 @@ bool Cluster::write(const Addr &addr,
     _wdata = wdata & mask;
 
     i = 0x0;
-    switch (addr)
-    {
+    switch (addr) {
     case RG_PWR_REQ:
         _wdata &= 0xff;
-        for (i = 0; _wdata; ++i, _wdata >>= 1)
-        {
-            if (cores[i] && (_wdata & 0x1)) cores[i]->set_power_on(true);
+        for (i = 0; _wdata; ++i, _wdata >>= 1) {
+            if (cores[i] && (_wdata & 0x1))
+                cores[i]->set_power_on(true);
         }
         break;
     case RG_CPU7_PC:
@@ -72,29 +71,8 @@ bool Cluster::write(const Addr &addr,
     case RG_CPU1_PC:
         ++i;
     case RG_CPU0_PC:
-        if (cores[i]) *(cores[i]->get_pc()) = _wdata;
-        break;
-    case RG_CPU7_MIP:
-        ++i;
-    case RG_CPU6_MIP:
-        ++i;
-    case RG_CPU5_MIP:
-        ++i;
-    case RG_CPU4_MIP:
-        ++i;
-    case RG_CPU3_MIP:
-        ++i;
-    case RG_CPU2_MIP:
-        ++i;
-    case RG_CPU1_MIP:
-        ++i;
-    case RG_CPU0_MIP:
-        _wdata &= 0xff;
-        if (cores[i]) 
-        {
-            if (_wdata) *(cores[i]->get_mip_ptr()) |= MIP_MSIP;
-            else *(cores[i]->get_mip_ptr()) &= ~MIP_MSIP;
-        }
+        if (cores[i])
+            *(cores[i]->get_pc()) = _wdata;
         break;
     }
 
@@ -105,8 +83,7 @@ bool Cluster::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
     int i;
     rdata = 0L;
-    switch (addr)
-    {
+    switch (addr) {
     case RG_PWR_REQ:
         /* Read all zero */
         break;
@@ -125,30 +102,11 @@ bool Cluster::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case RG_CPU1_PC:
         ++i;
     case RG_CPU0_PC:
-        if (cores[i]) rdata = *(cores[i]->get_pc());
-        break;
-    case RG_CPU7_MIP:
-        ++i;
-    case RG_CPU6_MIP:
-        ++i;
-    case RG_CPU5_MIP:
-        ++i;
-    case RG_CPU4_MIP:
-        ++i;
-    case RG_CPU3_MIP:
-        ++i;
-    case RG_CPU2_MIP:
-        ++i;
-    case RG_CPU1_MIP:
-        ++i;
-    case RG_CPU0_MIP:
-        if (cores[i]) 
-        {
-            rdata = !!(*(cores[i]->get_mip_ptr()) & MIP_MSIP);
-        }
+        if (cores[i])
+            rdata = *(cores[i]->get_pc());
         break;
     }
-    
+
     switch (data_type) {
     case DATA_TYPE_DWORD:
         break;
@@ -181,14 +139,14 @@ bool Cluster::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 void Cluster::add(const uint8_t &num, CPU *core)
 {
     cores[num] = core;
-	core->bus_connect(bus);
+    core->bus_connect(bus);
 }
 
 void Cluster::bus_connect(pBus bus)
 {
-	this->bus = bus;
-	for (int i = 0; i < 8; ++i)
-	{
-	    if (cores[i]) cores[i]->bus_connect(bus);
-	}
+    this->bus = bus;
+    for (int i = 0; i < 8; ++i) {
+        if (cores[i])
+            cores[i]->bus_connect(bus);
+    }
 }

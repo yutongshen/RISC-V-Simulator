@@ -100,11 +100,11 @@ void vm_boot()
     set_csr(sie, MIP_SSIP);
 
     // delegate exception for supervisor
-    write_csr(
-        medeleg,
-        (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
-            (1 << CAUSE_BREAKPOINT) | (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
-            (1 << CAUSE_LOAD_PAGE_FAULT) | (1 << CAUSE_STORE_PAGE_FAULT));
+    write_csr(medeleg, (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
+                           (1 << CAUSE_BREAKPOINT) |
+                           (1 << CAUSE_INSTRUCTION_PAGE_FAULT) |
+                           (1 << CAUSE_LOAD_PAGE_FAULT) |
+                           (1 << CAUSE_STORE_PAGE_FAULT));
 
     // set supervisor trap entry
     write_csr(stvec, pa2kva(&trap_entry_s));

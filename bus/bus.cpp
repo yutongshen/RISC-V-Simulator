@@ -30,8 +30,7 @@ void Bus::fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound)
     }
 }
 
-Bus::Bus()
-    : slave_table{0}, slave_cnt(0), mmap(new memmap_entry_t[64]), slaves()
+Bus::Bus() : slave_cnt(0), mmap(new memmap_entry_t[64]), slaves()
 {
     init_mmap(mmap);
 }
@@ -59,7 +58,7 @@ bool Bus::find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave)
             return 0;
         if (mmap_ptr[idx].is_ptr) {
             mmap_ptr = (memmap_entry_t *) mmap_ptr[idx].val.ptr;
-            offset &= ~(1 << (64 - (idx + 1)));
+            offset &= ~(1L << (64 - (idx + 1)));
             idx = clz(offset);
         } else {
             break;
@@ -99,7 +98,7 @@ void Bus::s_connect(const Addr &addr, pSlave slave)
         } else {
             abort();
         }
-        offset &= ~(1 << (64 - (idx + 1)));
+        offset &= ~(1L << (64 - (idx + 1)));
         idx = clz(offset);
     } while (1);
 }
@@ -124,7 +123,7 @@ bool Bus::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     if (!find_slave(addr, offset, n_slave)) {
         return 0;
     }
-    // if (addr == 0x80001000) {
+    // if (addr >= 0x80000000) {
     //     std::cout << std::hex << "ADDR : " << addr << " SLAVE : " <<
     //     (int)n_slave << std::endl; return 1;
     // }

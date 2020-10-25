@@ -1,13 +1,13 @@
 #ifndef __CLUSTER__
 #define __CLUSTER__
 #include "bus/slave.h"
-#include "dev/device.h"
 #include "cpu/cpu.h"
+#include "dev/device.h"
 
 class Cluster : public Device, public Slave
 {
     CPU *cores[8];
-	pBus bus;
+    pBus bus;
     virtual void _init();
 
 public:

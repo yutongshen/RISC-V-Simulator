@@ -1,18 +1,20 @@
 #include <string.h>
-#include <iostream>
 #include <vector>
 #include "bus/bus.h"
 #include "cpu/cluster.h"
 #include "cpu/cpu.h"
 #include "dev/plic.h"
-#include "dev/timer.h"
-#include "disk/disk.h"
+#include "bus/bridge.h"
+#include "dev/clint.h"
+#include "dev/uart.h"
 #include "fesvr/htif.h"
+#include "mem/flash.h"
 #include "mem/ram.h"
 #include "mem/rom.h"
+#include "mmap/mmap.h"
 #include "sys/system.h"
 #include "util/util.h"
-#include "mmap/mmap.h"
+#include "riscv_soc_def.h"
 using namespace std;
 
 bool verbose(1);
@@ -76,34 +78,62 @@ int main(int argc, char **argv)
     //                     Define CPU
     // ==========================================================
     CPU cpu_0(CPU0, argparser.get_int("PC"));
-    CPU cpu_1(CPU1);
-    CPU cpu_2(CPU2);
-    CPU cpu_3(CPU3);
-    CPU cpu_4(CPU4);
-    CPU cpu_5(CPU5);
-    CPU cpu_6(CPU6);
-    CPU cpu_7(CPU7);
     cpu_0.set_power_on(true);
-    // cpu_1.set_power_on(true);
-    // cpu_2.set_power_on(true);
-    // cpu_3.set_power_on(true);
-    // cpu_4.set_power_on(true);
-    // cpu_5.set_power_on(true);
-    // cpu_6.set_power_on(true);
-    // cpu_7.set_power_on(true);
+#if (CORE_NUM > 1)
+    CPU cpu_1(CPU1);
+    cpu_1.set_power_on(true);
+#endif
+#if (CORE_NUM > 2)
+    CPU cpu_2(CPU2);
+    cpu_2.set_power_on(true);
+#endif
+#if (CORE_NUM > 3)
+    CPU cpu_3(CPU3);
+    cpu_3.set_power_on(true);
+#endif
+#if (CORE_NUM > 4)
+    CPU cpu_4(CPU4);
+    cpu_4.set_power_on(true);
+#endif
+#if (CORE_NUM > 5)
+    CPU cpu_5(CPU5);
+    cpu_5.set_power_on(true);
+#endif
+#if (CORE_NUM > 6)
+    CPU cpu_6(CPU6);
+    cpu_6.set_power_on(true);
+#endif
+#if (CORE_NUM > 7)
+    CPU cpu_7(CPU7);
+    cpu_7.set_power_on(true);
+#endif
 
     // ==========================================================
     //                     Define Cluster
     // ==========================================================
     Cluster cluster_0;
     cluster_0.add(CPU0, &cpu_0);
+#if (CORE_NUM > 1)
     cluster_0.add(CPU1, &cpu_1);
+#endif
+#if (CORE_NUM > 2)
     cluster_0.add(CPU2, &cpu_2);
+#endif
+#if (CORE_NUM > 3)
     cluster_0.add(CPU3, &cpu_3);
+#endif
+#if (CORE_NUM > 4)
     cluster_0.add(CPU4, &cpu_4);
+#endif
+#if (CORE_NUM > 5)
     cluster_0.add(CPU5, &cpu_5);
+#endif
+#if (CORE_NUM > 6)
     cluster_0.add(CPU6, &cpu_6);
+#endif
+#if (CORE_NUM > 7)
     cluster_0.add(CPU7, &cpu_7);
+#endif
 
     // ==========================================================
     //                     Define PLIC
@@ -114,8 +144,34 @@ int main(int argc, char **argv)
     // ==========================================================
     //                     Define Systimer
     // ==========================================================
-    Timer timer_0;
-    timer_0.set_ip(cpu_0.get_mip_ptr());
+    CLINT clint_0;
+    clint_0.set_ip(CPU0, cpu_0.get_mip_ptr());
+#if (CORE_NUM > 1)
+    clint_0.set_ip(CPU1, cpu_1.get_mip_ptr());
+#endif
+#if (CORE_NUM > 2)
+    clint_0.set_ip(CPU2, cpu_2.get_mip_ptr());
+#endif
+#if (CORE_NUM > 3)
+    clint_0.set_ip(CPU3, cpu_3.get_mip_ptr());
+#endif
+#if (CORE_NUM > 4)
+    clint_0.set_ip(CPU4, cpu_4.get_mip_ptr());
+#endif
+#if (CORE_NUM > 5)
+    clint_0.set_ip(CPU5, cpu_5.get_mip_ptr());
+#endif
+#if (CORE_NUM > 6)
+    clint_0.set_ip(CPU6, cpu_6.get_mip_ptr());
+#endif
+#if (CORE_NUM > 7)
+    clint_0.set_ip(CPU7, cpu_7.get_mip_ptr());
+#endif
+
+    // ==========================================================
+    //                     Define UART
+    // ==========================================================
+    Uart uart_0;
 
     // ==========================================================
     //                     Define BootROM
@@ -129,10 +185,20 @@ int main(int argc, char **argv)
     RAM sram_1("64kb");
 
     // ==========================================================
-    //                     Define DISK
+    //                     Define FLASH
     // ==========================================================
-    Disk disk_0(argparser.get_str(1).c_str(), "2mb");
-    Disk disk_1(argparser.get_str(1).c_str(), "2mb");
+    RAM ddr_0("8mb");
+    RAM ddr_1("8mb");
+
+    // ==========================================================
+    //                     Define FLASH
+    // ==========================================================
+    Flash flash_0(argparser.get_str(1).c_str(), "1gb");
+
+    // ==========================================================
+    //                     Define Bridge
+    // ==========================================================
+    Bridge bridge_0(0x10000000);
 
     // ==========================================================
     //                     Define Bus
@@ -140,22 +206,30 @@ int main(int argc, char **argv)
     Bus bus_0;
     cluster_0.bus_connect(&bus_0);
     bus_0.s_connect(CLST_0_BASE, &cluster_0);
-    bus_0.s_connect(PLIC_BASE,   &plic_0);
-    bus_0.s_connect(TIMER_BASE,  &timer_0);
-    bus_0.s_connect(BROM_BASE,   &boot_rom);
+    bus_0.s_connect(BRIDGE_0_BASE, &bridge_0);
+    bus_0.s_connect(BROM_BASE, &boot_rom);
     bus_0.s_connect(SRAM_0_BASE, &sram_0);
     bus_0.s_connect(SRAM_1_BASE, &sram_1);
-    bus_0.s_connect(DISK_0_BASE, &disk_0);
-    bus_0.s_connect(DISK_1_BASE, &disk_1);
+    bus_0.s_connect(DDR_0_BASE, &ddr_0);
+    bus_0.s_connect(DDR_1_BASE, &ddr_1);
+    bus_0.s_connect(FLASH_BASE, &flash_0);
+
+    Bus peribus_0;
+    bridge_0.bus_connect(&peribus_0);
+    peribus_0.s_connect(CLINT_BASE - BRIDGE_0_BASE, &clint_0);
+    peribus_0.s_connect(UART_BASE  - BRIDGE_0_BASE, &uart_0);
+    peribus_0.s_connect(PLIC_BASE  - BRIDGE_0_BASE, &plic_0);
+
 
     System sys_0;
     sys_0.add(&cluster_0);
     sys_0.add(&plic_0);
-    sys_0.add(&timer_0);
+    sys_0.add(&clint_0);
+    sys_0.add(&uart_0);
 
     HTIF htif_0;
     htif_0.bus_connect(&bus_0);
-    htif_0.set_host(0x80001000, 0x80001040);
+    htif_0.set_host(0x80007000, 0x80007040);
 
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));
@@ -163,7 +237,8 @@ int main(int argc, char **argv)
     while ((bus_0.read(SIM_END, DATA_TYPE_WORD, end_code),
             (uint32_t) end_code) != SIM_END_CODE &&
            cycle-- && !htif_0.exit()) {
-        if (!(cycle & 0xf)) plic_0.get_pending()[0] = -1U;
+        if (!(cycle & 0xf))
+            plic_0.get_pending()[0] = -1U;
         sys_0.run();
         htif_0.run();
     }

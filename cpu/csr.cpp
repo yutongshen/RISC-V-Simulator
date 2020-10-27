@@ -4,10 +4,15 @@
 
 CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
 {
+    max_xlen = 64;
 #define CSR_READ_DECLARE(addr, csr) csr = 0;
 #include "cpu/csr_config.h"
 #undef CSR_READ_DECLARE
-    max_isa = 2UL << 62;  // XLEN = 64
+    if (max_xlen == 32) {
+        max_isa = 1UL << 30;
+    } else if (max_xlen == 64) {
+        max_isa = 2UL << 62;
+    }
     max_isa |= 1UL << ('I' - 'A');
     max_isa |= 1UL << ('M' - 'A');
     max_isa |= 1UL << ('A' - 'A');
@@ -37,6 +42,12 @@ const char *CSR::csr_name(const uint32_t &addr)
 #undef CSR_NAME_DECLARE
     }
 }
+
+#define set_sd_fs_dirty                                                    \
+    {                                                                      \
+        mstatus |=                                                         \
+            MSTATUS_FS | (max_xlen == 32) ? MSTATUS_32_SD : MSTATUS_64_SD; \
+    }
 
 void CSR::set_csr(const uint32_t &addr, uint64_t value)
 {
@@ -80,6 +91,14 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         break;
 #include "cpu/csr_config.h"
 #undef CSR_WRITE_DECLARE
+    case CSR_FFLAGS_ADDR:
+        set_sd_fs_dirty;
+        fflags = value;
+        return;
+    case CSR_FRM_ADDR:
+        set_sd_fs_dirty;
+        frm = value;
+        return;
     case CSR_FCSR_ADDR:
         set_csr(CSR_FFLAGS_ADDR,
                 (fflags & ~FFLAGS_MASK) |
@@ -104,14 +123,15 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         return set_csr(CSR_MIP_ADDR, (mie & ~_mask) | (value & _mask));
 
     // Machine
-    case CSR_MSTATUS_ADDR:
+    case CSR_MSTATUS_ADDR: {
         _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
                 MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
                 MSTATUS_TVM | MSTATUS_TSR | MSTATUS_UXL | MSTATUS_SXL |
-                MSTATUS_MPP | MSTATUS_SPP | MSTATUS_FS | MSTATUS_XS;
+                MSTATUS_MPP | MSTATUS_SPP | MSTATUS_FS /* | MSTATUS_XS*/;
         mstatus = (mstatus & ~_mask) | (value & _mask);
         mstatus = set_field(mstatus, MSTATUS_UXL, 2);
         mstatus = set_field(mstatus, MSTATUS_SXL, 2);
+    }
         return;
     case CSR_MISA_ADDR:
         // Avoid unalign PC

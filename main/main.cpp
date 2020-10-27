@@ -1,20 +1,21 @@
 #include <string.h>
 #include <vector>
+#include "bus/bridge.h"
 #include "bus/bus.h"
 #include "cpu/cluster.h"
 #include "cpu/cpu.h"
-#include "dev/plic.h"
-#include "bus/bridge.h"
 #include "dev/clint.h"
+#include "dev/finisher.h"
+#include "dev/plic.h"
 #include "dev/uart.h"
 #include "fesvr/htif.h"
 #include "mem/flash.h"
 #include "mem/ram.h"
 #include "mem/rom.h"
 #include "mmap/mmap.h"
+#include "riscv_soc_def.h"
 #include "sys/system.h"
 #include "util/util.h"
-#include "riscv_soc_def.h"
 using namespace std;
 
 bool verbose(1);
@@ -174,6 +175,11 @@ int main(int argc, char **argv)
     Uart uart_0;
 
     // ==========================================================
+    //                     Define UART
+    // ==========================================================
+    Finisher finisher;
+
+    // ==========================================================
     //                     Define BootROM
     // ==========================================================
     ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
@@ -216,9 +222,10 @@ int main(int argc, char **argv)
 
     Bus peribus_0;
     bridge_0.bus_connect(&peribus_0);
+    peribus_0.s_connect(FINISHER_BASE - BRIDGE_0_BASE, &finisher);
+    peribus_0.s_connect(UART_BASE - BRIDGE_0_BASE, &uart_0);
     peribus_0.s_connect(CLINT_BASE - BRIDGE_0_BASE, &clint_0);
-    peribus_0.s_connect(UART_BASE  - BRIDGE_0_BASE, &uart_0);
-    peribus_0.s_connect(PLIC_BASE  - BRIDGE_0_BASE, &plic_0);
+    peribus_0.s_connect(PLIC_BASE - BRIDGE_0_BASE, &plic_0);
 
 
     System sys_0;
@@ -234,15 +241,15 @@ int main(int argc, char **argv)
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));
     uint64_t end_code;
-    while ((bus_0.read(SIM_END, DATA_TYPE_WORD, end_code),
-            (uint32_t) end_code) != SIM_END_CODE &&
-           cycle-- && !htif_0.exit()) {
-        if (!(cycle & 0xf))
-            plic_0.get_pending()[0] = -1U;
+    while (!finisher.get_exit_code() && cycle-- /* && !htif_0.exit() */) {
         sys_0.run();
-        htif_0.run();
+        // htif_0.run();
     }
 
+    putchar('\n');
+    printf("SIMEND: %s(0x%x)\n",
+           (finisher.get_exit_code() == 0x5555) ? "PASS" : "FAIL",
+           finisher.get_exit_code() >> 16);
     // Print page-table
     uint64_t pt_base((cpu_0.get_satp() & SATP_PPN) << PAGE_SHIFT);
     print_pt(&bus_0, pt_base);

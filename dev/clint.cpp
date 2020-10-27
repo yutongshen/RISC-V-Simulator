@@ -19,8 +19,8 @@ void CLINT::run()
                 *(ip[i]) |= MIP_MTIP;
             else
                 *(ip[i]) &= ~MIP_MTIP;
-        }
-        else abort();
+        } else
+            abort();
     }
 }
 
@@ -61,17 +61,14 @@ bool CLINT::write(const Addr &addr,
         if (ip[id]) {
             if (_wdata) {
                 *(ip[id]) |= MIP_MSIP;
-            }
-            else {
+            } else {
                 *(ip[id]) &= ~MIP_MSIP;
             }
         }
-    }
-    else if (addr >= RG_TIMECMP && addr < RG_TIMECMP + 8 * CORE_NUM) {
+    } else if (addr >= RG_TIMECMP && addr < RG_TIMECMP + 8 * CORE_NUM) {
         uint8_t id((addr - RG_TIMECMP) >> 3);
         timecmp[id] = _wdata;
-    }
-    else if (addr == RG_TIME) {
+    } else if (addr == RG_TIME) {
         time = _wdata;
     }
     return 1;
@@ -85,12 +82,10 @@ bool CLINT::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         if (ip[id]) {
             rdata = !!(*(ip[id]) & MIP_MTIP);
         }
-    }
-    else if (addr >= RG_TIMECMP && addr < RG_TIMECMP + 8 * CORE_NUM) {
+    } else if (addr >= RG_TIMECMP && addr < RG_TIMECMP + 8 * CORE_NUM) {
         uint8_t id((addr - RG_TIMECMP) >> 3);
         rdata = timecmp[id];
-    }
-    else if (addr == RG_TIME) {
+    } else if (addr == RG_TIME) {
         rdata = time;
     }
 
@@ -126,8 +121,7 @@ void CLINT::set_ip(const uint8_t &id, uint64_t *ip)
 {
     if (id < CORE_NUM) {
         this->ip[id] = ip;
-    }
-    else {
+    } else {
         abort();
     }
 }

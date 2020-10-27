@@ -88,90 +88,93 @@ int main(int argc, char **argv)
     sprintf(main_cmd,
             "%s/main %s/brom.bin %s/flash.bin -dump -mem_addr 0x%08x -mem_len "
             "0x1000 -sim_end "
-            "0x%08x -sim_end_code 0x%08x -cycle 0xfffff -o %s/%s",
+            "0x%08x -sim_end_code 0x%08x -cycle 0xffffff -o %s/%s",
             argv[1], argv[2], argv[2], TEST_START, SIM_END, SIM_END_CODE,
             argv[1], dump_file);
-    printf("%s", main_cmd);
+    printf("%s\n", main_cmd);
+    printf("====================== Program start ======================\n");
     system(main_cmd);
-    sprintf(dump_path, "%s/%s", argv[1], dump_file);
-    sprintf(gold_path, "%s/golden.hex", argv[2]);
-    sprintf(bmp_res_path, "%s/result.bmp", argv[1]);
-    FILE *proc(fopen(dump_path, "r"));
-    FILE *golden(fopen(gold_path, "r"));
-    FILE *bmp_res;
-    if (proc) {
-        while (!feof(proc) && !feof(golden)) {
-            if (fgets(buff, 100, proc)) {
-                // printf("%s state = %d, done = %d\n", buff, state,
-                // !strcmp(buff, "MEMDUMP\n"));
-                if (!strcmp(buff, "SIMEND\n")) {
-                    done = state == 0 ? 0 : done, state = 1;
-                    continue;
-                } else if (!strcmp(buff, "MEMDUMP\n")) {
-                    done = state == 1 ? 0 : done, state = 2;
-                    continue;
-                }
-                switch (state) {
-                case 1:
-                    if (!done) {
-                        sim_flag = hex2int(buff);
-                        if (sim_flag == SIM_END_CODE)
-                            printf("\nDone\n\n");
-                        else
-                            printf("\nSIM_END(%08x) = %08x, expect = %08x\n\n",
-                                   SIM_END, sim_flag, SIM_END_CODE);
-                        done = 1;
-                    }
-                    break;
-                case 2:
-                    output = hex2int(buff);
-                    if (fgets(buff, 100, golden))
-                        expect = hex2int(buff);
-                    else
-                        break;
-                    if ((short) output == (short) 0x4d42 && !bmp_flag)
-                        bmp_flag = 1, bmp_res = fopen(bmp_res_path, "wb");
-                    if (bmp_flag)
-                        fwrite((char *) &output, 1, sizeof(output), bmp_res);
-                    if (output != expect)
-                        printf("MEM[0x%08x] = 0x%08x, expect = %08x\n", i,
-                               output, expect),
-                            ++err;
-                    else
-                        printf("MEM[0x%08x] = 0x%08x, pass\n", i, output);
-                    ++i;
-                    break;
-                }
-            }
-        }
-        if (bmp_flag)
-            fclose(bmp_res);
-        pclose(proc);
-        fclose(golden);
-    }
-    if (!err) {
-        printf("\n");
-        printf("\n");
-        printf("        ****************************               \n");
-        printf("        **                        **       |\\__|| \n");
-        printf("        **  Congratulations !!    **      / O.O  | \n");
-        printf("        **                        **    /_____   | \n");
-        printf("        **  Simulation PASS!!     **   /^ ^ ^ \\  |\n");
-        printf("        **                        **  |^ ^ ^ ^ |w| \n");
-        printf("        ****************************   \\m___m__|_|\n");
-        printf("\n");
-    } else {
-        printf("\n");
-        printf("\n");
-        printf("        ****************************               \n");
-        printf("        **                        **       |\\__|| \n");
-        printf("        **  OOPS!!                **      / X,X  | \n");
-        printf("        **                        **    /_____   | \n");
-        printf("        **  Simulation Failed!!   **   /^ ^ ^ \\  |\n");
-        printf("        **                        **  |^ ^ ^ ^ |w| \n");
-        printf("        ****************************   \\m___m__|_|\n");
-        printf("         Totally has %d errors                     \n", err);
-        printf("\n");
-    }
+    // printf("======================= Program end =======================\n");
+    // sprintf(dump_path, "%s/%s", argv[1], dump_file);
+    // sprintf(gold_path, "%s/golden.hex", argv[2]);
+    // sprintf(bmp_res_path, "%s/result.bmp", argv[1]);
+    // FILE *proc(fopen(dump_path, "r"));
+    // FILE *golden(fopen(gold_path, "r"));
+    // FILE *bmp_res;
+    // if (proc) {
+    //     while (!feof(proc) && !feof(golden)) {
+    //         if (fgets(buff, 100, proc)) {
+    //             // printf("%s state = %d, done = %d\n", buff, state,
+    //             // !strcmp(buff, "MEMDUMP\n"));
+    //             if (!strcmp(buff, "SIMEND\n")) {
+    //                 done = state == 0 ? 0 : done, state = 1;
+    //                 continue;
+    //             } else if (!strcmp(buff, "MEMDUMP\n")) {
+    //                 done = state == 1 ? 0 : done, state = 2;
+    //                 continue;
+    //             }
+    //             switch (state) {
+    //             case 1:
+    //                 if (!done) {
+    //                     sim_flag = hex2int(buff);
+    //                     if (sim_flag == SIM_END_CODE)
+    //                         printf("\nDone\n\n");
+    //                     else
+    //                         printf("\nSIM_END(%08x) = %08x, expect =
+    //                         %08x\n\n",
+    //                                SIM_END, sim_flag, SIM_END_CODE);
+    //                     done = 1;
+    //                 }
+    //                 break;
+    //             case 2:
+    //                 output = hex2int(buff);
+    //                 if (fgets(buff, 100, golden))
+    //                     expect = hex2int(buff);
+    //                 else
+    //                     break;
+    //                 if ((short) output == (short) 0x4d42 && !bmp_flag)
+    //                     bmp_flag = 1, bmp_res = fopen(bmp_res_path, "wb");
+    //                 if (bmp_flag)
+    //                     fwrite((char *) &output, 1, sizeof(output), bmp_res);
+    //                 if (output != expect)
+    //                     printf("MEM[0x%08x] = 0x%08x, expect = %08x\n", i,
+    //                            output, expect),
+    //                         ++err;
+    //                 else
+    //                     printf("MEM[0x%08x] = 0x%08x, pass\n", i, output);
+    //                 ++i;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     if (bmp_flag)
+    //         fclose(bmp_res);
+    //     pclose(proc);
+    //     fclose(golden);
+    // }
+    // if (!err) {
+    //     printf("\n");
+    //     printf("\n");
+    //     printf("        ****************************               \n");
+    //     printf("        **                        **       |\\__|| \n");
+    //     printf("        **  Congratulations !!    **      / O.O  | \n");
+    //     printf("        **                        **    /_____   | \n");
+    //     printf("        **  Simulation PASS!!     **   /^ ^ ^ \\  |\n");
+    //     printf("        **                        **  |^ ^ ^ ^ |w| \n");
+    //     printf("        ****************************   \\m___m__|_|\n");
+    //     printf("\n");
+    // } else {
+    //     printf("\n");
+    //     printf("\n");
+    //     printf("        ****************************               \n");
+    //     printf("        **                        **       |\\__|| \n");
+    //     printf("        **  OOPS!!                **      / X,X  | \n");
+    //     printf("        **                        **    /_____   | \n");
+    //     printf("        **  Simulation Failed!!   **   /^ ^ ^ \\  |\n");
+    //     printf("        **                        **  |^ ^ ^ ^ |w| \n");
+    //     printf("        ****************************   \\m___m__|_|\n");
+    //     printf("         Totally has %d errors                     \n", err);
+    //     printf("\n");
+    // }
     return 0;
 }

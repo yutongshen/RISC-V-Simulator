@@ -1,0 +1,37 @@
+.globl _golden_start
+.section .rodata
+_golden_start:
+  .word 0x8649ecbe
+  .word 0x891356b5
+  .word 0x9ef8965a
+  .word 0xa5adad14
+  .word 0xac1c9aa9
+  .word 0xb1327c91
+  .word 0xc2c287dc
+  .word 0xc5707a3d
+  .word 0xd6186134
+  .word 0xdb2764d5
+  .word 0xe611dbc0
+  .word 0xe912d024
+  .word 0xe93d369e
+  .word 0xf06cb80b
+  .word 0xf1929166
+  .word 0xfe884149
+  .word 0x02cd65b5
+  .word 0x16c5d5af
+  .word 0x1e0bf7e8
+  .word 0x3ac18e4f
+  .word 0x3dfce9a2
+  .word 0x423b1f26
+  .word 0x42e38aa1
+  .word 0x43eb84d8
+  .word 0x4b57f8af
+  .word 0x4c9f24fa
+  .word 0x5d50f3a8
+  .word 0x608dc931
+  .word 0x66290483
+  .word 0x73902c5d
+  .word 0x7a27c66f
+  .word 0x7b1ed6e1
+.globl _golden_end
+_golden_end:

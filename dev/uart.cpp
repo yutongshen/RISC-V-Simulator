@@ -24,7 +24,8 @@ Uart::Uart()
 
 Uart::~Uart() {}
 
-void Uart::run() {
+void Uart::run()
+{
     if (txctrl & UART_TXEN) {
         if (tx_rptr - tx_wptr) {
             putchar((uint8_t) txfifo[tx_rptr++]);
@@ -64,7 +65,8 @@ bool Uart::write(const Addr &addr,
     switch (addr) {
     case RG_TXFIFO:
         if (txctrl & UART_TXEN) {
-            if ((tx_rptr - tx_wptr) % UART_TXFIFO_DEPTH != 1) { // check non-full
+            if ((tx_rptr - tx_wptr) % UART_TXFIFO_DEPTH !=
+                1) {  // check non-full
                 txfifo[tx_wptr++] = _wdata;
                 tx_wptr %= UART_TXFIFO_DEPTH;
             }
@@ -72,7 +74,8 @@ bool Uart::write(const Addr &addr,
         break;
     case RG_RXFIFO:
         if (rxctrl & UART_RXEN) {
-            if ((rx_rptr - rx_wptr) % UART_RXFIFO_DEPTH != 1) { // check non-full
+            if ((rx_rptr - rx_wptr) % UART_RXFIFO_DEPTH !=
+                1) {  // check non-full
                 rxfifo[rx_wptr++] = _wdata;
                 rx_wptr %= UART_RXFIFO_DEPTH;
             }
@@ -107,11 +110,10 @@ bool Uart::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         break;
     case RG_RXFIFO:
         if (rxctrl & UART_RXEN) {
-            if (rx_rptr - rx_wptr) { // check non-empty
+            if (rx_rptr - rx_wptr) {  // check non-empty
                 rdata = rxfifo[rx_rptr++];
                 rx_rptr %= UART_RXFIFO_DEPTH;
-            }
-            else {
+            } else {
                 rdata = -1;
             }
         }

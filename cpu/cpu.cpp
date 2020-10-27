@@ -5,23 +5,14 @@
 #include "cpu/arith.h"
 #include "cpu/decode.h"
 #include "cpu/rule_define.h"
-#include "util/util.h"
-#include "mmap/mmap.h"
 #include "mmap/clint_reg.h"
+#include "mmap/mmap.h"
+#include "util/util.h"
 using namespace std;
 
-#define RD_NONE 0
-#define RD_NORM 1
-#define RD_CTYPE 2
-#define RD_RS1_CTYPE 3
-#define RD_F_NORM 4
-#define RD_F_CTYPE 5
-#define RD_RA 6
-#define RD_SP 7
-
-#define CSR_NONE 0
-#define CSR_NORM 1
-#define CSR_FFLAGS 2
+#define LS_NONE 0x0
+#define LS_LOAD 0x1
+#define LS_STORE 0x2
 
 extern bool verbose;
 
@@ -92,7 +83,11 @@ void CPU::run()
             return;
 
         // Instruction Execute
-        uint8_t instr_len(0), rd_sta(RD_NONE), csr_sta(CSR_NONE);
+        DataType mem_val_type;
+        uint16_t instr_len(0), write_reg(REG_ZERO), write_csr(-1),
+            load_store(LS_NONE);
+        uint64_t mem_addr, mem_val;
+
         uint32_t insn(mmu->fetch(pc, pc_alignment_mask));
         bool aq(bit(insn, 26)), rl(bit(insn, 25));
         uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
@@ -165,7 +160,8 @@ void CPU::run()
                 break;
             }
             mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
-            cpu_trace << std::dec << std::setfill(' ') << std::setw(5) << mtime << "ns ";
+            cpu_trace << std::dec << std::setfill(' ') << std::setw(5) << mtime
+                      << "ns ";
             cpu_trace << std::hex << std::setfill('0') << std::setw(16) << pc;
             ppc = mmu->trace_pt(pc, 8, ACCESS_TYPE_FETCH, csr->prv);
             if (pc != ppc) {
@@ -179,73 +175,57 @@ void CPU::run()
 
         if (verbose) {
             cpu_trace << remark << std::endl;
-            switch (rd_sta) {
-            case RD_NONE:
-                break;
-            case RD_NORM:
-                if (rd) {
-                    cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                              << std::left << regs_name[rd] << std::hex
-                              << std::setfill('0') << std::setw(16)
-                              << std::right << regs[rd] << std::endl;
-                }
-                break;
-            case RD_CTYPE:
-                if (_c_rd) {
-                    cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                              << std::left << regs_name[_c_rd] << std::hex
-                              << std::setfill('0') << std::setw(16)
-                              << std::right << regs[_c_rd] << std::endl;
-                }
-                break;
-            case RD_RS1_CTYPE:
-                if (_c_rs1) {
-                    cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                              << std::left << regs_name[_c_rs1] << std::hex
-                              << std::setfill('0') << std::setw(16)
-                              << std::right << regs[_c_rs1] << std::endl;
-                }
-                break;
-            case RD_RA:
-                cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                          << std::left << regs_name[REG_RA] << std::hex
-                          << std::setfill('0') << std::setw(16) << std::right
-                          << regs[REG_RA] << std::endl;
-                break;
-            case RD_SP:
-                cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                          << std::left << regs_name[REG_SP] << std::hex
-                          << std::setfill('0') << std::setw(16) << std::right
-                          << regs[REG_SP] << std::endl;
-                break;
-            case RD_F_NORM:
-                cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                          << std::left << regs_name[rd] << std::hex
-                          << std::setfill('0') << std::setw(16) << std::right
-                          << regs[rd] << std::endl;
-                break;
-            case RD_F_CTYPE:
-                cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                          << std::left << regs_name[_c_rd] << std::hex
-                          << std::setfill('0') << std::setw(16) << std::right
-                          << regs[_c_rd] << std::endl;
-                break;
+
+            if (load_store) {
+                uint8_t data_len;
+                data_len =
+                    mem_val_type == DATA_TYPE_BYTE
+                        ? 8
+                        : mem_val_type == DATA_TYPE_HWORD
+                              ? 16
+                              : mem_val_type == DATA_TYPE_HWORD_UNSIGNED
+                                    ? 16
+                                    : mem_val_type == DATA_TYPE_WORD
+                                          ? 32
+                                          : mem_val_type ==
+                                                    DATA_TYPE_WORD_UNSIGNED
+                                                ? 32
+                                                : 64;
+                mem_val &= data_len == 64 ? -1L : (1L << data_len) - 1L;
+
+                cpu_trace << "  "
+                          << ((load_store == LS_LOAD) ? "LOAD " : "STORE")
+                          << "    [" << std::hex << std::setfill('0')
+                          << std::setw(16) << std::right << mem_addr
+                          << std::setfill('-')
+                          << std::setw(18 - (data_len >> 2)) << std::left
+                          << "] " << std::hex << std::setfill('0')
+                          << std::setw(data_len >> 2) << std::right << mem_val
+                          << std::endl;
             }
-            switch (csr_sta) {
-            case CSR_NONE:
-                break;
-            case CSR_NORM:
+
+            bool freg_sel(write_reg >> 5);
+            write_reg &= 0x1f;
+
+            if (!freg_sel) {
+                if (write_reg) {
+                    cpu_trace << "  " << std::setfill(' ') << std::setw(10)
+                              << std::left << regs_name[write_reg] << std::hex
+                              << std::setfill('0') << std::setw(16)
+                              << std::right << regs[write_reg] << std::endl;
+                }
+            } else {
                 cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                          << std::left << csr->csr_name(csr_addr)
+                          << std::left << fregs_name[write_reg] << std::hex
                           << std::setfill('0') << std::setw(16) << std::right
-                          << csr->get_csr(csr_addr) << std::endl;
-                break;
-            case CSR_FFLAGS:
+                          << fregs[write_reg] << std::endl;
+            }
+
+            if (write_csr != 0xffff) {
                 cpu_trace << "  " << std::setfill(' ') << std::setw(10)
-                          << std::left << csr->csr_name(CSR_FFLAGS_ADDR)
+                          << std::left << csr->csr_name(write_csr)
                           << std::setfill('0') << std::setw(16) << std::right
-                          << csr->get_csr(CSR_FFLAGS_ADDR) << std::endl;
-                break;
+                          << csr->get_csr(write_csr) << std::endl;
             }
         }
     } catch (Trap &t) {

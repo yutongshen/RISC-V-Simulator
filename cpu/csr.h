@@ -8,6 +8,7 @@ class CSR
     uint64_t prv;
     uint64_t max_isa;
     uint64_t *pc_ptr;
+    uint8_t max_xlen;
 #define CSR_DECLARE
 #include "cpu/csr_config.h"
 #undef CSR_DECLARE

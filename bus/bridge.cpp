@@ -5,8 +5,8 @@ Bridge::Bridge(uint32_t size) : bus(0), Slave(size) {}
 Bridge::~Bridge() {}
 
 bool Bridge::write(const Addr &addr,
-                    const DataType &data_type,
-                    const uint64_t &wdata)
+                   const DataType &data_type,
+                   const uint64_t &wdata)
 {
     if (bus)
         return bus->write(addr, data_type, wdata);

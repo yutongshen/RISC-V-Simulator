@@ -329,6 +329,11 @@
 #define require_privilege(x) confirm_insn_legal(csr->prv >= (x))
 #define require_extension(x) confirm_insn_legal(support_extension(x))
 #define require_fp confirm_insn_legal(csr->mstatus &MSTATUS_FS)
+#define set_sd_fs_dirty                                                     \
+    {                                                                       \
+        csr->mstatus |= MSTATUS_FS | (csr->max_xlen == 32) ? MSTATUS_32_SD  \
+                                                           : MSTATUS_64_SD; \
+    }
 
 #define confirm_csr_legal(x, write)                                 \
     do {                                                            \
@@ -350,7 +355,7 @@
     instr_len = 4;                                                         \
     sprintf(remark, "lui %s,0x%lx", regs_name[rd], imm_u >> 12 & 0xfffff); \
     regs[rd] = imm_u;                                                      \
-    rd_sta = RD_NORM;                                                      \
+    write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
@@ -358,7 +363,7 @@
     instr_len = 4;                                                           \
     sprintf(remark, "auipc %s,0x%lx", regs_name[rd], imm_u >> 12 & 0xfffff); \
     regs[rd] = imm_u + pc;                                                   \
-    rd_sta = RD_NORM;                                                        \
+    write_reg = rd;                                                          \
     pc += 4UL;                                                               \
     break;
 
@@ -372,7 +377,7 @@
         sprintf(remark, "jal %s,%08lx", regs_name[rd],         \
                 pc + imm_j & 0xffffffff);                      \
     regs[rd] = pc + 4UL;                                       \
-    rd_sta = RD_NORM;                                          \
+    write_reg = rd;                                            \
     pc += imm_j;                                               \
     break;
 
@@ -390,7 +395,7 @@
             sprintf(remark, "jr %s", regs_name[rs1]);                          \
         uint64_t rs1_data(regs[rs1]);                                          \
         regs[rd] = pc + 4UL;                                                   \
-        rd_sta = RD_NORM;                                                      \
+        write_reg = rd;                                                        \
         pc = (imm_i + rs1_data) & ~1UL;                                        \
     }                                                                          \
     break;
@@ -463,8 +468,12 @@
     instr_len = 4;                                                   \
     sprintf(remark, "lb %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
             regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                    \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_BYTE);         \
-    rd_sta = RD_NORM;                                                \
+    load_store = LS_LOAD;                                            \
+    mem_val = regs[rd];                                              \
+    mem_val_type = DATA_TYPE_BYTE;                                   \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -472,8 +481,12 @@
     instr_len = 4;                                                   \
     sprintf(remark, "lh %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
             regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                    \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_HWORD);        \
-    rd_sta = RD_NORM;                                                \
+    load_store = LS_LOAD;                                            \
+    mem_val = regs[rd];                                              \
+    mem_val_type = DATA_TYPE_HWORD;                                  \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -481,8 +494,12 @@
     instr_len = 4;                                                   \
     sprintf(remark, "lw %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
             regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                    \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);         \
-    rd_sta = RD_NORM;                                                \
+    load_store = LS_LOAD;                                            \
+    mem_val = regs[rd];                                              \
+    mem_val_type = DATA_TYPE_WORD;                                   \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -490,8 +507,12 @@
     instr_len = 4;                                                    \
     sprintf(remark, "lbu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
             regs_name[rs1]);                                          \
+    mem_addr = regs[rs1] + imm_i;                                     \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_BYTE_UNSIGNED); \
-    rd_sta = RD_NORM;                                                 \
+    load_store = LS_LOAD;                                             \
+    mem_val = regs[rd];                                               \
+    mem_val_type = DATA_TYPE_BYTE_UNSIGNED;                           \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -499,8 +520,12 @@
     instr_len = 4;                                                     \
     sprintf(remark, "lhu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i,  \
             regs_name[rs1]);                                           \
+    mem_addr = regs[rs1] + imm_i;                                      \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_HWORD_UNSIGNED); \
-    rd_sta = RD_NORM;                                                  \
+    load_store = LS_LOAD;                                              \
+    mem_val = regs[rd];                                                \
+    mem_val_type = DATA_TYPE_HWORD_UNSIGNED;                           \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -508,8 +533,12 @@
     instr_len = 4;                                                    \
     sprintf(remark, "lwu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
             regs_name[rs1]);                                          \
+    mem_addr = regs[rs1] + imm_i;                                     \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD_UNSIGNED); \
-    rd_sta = RD_NORM;                                                 \
+    load_store = LS_LOAD;                                             \
+    mem_val = regs[rd];                                               \
+    mem_val_type = DATA_TYPE_WORD_UNSIGNED;                           \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -517,8 +546,12 @@
     instr_len = 4;                                                   \
     sprintf(remark, "ld %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
             regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                    \
     regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_DWORD);        \
-    rd_sta = RD_NORM;                                                \
+    load_store = LS_LOAD;                                            \
+    mem_val = regs[rd];                                              \
+    mem_val_type = DATA_TYPE_DWORD;                                  \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -527,6 +560,10 @@
     sprintf(remark, "sb %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
             regs_name[rs1]);                                          \
     mmu->store(regs[rs1] + imm_s, DATA_TYPE_BYTE, regs[rs2]);         \
+    load_store = LS_STORE;                                            \
+    mem_addr = regs[rs1] + imm_s;                                     \
+    mem_val = regs[rs2];                                              \
+    mem_val_type = DATA_TYPE_BYTE;                                    \
     pc += 4UL;                                                        \
     break;
 
@@ -535,6 +572,10 @@
     sprintf(remark, "sh %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
             regs_name[rs1]);                                          \
     mmu->store(regs[rs1] + imm_s, DATA_TYPE_HWORD, regs[rs2]);        \
+    load_store = LS_STORE;                                            \
+    mem_addr = regs[rs1] + imm_s;                                     \
+    mem_val = regs[rs2];                                              \
+    mem_val_type = DATA_TYPE_HWORD;                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -543,6 +584,10 @@
     sprintf(remark, "sw %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
             regs_name[rs1]);                                          \
     mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, regs[rs2]);         \
+    load_store = LS_STORE;                                            \
+    mem_addr = regs[rs1] + imm_s;                                     \
+    mem_val = regs[rs2];                                              \
+    mem_val_type = DATA_TYPE_WORD;                                    \
     pc += 4UL;                                                        \
     break;
 
@@ -551,6 +596,10 @@
     sprintf(remark, "sd %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
             regs_name[rs1]);                                          \
     mmu->store(regs[rs1] + imm_s, DATA_TYPE_DWORD, regs[rs2]);        \
+    load_store = LS_STORE;                                            \
+    mem_addr = regs[rs1] + imm_s;                                     \
+    mem_val = regs[rs2];                                              \
+    mem_val_type = DATA_TYPE_DWORD;                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -566,7 +615,7 @@
         sprintf(remark, "addi %s,%s,%ld", regs_name[rd], regs_name[rs1], \
                 (int64_t) imm_i);                                        \
     regs[rd] = regs[rs1] + imm_i;                                        \
-    rd_sta = RD_NORM;                                                    \
+    write_reg = rd;                                                      \
     pc += 4UL;                                                           \
     break;
 
@@ -575,7 +624,7 @@
     sprintf(remark, "slti %s,%s,%ld", regs_name[rd], regs_name[rs1], \
             (int64_t) imm_i);                                        \
     regs[rd] = (int64_t) regs[rs1] < (int64_t) imm_i;                \
-    rd_sta = RD_NORM;                                                \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -584,7 +633,7 @@
     sprintf(remark, "sltiu %s,%s,%ld", regs_name[rd], regs_name[rs1], \
             (int64_t) imm_i);                                         \
     regs[rd] = regs[rs1] < imm_i;                                     \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -596,7 +645,7 @@
         sprintf(remark, "xori %s,%s,%ld", regs_name[rd], regs_name[rs1], \
                 (int64_t) imm_i);                                        \
     regs[rd] = regs[rs1] ^ imm_i;                                        \
-    rd_sta = RD_NORM;                                                    \
+    write_reg = rd;                                                      \
     pc += 4UL;                                                           \
     break;
 
@@ -605,7 +654,7 @@
     sprintf(remark, "ori %s,%s,%ld", regs_name[rd], regs_name[rs1], \
             (int64_t) imm_i);                                       \
     regs[rd] = regs[rs1] | imm_i;                                   \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -614,7 +663,7 @@
     sprintf(remark, "andi %s,%s,%ld", regs_name[rd], regs_name[rs1], \
             (int64_t) imm_i);                                        \
     regs[rd] = regs[rs1] & imm_i;                                    \
-    rd_sta = RD_NORM;                                                \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -623,7 +672,7 @@
     sprintf(remark, "slli %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
             shamt64);                                                 \
     regs[rd] = regs[rs1] << shamt64;                                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -632,7 +681,7 @@
     sprintf(remark, "srli %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
             shamt64);                                                 \
     regs[rd] = regs[rs1] >> shamt64;                                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -641,7 +690,7 @@
     sprintf(remark, "srai %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
             shamt64);                                                 \
     regs[rd] = (int64_t) regs[rs1] >> shamt64;                        \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -650,7 +699,7 @@
     sprintf(remark, "add %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = regs[rs1] + regs[rs2];                              \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -659,7 +708,7 @@
     sprintf(remark, "sll %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = regs[rs1] << (regs[rs2] & 0x3F);                    \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -668,7 +717,7 @@
     sprintf(remark, "slt %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = (int64_t) regs[rs1] < (int64_t) regs[rs2];          \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -677,7 +726,7 @@
     sprintf(remark, "sltu %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                        \
     regs[rd] = regs[rs1] < regs[rs2];                               \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -686,7 +735,7 @@
     sprintf(remark, "xor %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = regs[rs1] ^ regs[rs2];                              \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -695,7 +744,7 @@
     sprintf(remark, "srl %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = regs[rs1] >> (regs[rs2] & 0x3F);                    \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -704,7 +753,7 @@
     sprintf(remark, "or %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                      \
     regs[rd] = regs[rs1] | regs[rs2];                             \
-    rd_sta = RD_NORM;                                             \
+    write_reg = rd;                                               \
     pc += 4UL;                                                    \
     break;
 
@@ -713,7 +762,7 @@
     sprintf(remark, "and %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = regs[rs1] & regs[rs2];                              \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -722,7 +771,7 @@
     sprintf(remark, "sub %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = regs[rs1] - regs[rs2];                              \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -731,7 +780,7 @@
     sprintf(remark, "sra %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                       \
     regs[rd] = (int64_t) regs[rs1] >> (regs[rs2] & 0x3F);          \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -741,7 +790,7 @@
             regs_name[rs2]);                                       \
     require_extension('M');                                        \
     regs[rd] = regs[rs1] * regs[rs2];                              \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -751,7 +800,7 @@
             regs_name[rs2]);                                        \
     require_extension('M');                                         \
     regs[rd] = mulh(regs[rs1], regs[rs2]);                          \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -761,7 +810,7 @@
             regs_name[rs2]);                                          \
     require_extension('M');                                           \
     regs[rd] = mulhsu(regs[rs1], regs[rs2]);                          \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -771,7 +820,7 @@
             regs_name[rs2]);                                         \
     require_extension('M');                                          \
     regs[rd] = mulhu(regs[rs1], regs[rs2]);                          \
-    rd_sta = RD_NORM;                                                \
+    write_reg = rd;                                                  \
     pc += 4UL;                                                       \
     break;
 
@@ -786,7 +835,7 @@
         regs[rd] = regs[rs1];                                      \
     else                                                           \
         regs[rd] = (int64_t) regs[rs1] / (int64_t) regs[rs2];      \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -799,7 +848,7 @@
         regs[rd] = -1UL;                                            \
     else                                                            \
         regs[rd] = regs[rs1] / regs[rs2];                           \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -814,7 +863,7 @@
         regs[rd] = 0;                                              \
     else                                                           \
         regs[rd] = (int64_t) regs[rs1] % (int64_t) regs[rs2];      \
-    rd_sta = RD_NORM;                                              \
+    write_reg = rd;                                                \
     pc += 4UL;                                                     \
     break;
 
@@ -827,7 +876,7 @@
         regs[rd] = regs[rs1];                                       \
     else                                                            \
         regs[rd] = regs[rs1] % regs[rs2];                           \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -933,8 +982,8 @@
         uint64_t tmp(csr->get_csr(csr_addr));                      \
         csr->set_csr(csr_addr, regs[rs1]);                         \
         regs[rd] = tmp;                                            \
-        rd_sta = RD_NORM;                                          \
-        csr_sta = CSR_NORM;                                        \
+        write_reg = rd;                                            \
+        write_csr = csr_addr;                                      \
         pc += 4UL;                                                 \
     }                                                              \
     break;
@@ -955,8 +1004,8 @@
         uint64_t tmp(csr->get_csr(csr_addr));                      \
         csr->set_csr(csr_addr, tmp | regs[rs1]);                   \
         regs[rd] = tmp;                                            \
-        rd_sta = RD_NORM;                                          \
-        csr_sta = CSR_NORM;                                        \
+        write_reg = rd;                                            \
+        write_csr = csr_addr;                                      \
         pc += 4UL;                                                 \
     }                                                              \
     break;
@@ -974,8 +1023,8 @@
         uint64_t tmp(csr->get_csr(csr_addr));                      \
         csr->set_csr(csr_addr, tmp & ~regs[rs1]);                  \
         regs[rd] = tmp;                                            \
-        rd_sta = RD_NORM;                                          \
-        csr_sta = CSR_NORM;                                        \
+        write_reg = rd;                                            \
+        write_csr = csr_addr;                                      \
         pc += 4UL;                                                 \
     }                                                              \
     break;
@@ -990,8 +1039,8 @@
     confirm_csr_legal(csr_addr, 1);                                   \
     regs[rd] = csr->get_csr(csr_addr);                                \
     csr->set_csr(csr_addr, zext(rs1, 5));                             \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_NORM;                                               \
+    write_reg = rd;                                                   \
+    write_csr = csr_addr;                                             \
     pc += 4UL;                                                        \
     break;
 
@@ -1007,8 +1056,8 @@
         uint64_t tmp(csr->get_csr(csr_addr));                             \
         csr->set_csr(csr_addr, tmp | zext(rs1, 5));                       \
         regs[rd] = tmp;                                                   \
-        rd_sta = RD_NORM;                                                 \
-        csr_sta = CSR_NORM;                                               \
+        write_reg = rd;                                                   \
+        write_csr = csr_addr;                                             \
         pc += 4UL;                                                        \
     }                                                                     \
     break;
@@ -1025,8 +1074,8 @@
         uint64_t tmp(csr->get_csr(csr_addr));                             \
         csr->set_csr(csr_addr, tmp &(~zext(rs1, 5)));                     \
         regs[rd] = tmp;                                                   \
-        rd_sta = RD_NORM;                                                 \
-        csr_sta = CSR_NORM;                                               \
+        write_reg = rd;                                                   \
+        write_csr = csr_addr;                                             \
         pc += 4UL;                                                        \
     }                                                                     \
     break;
@@ -1039,7 +1088,7 @@
     else                                                                  \
         sprintf(remark, "sext.w %s,%s", regs_name[rd], regs_name[rs1]);   \
     regs[rd] = (int32_t) regs[rs1] + (int32_t) imm_i;                     \
-    rd_sta = RD_NORM;                                                     \
+    write_reg = rd;                                                       \
     pc += 4UL;                                                            \
     break;
 
@@ -1047,7 +1096,7 @@
     instr_len = 4;                                                             \
     sprintf(remark, "slliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], shamt); \
     regs[rd] = (int32_t) regs[rs1] << shamt;                                   \
-    rd_sta = RD_NORM;                                                          \
+    write_reg = rd;                                                            \
     pc += 4UL;                                                                 \
     break;
 
@@ -1055,7 +1104,7 @@
     instr_len = 4;                                                             \
     sprintf(remark, "srliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], shamt); \
     regs[rd] = (int32_t)((uint32_t) regs[rs1] >> shamt);                       \
-    rd_sta = RD_NORM;                                                          \
+    write_reg = rd;                                                            \
     pc += 4UL;                                                                 \
     break;
 
@@ -1064,7 +1113,7 @@
     sprintf(remark, "sraiw %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
             shamt64);                                                  \
     regs[rd] = ((int32_t) regs[rs1] >> shamt);                         \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1073,7 +1122,7 @@
     sprintf(remark, "addw %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                        \
     regs[rd] = (int32_t) regs[rs1] + (int32_t) regs[rs2];           \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -1082,7 +1131,7 @@
     sprintf(remark, "subw %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                        \
     regs[rd] = (int32_t) regs[rs1] - (int32_t) regs[rs2];           \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -1092,7 +1141,7 @@
             regs_name[rs2]);                                        \
     require_extension('M');                                         \
     regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;                 \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -1101,7 +1150,7 @@
     sprintf(remark, "sllw %s,%s,%s", regs_name[rd], regs_name[rs1], \
             regs_name[rs2]);                                        \
     regs[rd] = (int32_t) regs[rs1] << (regs[rs2] & 0x1F);           \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 4UL;                                                      \
     break;
 
@@ -1115,7 +1164,7 @@
     else                                                                   \
         regs[rd] =                                                         \
             (int32_t)((int64_t)(int32_t) regs[rs1] / (int32_t) regs[rs2]); \
-    rd_sta = RD_NORM;                                                      \
+    write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
@@ -1125,7 +1174,7 @@
             regs_name[rs2]);                                             \
     regs[rd] =                                                           \
         (int32_t)((uint32_t) regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F)); \
-    rd_sta = RD_NORM;                                                    \
+    write_reg = rd;                                                      \
     pc += 4UL;                                                           \
     break;
 
@@ -1134,7 +1183,7 @@
     sprintf(remark, "sraw %s,%s,%s", regs_name[rd], regs_name[rs1],   \
             regs_name[rs2]);                                          \
     regs[rd] = ((int32_t) regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F)); \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1147,7 +1196,7 @@
         regs[rd] = -1UL;                                                   \
     else                                                                   \
         regs[rd] = (int32_t)((uint32_t) regs[rs1] / (uint32_t) regs[rs2]); \
-    rd_sta = RD_NORM;                                                      \
+    write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
@@ -1161,7 +1210,7 @@
     else                                                                   \
         regs[rd] =                                                         \
             (int32_t)((int64_t)(int32_t) regs[rs1] % (int32_t) regs[rs2]); \
-    rd_sta = RD_NORM;                                                      \
+    write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
@@ -1174,7 +1223,7 @@
         regs[rd] = (int32_t) regs[rs1];                                    \
     else                                                                   \
         regs[rd] = (int32_t)((uint32_t) regs[rs1] % (uint32_t) regs[rs2]); \
-    rd_sta = RD_NORM;                                                      \
+    write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
@@ -1185,7 +1234,7 @@
     require_extension('C');                                   \
     confirm_insn_legal(imm_c_addi4spn);                       \
     regs[_c_rd] = regs[REG_SP] + imm_c_addi4spn;              \
-    rd_sta = RD_CTYPE;                                        \
+    write_reg = _c_rd;                                        \
     pc += 2UL;                                                \
     break;
 
@@ -1194,8 +1243,12 @@
     sprintf(remark, "c.lw %s,%ld(%s)", regs_name[_c_rd], imm_c_slw,    \
             regs_name[_c_rs1]);                                        \
     require_extension('C');                                            \
+    mem_addr = regs[_c_rs1] + imm_c_slw;                               \
     regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD); \
-    rd_sta = RD_CTYPE;                                                 \
+    load_store = LS_LOAD;                                              \
+    mem_val = regs[_c_rd];                                             \
+    mem_val_type = DATA_TYPE_WORD;                                     \
+    write_reg = _c_rd;                                                 \
     pc += 2UL;                                                         \
     break;
 
@@ -1204,8 +1257,12 @@
     sprintf(remark, "c.ld %s,%ld(%s)", regs_name[_c_rd], imm_c_sld,     \
             regs_name[_c_rs1]);                                         \
     require_extension('C');                                             \
+    mem_addr = regs[_c_rs1] + imm_c_sld;                                \
     regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD); \
-    rd_sta = RD_CTYPE;                                                  \
+    load_store = LS_LOAD;                                               \
+    mem_val = regs[_c_rd];                                              \
+    mem_val_type = DATA_TYPE_DWORD;                                     \
+    write_reg = _c_rd;                                                  \
     pc += 2UL;                                                          \
     break;
 
@@ -1215,8 +1272,14 @@
             regs_name[_c_rs1]);                                          \
     require_extension('C');                                              \
     require_extension('D');                                              \
+    require_fp;                                                          \
+    mem_addr = regs[_c_rs1] + imm_c_sld;                                 \
     fregs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD); \
-    rd_sta = RD_F_CTYPE;                                                 \
+    set_sd_fs_dirty;                                                     \
+    load_store = LS_LOAD;                                                \
+    mem_val = fregs[_c_rd];                                              \
+    mem_val_type = DATA_TYPE_DWORD;                                      \
+    write_reg = _c_rd | 0x20;                                            \
     pc += 2UL;                                                           \
     break;
 
@@ -1226,6 +1289,10 @@
             regs_name[_c_rs1]);                                         \
     require_extension('C');                                             \
     mmu->store(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD, regs[_c_rs2]); \
+    load_store = LS_STORE;                                              \
+    mem_addr = regs[_c_rs1] + imm_c_slw;                                \
+    mem_val = regs[_c_rs2];                                             \
+    mem_val_type = DATA_TYPE_WORD;                                      \
     pc += 2UL;                                                          \
     break;
 
@@ -1235,6 +1302,10 @@
             regs_name[_c_rs1]);                                          \
     require_extension('C');                                              \
     mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, regs[_c_rs2]); \
+    load_store = LS_STORE;                                               \
+    mem_addr = regs[_c_rs1] + imm_c_sld;                                 \
+    mem_val = regs[_c_rs2];                                              \
+    mem_val_type = DATA_TYPE_DWORD;                                      \
     pc += 2UL;                                                           \
     break;
 
@@ -1244,7 +1315,12 @@
             regs_name[_c_rs1]);                                           \
     require_extension('C');                                               \
     require_extension('D');                                               \
+    require_fp;                                                           \
     mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, fregs[_c_rs2]); \
+    load_store = LS_STORE;                                                \
+    mem_addr = regs[_c_rs1] + imm_c_sld;                                  \
+    mem_val = fregs[_c_rs2];                                              \
+    mem_val_type = DATA_TYPE_DWORD;                                       \
     pc += 2UL;                                                            \
     break;
 
@@ -1259,7 +1335,7 @@
         confirm_insn_legal(rd &&imm_c_addi);                                   \
     }                                                                          \
     regs[rd] = regs[rd] + imm_c_addi;                                          \
-    rd_sta = RD_NORM;                                                          \
+    write_reg = rd;                                                            \
     pc += 2UL;                                                                 \
     break;
 
@@ -1269,7 +1345,7 @@
     require_extension('C');                                                 \
     confirm_insn_legal(rd);                                                 \
     regs[rd] = (int32_t) regs[rd] + (int32_t) imm_c_addi;                   \
-    rd_sta = RD_NORM;                                                       \
+    write_reg = rd;                                                         \
     pc += 2UL;                                                              \
     break;
 
@@ -1280,7 +1356,7 @@
     require_extension('C');                                    \
     throw TrapIllegalInstruction(insn); /* RV32C only */       \
     regs[REG_RA] = pc + 2UL;                                   \
-    rd_sta = RD_RA;                                            \
+    write_reg = REG_RA;                                        \
     ` pc += imm_c_j;                                           \
     break;
 
@@ -1290,7 +1366,7 @@
     require_extension('C');                                              \
     confirm_insn_legal(rd);                                              \
     regs[rd] = imm_c_addi;                                               \
-    rd_sta = RD_NORM;                                                    \
+    write_reg = rd;                                                      \
     pc += 2UL;                                                           \
     break;
 
@@ -1301,7 +1377,7 @@
     require_extension('C');                                 \
     confirm_insn_legal(imm_c_addi16sp &&rd == REG_SP);      \
     regs[REG_SP] = regs[REG_SP] + imm_c_addi16sp;           \
-    rd_sta = RD_SP;                                         \
+    write_reg = REG_SP;                                     \
     pc += 2UL;                                              \
     break;
 
@@ -1312,7 +1388,7 @@
     require_extension('C');                            \
     confirm_insn_legal(rd &&imm_c_lui &&rd != REG_SP); \
     regs[rd] = imm_c_lui;                              \
-    rd_sta = RD_NORM;                                  \
+    write_reg = rd;                                    \
     pc += 2UL;                                         \
     break;
 
@@ -1321,7 +1397,7 @@
     sprintf(remark, "c.sub %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                               \
     regs[_c_rs1] = regs[_c_rs1] - regs[_c_rs2];                           \
-    rd_sta = RD_RS1_CTYPE;                                                \
+    write_reg = _c_rs1;                                                   \
     pc += 2UL;                                                            \
     break;
 
@@ -1330,7 +1406,7 @@
     sprintf(remark, "c.xor %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                               \
     regs[_c_rs1] = regs[_c_rs1] ^ regs[_c_rs2];                           \
-    rd_sta = RD_RS1_CTYPE;                                                \
+    write_reg = _c_rs1;                                                   \
     pc += 2UL;                                                            \
     break;
 
@@ -1339,7 +1415,7 @@
     sprintf(remark, "c.or %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                              \
     regs[_c_rs1] = regs[_c_rs1] | regs[_c_rs2];                          \
-    rd_sta = RD_RS1_CTYPE;                                               \
+    write_reg = _c_rs1;                                                  \
     pc += 2UL;                                                           \
     break;
 
@@ -1348,7 +1424,7 @@
     sprintf(remark, "c.and %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                               \
     regs[_c_rs1] = regs[_c_rs1] & regs[_c_rs2];                           \
-    rd_sta = RD_RS1_CTYPE;                                                \
+    write_reg = _c_rs1;                                                   \
     pc += 2UL;                                                            \
     break;
 
@@ -1357,7 +1433,7 @@
     sprintf(remark, "c.subw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                                \
     regs[_c_rs1] = (int32_t) regs[_c_rs1] - (int32_t) regs[_c_rs2];        \
-    rd_sta = RD_RS1_CTYPE;                                                 \
+    write_reg = _c_rs1;                                                    \
     pc += 2UL;                                                             \
     break;
 
@@ -1366,7 +1442,7 @@
     sprintf(remark, "c.addw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                                \
     regs[_c_rs1] = (int32_t) regs[_c_rs1] + (int32_t) regs[_c_rs2];        \
-    rd_sta = RD_RS1_CTYPE;                                                 \
+    write_reg = _c_rs1;                                                    \
     pc += 2UL;                                                             \
     break;
 
@@ -1376,7 +1452,7 @@
     require_extension('C');                                        \
     confirm_insn_legal(c_shamt);                                   \
     regs[_c_rs1] = regs[_c_rs1] >> c_shamt;                        \
-    rd_sta = RD_RS1_CTYPE;                                         \
+    write_reg = _c_rs1;                                            \
     pc += 2UL;                                                     \
     break;
 
@@ -1386,7 +1462,7 @@
     require_extension('C');                                        \
     confirm_insn_legal(c_shamt);                                   \
     regs[_c_rs1] = (int64_t) regs[_c_rs1] >> c_shamt;              \
-    rd_sta = RD_RS1_CTYPE;                                         \
+    write_reg = _c_rs1;                                            \
     pc += 2UL;                                                     \
     break;
 
@@ -1395,7 +1471,7 @@
     sprintf(remark, "c.andi %s,%ld", regs_name[_c_rs1], (int64_t) imm_c_addi); \
     require_extension('C');                                                    \
     regs[_c_rs1] = regs[_c_rs1] & imm_c_addi;                                  \
-    rd_sta = RD_RS1_CTYPE;                                                     \
+    write_reg = _c_rs1;                                                        \
     pc += 2UL;                                                                 \
     break;
 
@@ -1428,7 +1504,7 @@
     require_extension('C');                                    \
     confirm_insn_legal(rd &&c_shamt);                          \
     regs[rd] = regs[rd] << c_shamt;                            \
-    rd_sta = RD_NORM;                                          \
+    write_reg = rd;                                            \
     pc += 2UL;                                                 \
     break;
 
@@ -1438,8 +1514,12 @@
             regs_name[REG_SP]);                                      \
     require_extension('C');                                          \
     confirm_insn_legal(rd);                                          \
+    mem_addr = regs[REG_SP] + imm_c_lwsp;                            \
     regs[rd] = mmu->load(regs[REG_SP] + imm_c_lwsp, DATA_TYPE_WORD); \
-    rd_sta = RD_NORM;                                                \
+    load_store = LS_LOAD;                                            \
+    mem_val = regs[rd];                                              \
+    mem_val_type = DATA_TYPE_WORD;                                   \
+    write_reg = rd;                                                  \
     pc += 2UL;                                                       \
     break;
 
@@ -1449,8 +1529,12 @@
             regs_name[REG_SP]);                                       \
     require_extension('C');                                           \
     confirm_insn_legal(rd);                                           \
+    mem_addr = regs[REG_SP] + imm_c_ldsp;                             \
     regs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD); \
-    rd_sta = RD_NORM;                                                 \
+    load_store = LS_LOAD;                                             \
+    mem_val = regs[rd];                                               \
+    mem_val_type = DATA_TYPE_DWORD;                                   \
+    write_reg = rd;                                                   \
     pc += 2UL;                                                        \
     break;
 
@@ -1460,8 +1544,14 @@
             regs_name[REG_SP]);                                        \
     require_extension('C');                                            \
     require_extension('D');                                            \
+    require_fp;                                                        \
+    mem_addr = regs[REG_SP] + imm_c_ldsp;                              \
     fregs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD); \
-    rd_sta = RD_F_NORM;                                                \
+    set_sd_fs_dirty;                                                   \
+    load_store = LS_LOAD;                                              \
+    mem_val = fregs[rd];                                               \
+    mem_val_type = DATA_TYPE_DWORD;                                    \
+    write_reg = rd | 0x20;                                             \
     pc += 2UL;                                                         \
     break;
 
@@ -1481,7 +1571,7 @@
     require_extension('C');                                         \
     confirm_insn_legal(rd &&c_rs2);                                 \
     regs[rd] = regs[c_rs2];                                         \
-    rd_sta = RD_NORM;                                               \
+    write_reg = rd;                                                 \
     pc += 2UL;                                                      \
     break;
 
@@ -1500,7 +1590,7 @@
         confirm_insn_legal(c_rs1);                      \
         uint64_t rs1_data(regs[c_rs1]);                 \
         regs[REG_RA] = pc + 2UL;                        \
-        rd_sta = RD_RA;                                 \
+        write_reg = REG_RA;                             \
         pc = (rs1_data) & ~1UL;                         \
     }                                                   \
     break;
@@ -1511,7 +1601,7 @@
     require_extension('C');                                          \
     confirm_insn_legal(rd &&c_rs2);                                  \
     regs[rd] = regs[rd] + regs[c_rs2];                               \
-    rd_sta = RD_NORM;                                                \
+    write_reg = rd;                                                  \
     pc += 2UL;                                                       \
     break;
 
@@ -1521,6 +1611,10 @@
             regs_name[REG_SP]);                                         \
     require_extension('C');                                             \
     mmu->store(regs[REG_SP] + imm_c_swsp, DATA_TYPE_WORD, regs[c_rs2]); \
+    load_store = LS_STORE;                                              \
+    mem_addr = regs[REG_SP] + imm_c_swsp;                               \
+    mem_val = regs[c_rs2];                                              \
+    mem_val_type = DATA_TYPE_WORD;                                      \
     pc += 2UL;                                                          \
     break;
 
@@ -1530,6 +1624,10 @@
             regs_name[REG_SP]);                                          \
     require_extension('C');                                              \
     mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]); \
+    load_store = LS_STORE;                                               \
+    mem_addr = regs[REG_SP] + imm_c_sdsp;                                \
+    mem_val = regs[c_rs2];                                               \
+    mem_val_type = DATA_TYPE_DWORD;                                      \
     pc += 2UL;                                                           \
     break;
 
@@ -1539,7 +1637,12 @@
             regs_name[REG_SP]);                                           \
     require_extension('C');                                               \
     require_extension('D');                                               \
+    require_fp;                                                           \
     mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, fregs[c_rs2]); \
+    load_store = LS_STORE;                                                \
+    mem_addr = regs[REG_SP] + imm_c_sdsp;                                 \
+    mem_val = fregs[c_rs2];                                               \
+    mem_val_type = DATA_TYPE_DWORD;                                       \
     pc += 2UL;                                                            \
     break;
 
@@ -1555,8 +1658,12 @@
     if (regs[rs1] & 3UL)                                                 \
         throw TrapLoadAccessFault(regs[rs1]);                            \
     mmu->acquire_load_reservation(regs[rs1]);                            \
+    mem_addr = regs[rs1];                                                \
     regs[rd] = mmu->load(regs[rs1], DATA_TYPE_WORD);                     \
-    rd_sta = RD_NORM;                                                    \
+    load_store = LS_LOAD;                                                \
+    mem_val = regs[rd];                                                  \
+    mem_val_type = DATA_TYPE_WORD;                                       \
+    write_reg = rd;                                                      \
     pc += 4UL;                                                           \
     break;
 
@@ -1569,10 +1676,15 @@
         if (regs[rs1] & 3UL)                                      \
             throw TrapLoadAccessFault(regs[rs1]);                 \
         bool is_reserv(mmu->check_load_reservation(regs[rs1]));   \
-        if (is_reserv)                                            \
+        if (is_reserv) {                                          \
             mmu->store(regs[rs1], DATA_TYPE_WORD, regs[rs2]);     \
+            load_store = LS_STORE;                                \
+            mem_addr = regs[rs1];                                 \
+            mem_val = regs[rs2];                                  \
+            mem_val_type = DATA_TYPE_WORD;                        \
+        }                                                         \
         regs[rd] = !is_reserv;                                    \
-        rd_sta = RD_NORM;                                         \
+        write_reg = rd;                                           \
         mmu->release_load_reservation();                          \
         pc += 4UL;                                                \
     }                                                             \
@@ -1585,7 +1697,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoswap_w_func);                 \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1596,7 +1708,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoadd_w_func);                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1607,7 +1719,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoxor_w_func);                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1618,7 +1730,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoand_w_func);                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1629,7 +1741,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoor_w_func);                   \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1640,7 +1752,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amomin_w_func);                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1651,7 +1763,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amomax_w_func);                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1662,7 +1774,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amominu_w_func);                 \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1673,7 +1785,7 @@
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amomaxu_w_func);                 \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -1686,8 +1798,12 @@
     if (regs[rs1] & 7UL)                                                 \
         throw TrapLoadAccessFault(regs[rs1]);                            \
     mmu->acquire_load_reservation(regs[rs1]);                            \
+    mem_addr = regs[rs1];                                                \
     regs[rd] = mmu->load(regs[rs1], DATA_TYPE_DWORD);                    \
-    rd_sta = RD_NORM;                                                    \
+    load_store = LS_LOAD;                                                \
+    mem_val = regs[rd];                                                  \
+    mem_val_type = DATA_TYPE_DWORD;                                      \
+    write_reg = rd;                                                      \
     pc += 4UL;                                                           \
     break;
 
@@ -1700,11 +1816,16 @@
         if (regs[rs1] & 7UL)                                      \
             throw TrapLoadAccessFault(regs[rs1]);                 \
         bool is_reserv(mmu->check_load_reservation(regs[rs1]));   \
-        if (is_reserv)                                            \
+        if (is_reserv) {                                          \
             mmu->store(regs[rs1], DATA_TYPE_DWORD, regs[rs2]);    \
+            load_store = LS_STORE;                                \
+            mem_addr = regs[rs1];                                 \
+            mem_val = regs[rs2];                                  \
+            mem_val_type = DATA_TYPE_DWORD;                       \
+        }                                                         \
         regs[rd] = !is_reserv;                                    \
         mmu->release_load_reservation();                          \
-        rd_sta = RD_NORM;                                         \
+        write_reg = rd;                                           \
         pc += 4UL;                                                \
     }                                                             \
     break;
@@ -1716,7 +1837,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoswap_d_func);                  \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1727,7 +1848,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoadd_d_func);                   \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1738,7 +1859,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoxor_d_func);                   \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1749,7 +1870,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoand_d_func);                   \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1760,7 +1881,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoor_d_func);                    \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1771,7 +1892,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amomin_d_func);                   \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1782,7 +1903,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amomax_d_func);                   \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1793,7 +1914,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amominu_d_func);                  \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1804,7 +1925,7 @@
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amomaxu_d_func);                  \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -1816,7 +1937,12 @@
     require_fp;                                                        \
     fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);          \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
-    rd_sta = RD_F_NORM;                                                \
+    set_sd_fs_dirty;                                                   \
+    load_store = LS_LOAD;                                              \
+    mem_addr = regs[rs1] + imm_i;                                      \
+    mem_val = fregs[rd];                                               \
+    mem_val_type = DATA_TYPE_WORD;                                     \
+    write_reg = rd | 0x20;                                             \
     pc += 4UL;                                                         \
     break;
 
@@ -1827,6 +1953,10 @@
     require_extension('F');                                             \
     require_fp;                                                         \
     mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, fregs[rs2]);          \
+    load_store = LS_STORE;                                              \
+    mem_addr = regs[rs1] + imm_s;                                       \
+    mem_val = fregs[rs2];                                               \
+    mem_val_type = DATA_TYPE_WORD;                                      \
     pc += 4UL;                                                          \
     break;
 
@@ -1839,9 +1969,10 @@
     clean_fflags_value();                                                   \
     fregs[rd] = f32_add(f32_mul(fregs[rs1], fregs[rs2]), fregs[rs3]);       \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
-    csr_sta = CSR_FFLAGS;                                                   \
-    rd_sta = RD_F_NORM;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    write_reg = rd | 0x20;                                                  \
     pc += 4UL;                                                              \
     break;
 
@@ -1854,9 +1985,10 @@
     clean_fflags_value();                                                      \
     fregs[rd] = f32_add(f32_mul(fregs[rs1], fregs[rs2]), F32_NEG(fregs[rs3])); \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                           \
+    set_sd_fs_dirty;                                                           \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                         \
-    rd_sta = RD_F_NORM;                                                        \
-    csr_sta = CSR_FFLAGS;                                                      \
+    write_reg = rd | 0x20;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                               \
     pc += 4UL;                                                                 \
     break;
 
@@ -1869,9 +2001,10 @@
     clean_fflags_value();                                                      \
     fregs[rd] = f32_add(F32_NEG(f32_mul(fregs[rs1], fregs[rs2])), fregs[rs3]); \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                           \
+    set_sd_fs_dirty;                                                           \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                         \
-    rd_sta = RD_F_NORM;                                                        \
-    csr_sta = CSR_FFLAGS;                                                      \
+    write_reg = rd | 0x20;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                               \
     pc += 4UL;                                                                 \
     break;
 
@@ -1885,9 +2018,10 @@
     fregs[rd] = f32_add(F32_NEG(f32_mul(fregs[rs1], fregs[rs2])),            \
                         F32_NEG(fregs[rs3]));                                \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                         \
+    set_sd_fs_dirty;                                                         \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                       \
-    rd_sta = RD_F_NORM;                                                      \
-    csr_sta = CSR_FFLAGS;                                                    \
+    write_reg = rd | 0x20;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                             \
     pc += 4UL;                                                               \
     break;
 
@@ -1900,9 +2034,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_add(fregs[rs1], fregs[rs2]);                        \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -1915,9 +2050,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_add(fregs[rs1], F32_NEG(fregs[rs2]));               \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -1930,9 +2066,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_mul(fregs[rs1], fregs[rs2]);                        \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -1945,9 +2082,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_div(fregs[rs1], fregs[rs2]);                        \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -1959,9 +2097,10 @@
     clean_fflags_value();                                              \
     fregs[rd] = f32_sqrt(fregs[rs1]);                                  \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
+    set_sd_fs_dirty;                                                   \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_F_NORM;                                                \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd | 0x20;                                             \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -1980,7 +2119,8 @@
     else                                                                   \
         fregs[rd] = (fregs[rs2] & (1U << 31)) | (fregs[rs1] & (-1U >> 1)); \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                       \
-    rd_sta = RD_F_NORM;                                                    \
+    set_sd_fs_dirty;                                                       \
+    write_reg = rd | 0x20;                                                 \
     pc += 4UL;                                                             \
     break;
 
@@ -1999,7 +2139,8 @@
     else                                                                    \
         fregs[rd] = (~fregs[rs2] & (1U << 31)) | (fregs[rs1] & (-1U >> 1)); \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
-    rd_sta = RD_F_NORM;                                                     \
+    set_sd_fs_dirty;                                                        \
+    write_reg = rd | 0x20;                                                  \
     pc += 4UL;                                                              \
     break;
 
@@ -2018,7 +2159,8 @@
     else                                                                  \
         fregs[rd] = (fregs[rs2] & (1U << 31)) ^ fregs[rs1];               \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                      \
-    rd_sta = RD_F_NORM;                                                   \
+    set_sd_fs_dirty;                                                      \
+    write_reg = rd | 0x20;                                                \
     pc += 4UL;                                                            \
     break;
 
@@ -2031,9 +2173,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_min(fregs[rs1], fregs[rs2]);                        \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2046,9 +2189,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_max(fregs[rs1], fregs[rs2]);                        \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2060,8 +2204,8 @@
     clean_fflags_value();                                              \
     regs[rd] = f32_cvt_w_s(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_NORM;                                                  \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd;                                                    \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2073,8 +2217,8 @@
     clean_fflags_value();                                               \
     regs[rd] = (int32_t) f32_cvt_wu_s(fregs[rs1]);                      \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_NORM;                                                   \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2084,7 +2228,7 @@
     require_extension('F');                                           \
     require_fp;                                                       \
     regs[rd] = (int32_t) fregs[rs1];                                  \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -2097,8 +2241,8 @@
     clean_fflags_value();                                             \
     regs[rd] = f32_eq(fregs[rs1], fregs[rs2]);                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                             \
+    write_reg = rd;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
     pc += 4UL;                                                        \
     break;
 
@@ -2111,8 +2255,8 @@
     clean_fflags_value();                                             \
     regs[rd] = f32_lt(fregs[rs1], fregs[rs2]);                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                             \
+    write_reg = rd;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
     pc += 4UL;                                                        \
     break;
 
@@ -2125,8 +2269,8 @@
     clean_fflags_value();                                             \
     regs[rd] = f32_le(fregs[rs1], fregs[rs2]);                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                             \
+    write_reg = rd;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
     pc += 4UL;                                                        \
     break;
 
@@ -2136,7 +2280,7 @@
     require_extension('F');                                            \
     require_fp;                                                        \
     regs[rd] = f32_classify(fregs[rs1]);                               \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
@@ -2148,9 +2292,10 @@
     clean_fflags_value();                                              \
     fregs[rd] = f32_cvt_s_w(regs[rs1]);                                \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
+    set_sd_fs_dirty;                                                   \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_F_NORM;                                                \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd | 0x20;                                             \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2162,9 +2307,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_cvt_s_wu(regs[rs1]);                                \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2175,7 +2321,8 @@
     require_fp;                                                       \
     fregs[rd] = (uint32_t) regs[rs1];                                 \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                  \
-    rd_sta = RD_F_NORM;                                               \
+    set_sd_fs_dirty;                                                  \
+    write_reg = rd | 0x20;                                            \
     pc += 4UL;                                                        \
     break;
 
@@ -2187,8 +2334,8 @@
     clean_fflags_value();                                              \
     regs[rd] = f32_cvt_l_s(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_NORM;                                                  \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd;                                                    \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2200,8 +2347,8 @@
     clean_fflags_value();                                               \
     regs[rd] = f32_cvt_lu_s(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_NORM;                                                   \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2213,9 +2360,10 @@
     clean_fflags_value();                                              \
     fregs[rd] = f32_cvt_s_l(regs[rs1]);                                \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
+    set_sd_fs_dirty;                                                   \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_F_NORM;                                                \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd | 0x20;                                             \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2227,9 +2375,10 @@
     clean_fflags_value();                                               \
     fregs[rd] = f32_cvt_s_lu(regs[rs1]);                                \
     fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2240,7 +2389,12 @@
     require_extension('D');                                            \
     require_fp;                                                        \
     fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_DWORD);         \
-    rd_sta = RD_F_NORM;                                                \
+    set_sd_fs_dirty;                                                   \
+    load_store = LS_LOAD;                                              \
+    mem_addr = regs[rs1] + imm_i;                                      \
+    mem_val = fregs[rd];                                               \
+    mem_val_type = DATA_TYPE_DWORD;                                    \
+    write_reg = rd | 0x20;                                             \
     pc += 4UL;                                                         \
     break;
 
@@ -2251,6 +2405,10 @@
     require_extension('D');                                             \
     require_fp;                                                         \
     mmu->store(regs[rs1] + imm_s, DATA_TYPE_DWORD, fregs[rs2]);         \
+    load_store = LS_STORE;                                              \
+    mem_addr = regs[rs1] + imm_s;                                       \
+    mem_val = fregs[rs2];                                               \
+    mem_val_type = DATA_TYPE_DWORD;                                     \
     pc += 4UL;                                                          \
     break;
 
@@ -2262,9 +2420,10 @@
     require_fp;                                                             \
     clean_fflags_value();                                                   \
     fregs[rd] = f64_add(f64_mul(fregs[rs1], fregs[rs2]), fregs[rs3]);       \
+    set_sd_fs_dirty;                                                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
-    rd_sta = RD_F_NORM;                                                     \
-    csr_sta = CSR_FFLAGS;                                                   \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
     pc += 4UL;                                                              \
     break;
 
@@ -2276,9 +2435,10 @@
     require_fp;                                                                \
     clean_fflags_value();                                                      \
     fregs[rd] = f64_add(f64_mul(fregs[rs1], fregs[rs2]), F64_NEG(fregs[rs3])); \
+    set_sd_fs_dirty;                                                           \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                         \
-    rd_sta = RD_F_NORM;                                                        \
-    csr_sta = CSR_FFLAGS;                                                      \
+    write_reg = rd | 0x20;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                               \
     pc += 4UL;                                                                 \
     break;
 
@@ -2290,9 +2450,10 @@
     require_fp;                                                                \
     clean_fflags_value();                                                      \
     fregs[rd] = f64_add(F64_NEG(f64_mul(fregs[rs1], fregs[rs2])), fregs[rs3]); \
+    set_sd_fs_dirty;                                                           \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                         \
-    rd_sta = RD_F_NORM;                                                        \
-    csr_sta = CSR_FFLAGS;                                                      \
+    write_reg = rd | 0x20;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                               \
     pc += 4UL;                                                                 \
     break;
 
@@ -2305,9 +2466,10 @@
     clean_fflags_value();                                                    \
     fregs[rd] = f64_add(F64_NEG(f64_mul(fregs[rs1], fregs[rs2])),            \
                         F64_NEG(fregs[rs3]));                                \
+    set_sd_fs_dirty;                                                         \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                       \
-    rd_sta = RD_F_NORM;                                                      \
-    csr_sta = CSR_FFLAGS;                                                    \
+    write_reg = rd | 0x20;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                             \
     pc += 4UL;                                                               \
     break;
 
@@ -2319,9 +2481,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_add(fregs[rs1], fregs[rs2]);                        \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2333,9 +2496,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_add(fregs[rs1], F64_NEG(fregs[rs2]));               \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2347,9 +2511,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_mul(fregs[rs1], fregs[rs2]);                        \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2361,9 +2526,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_div(fregs[rs1], fregs[rs2]);                        \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2374,9 +2540,10 @@
     require_fp;                                                        \
     clean_fflags_value();                                              \
     fregs[rd] = f64_sqrt(fregs[rs1]);                                  \
+    set_sd_fs_dirty;                                                   \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_F_NORM;                                                \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd | 0x20;                                             \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2387,7 +2554,8 @@
     require_extension('D');                                              \
     require_fp;                                                          \
     fregs[rd] = (fregs[rs2] & (1UL << 63)) | (fregs[rs1] & (-1UL >> 1)); \
-    rd_sta = RD_F_NORM;                                                  \
+    set_sd_fs_dirty;                                                     \
+    write_reg = rd | 0x20;                                               \
     pc += 4UL;                                                           \
     break;
 
@@ -2398,7 +2566,8 @@
     require_extension('D');                                               \
     require_fp;                                                           \
     fregs[rd] = (~fregs[rs2] & (1UL << 63)) | (fregs[rs1] & (-1UL >> 1)); \
-    rd_sta = RD_F_NORM;                                                   \
+    set_sd_fs_dirty;                                                      \
+    write_reg = rd | 0x20;                                                \
     pc += 4UL;                                                            \
     break;
 
@@ -2409,7 +2578,8 @@
     require_extension('D');                                               \
     require_fp;                                                           \
     fregs[rd] = (fregs[rs2] & (1UL << 63)) ^ fregs[rs1];                  \
-    rd_sta = RD_F_NORM;                                                   \
+    set_sd_fs_dirty;                                                      \
+    write_reg = rd | 0x20;                                                \
     pc += 4UL;                                                            \
     break;
 
@@ -2421,9 +2591,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_min(fregs[rs1], fregs[rs2]);                        \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2435,9 +2606,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_max(fregs[rs1], fregs[rs2]);                        \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2448,9 +2620,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_cvt_s_d(fregs[rs1]);                                \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2461,9 +2634,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_cvt_d_s(fregs[rs1]);                                \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2476,8 +2650,8 @@
     clean_fflags_value();                                             \
     regs[rd] = f64_eq(fregs[rs1], fregs[rs2]);                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                             \
+    write_reg = rd;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
     pc += 4UL;                                                        \
     break;
 
@@ -2490,8 +2664,8 @@
     clean_fflags_value();                                             \
     regs[rd] = f64_lt(fregs[rs1], fregs[rs2]);                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                             \
+    write_reg = rd;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
     pc += 4UL;                                                        \
     break;
 
@@ -2504,8 +2678,8 @@
     clean_fflags_value();                                             \
     regs[rd] = f64_le(fregs[rs1], fregs[rs2]);                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    rd_sta = RD_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                             \
+    write_reg = rd;                                                   \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
     pc += 4UL;                                                        \
     break;
 
@@ -2516,7 +2690,7 @@
     require_fp;                                                        \
     regs[rd] = f64_classify(fregs[rs1]);                               \
     pc += 4UL;                                                         \
-    rd_sta = RD_NORM;                                                  \
+    write_reg = rd;                                                    \
     break;
 
 #define INSTRUCT_FCVT_W_D                                              \
@@ -2527,8 +2701,8 @@
     clean_fflags_value();                                              \
     regs[rd] = f64_cvt_w_d(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_NORM;                                                  \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd;                                                    \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2540,8 +2714,8 @@
     clean_fflags_value();                                               \
     regs[rd] = f64_cvt_wu_d(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_NORM;                                                   \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2552,9 +2726,10 @@
     require_fp;                                                        \
     clean_fflags_value();                                              \
     fregs[rd] = f64_cvt_d_w(regs[rs1]);                                \
+    set_sd_fs_dirty;                                                   \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_F_NORM;                                                \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd | 0x20;                                             \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2565,9 +2740,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_cvt_d_wu(regs[rs1]);                                \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2579,8 +2755,8 @@
     clean_fflags_value();                                              \
     regs[rd] = f64_cvt_l_d(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_NORM;                                                  \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd;                                                    \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2592,8 +2768,8 @@
     clean_fflags_value();                                               \
     regs[rd] = f64_cvt_lu_d(fregs[rs1]);                                \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_NORM;                                                   \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd;                                                     \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2603,7 +2779,7 @@
     require_extension('D');                                           \
     require_fp;                                                       \
     regs[rd] = fregs[rs1];                                            \
-    rd_sta = RD_NORM;                                                 \
+    write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
@@ -2614,9 +2790,10 @@
     require_fp;                                                        \
     clean_fflags_value();                                              \
     fregs[rd] = f64_cvt_d_l(regs[rs1]);                                \
+    set_sd_fs_dirty;                                                   \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    rd_sta = RD_F_NORM;                                                \
-    csr_sta = CSR_FFLAGS;                                              \
+    write_reg = rd | 0x20;                                             \
+    write_csr = CSR_FFLAGS_ADDR;                                       \
     pc += 4UL;                                                         \
     break;
 
@@ -2627,9 +2804,10 @@
     require_fp;                                                         \
     clean_fflags_value();                                               \
     fregs[rd] = f64_cvt_d_lu(regs[rs1]);                                \
+    set_sd_fs_dirty;                                                    \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    rd_sta = RD_F_NORM;                                                 \
-    csr_sta = CSR_FFLAGS;                                               \
+    write_reg = rd | 0x20;                                              \
+    write_csr = CSR_FFLAGS_ADDR;                                        \
     pc += 4UL;                                                          \
     break;
 
@@ -2639,7 +2817,8 @@
     require_extension('D');                                           \
     require_fp;                                                       \
     fregs[rd] = regs[rs1];                                            \
-    rd_sta = RD_F_NORM;                                               \
+    set_sd_fs_dirty;                                                  \
+    write_reg = rd | 0x20;                                            \
     pc += 4UL;                                                        \
     break;
 

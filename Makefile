@@ -45,6 +45,9 @@ sim: all
 	@for file in ${mmap_dir}/*_reg.h; do \
 	  ${XTEND_MMAP} ${bld_dir}/mmap_soc.h $${file}; \
 	done
+	@if [ ! -d "${sim_dir}/prog${prog}/include" ]; then \
+	  mkdir ${sim_dir}/prog${prog}/include; \
+	fi
 	@cp ${bld_dir}/mmap_soc.h ${sim_dir}/prog${prog}/include;
 
 	@dtc -I dts -O dtb ${dts_dir}/${dts_file} > ${sim_dir}/prog${prog}/riscv64emu.dtb;

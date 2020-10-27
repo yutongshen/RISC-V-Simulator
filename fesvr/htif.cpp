@@ -32,7 +32,7 @@ void HTIF::run()
     sysbus->read(tohost_addr, DATA_TYPE_DWORD, tohost);
 
     if (tohost) {
-        printf("TOHOST: 0x%x\n", tohost);
+        // printf("TOHOST: 0x%lx\n", tohost);
         uint64_t ret;
         ret = dev_list[get_dev_id(tohost)]->handle_command(tohost);
 

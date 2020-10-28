@@ -12,26 +12,29 @@ class FrontEndDevice;
 class DefaultFEDevice;
 
 // host target interface
-class HTIF
+class HTIF : public Slave
 {
     Bus *sysbus;
     FrontEndDevice *dev_list[256];
     uint64_t n_dev;
     DefaultFEDevice default_device;
-    uint64_t tohost_addr;
-    uint64_t fromhost_addr;
+    uint64_t fromhost;
     uint64_t exitcode;
 
 public:
     HTIF();
     ~HTIF();
-    void run();
-    void bus_connect(Bus *bus);
+    virtual bool write(const Addr &addr,
+                       const DataType &data_type,
+                       const uint64_t &wdata);
+    virtual bool read(const Addr &addr,
+                      const DataType &data_type,
+                      uint64_t &rdata);
     void register_device(FrontEndDevice *dev);
-    void set_host(uint64_t tohost_addr, uint64_t fromhost_addr);
-    uint64_t exit_code();
+    uint64_t get_exit_code();
+    void set_exit_code(uint64_t code);
     bool exit();
-    void write_exitcode(uint64_t code);
+    void bus_connect(Bus *bus);
     bool sysbus_read(uint64_t addr, DataType type, uint64_t &rdata);
 };
 

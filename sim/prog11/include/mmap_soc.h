@@ -43,17 +43,37 @@
 #define BRIDGE_0_BASE 0x10000000
 
 // ==============================
-//  TIMER_BASE
+//  FINISHER_BASE
 // ==============================
-#define TIMER_BASE 0x10000000
-#define TIMER_RG_MIP (TIMER_BASE + 0x0000)
-#define TIMER_RG_TIMECMP (TIMER_BASE + 0x0800)
-#define TIMER_RG_TIME (TIMER_BASE + 0x0ff8)
+#define FINISHER_BASE 0x10000000
+#define FINISHER_RG_FINISH (FINISHER_BASE + 0x0)
 
 // ==============================
 //  UART_BASE
 // ==============================
 #define UART_BASE 0x10001000
+#define UART_RG_TXFIFO (UART_BASE + 0x00)
+#define UART_RG_RXFIFO (UART_BASE + 0x04)
+#define UART_RG_TXCTRL (UART_BASE + 0x08)
+#define UART_RG_RXCTRL (UART_BASE + 0x0C)
+#define UART_RG_IE (UART_BASE + 0x10)
+#define UART_RG_IP (UART_BASE + 0x14)
+#define UART_RG_DIV (UART_BASE + 0x18)
+
+// ==============================
+//  HTIF_BASE
+// ==============================
+#define HTIF_BASE 0x10002000
+#define HTIF_RG_TOHOST (HTIF_BASE + 0x00)
+#define HTIF_RG_FROMHOST (HTIF_BASE + 0x40)
+
+// ==============================
+//  CLINT_BASE
+// ==============================
+#define CLINT_BASE 0x10010000
+#define CLINT_RG_MSIP (CLINT_BASE + 0x0000)
+#define CLINT_RG_TIMECMP (CLINT_BASE + 0x4000)
+#define CLINT_RG_TIME (CLINT_BASE + 0xbff8)
 
 // ==============================
 //  PLIC_BASE

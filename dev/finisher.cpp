@@ -2,8 +2,6 @@
 #include "mmap/finisher_reg.h"
 #include "util/util.h"
 
-void Finisher::_init() {}
-
 Finisher::Finisher() : exit_code(0), Slave(0x1000) {}
 
 Finisher::~Finisher() {}

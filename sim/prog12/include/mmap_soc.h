@@ -61,6 +61,13 @@
 #define UART_RG_DIV (UART_BASE + 0x18)
 
 // ==============================
+//  HTIF_BASE
+// ==============================
+#define HTIF_BASE 0x10002000
+#define HTIF_RG_TOHOST (HTIF_BASE + 0x00)
+#define HTIF_RG_FROMHOST (HTIF_BASE + 0x40)
+
+// ==============================
 //  CLINT_BASE
 // ==============================
 #define CLINT_BASE 0x10010000

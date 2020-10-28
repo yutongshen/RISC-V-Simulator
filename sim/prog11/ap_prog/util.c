@@ -1,10 +1,15 @@
 #include "util.h"
 #include <math.h>
 #include <stdarg.h>
+#include "mmap_soc.h"
 #include "riscv_def.h"
 
-extern volatile uint64_t tohost;
-extern volatile uint64_t fromhost;
+#define MEGAPAGE (PGSIZE << 9)
+
+volatile uint64_t *tohost =
+    (volatile uint64_t *) (HTIF_RG_TOHOST - BRIDGE_0_BASE - 2 * MEGAPAGE);
+volatile uint64_t *fromhost =
+    (volatile uint64_t *) (HTIF_RG_FROMHOST - BRIDGE_0_BASE - 2 * MEGAPAGE);
 
 void *memset(void *ptr, int val, size_t len)
 {
@@ -50,10 +55,10 @@ uint64_t write_tohost(trapframe_t *ft)
 {
     __sync_synchronize();
 
-    tohost = ft->a0;
-    while (!fromhost)
+    *tohost = ft->a0;
+    while (!*fromhost)
         ;
-    fromhost = 0;
+    *fromhost = 0;
 
     __sync_synchronize();
 

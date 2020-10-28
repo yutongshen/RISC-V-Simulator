@@ -9,12 +9,12 @@ bool FrontEndDevice::sysbus_read(uint64_t addr, DataType type, uint64_t &rdata)
 
 void FrontEndDevice::write_exitcode(uint64_t code)
 {
-    htif->write_exitcode(code);
+    htif->set_exit_code(code);
 }
 
 uint64_t FrontEndDevice::exit_code()
 {
-    return htif->exit_code();
+    return htif->get_exit_code();
 }
 
 FrontEndDevice::FrontEndDevice(HTIF *htif) : htif(htif), cmd_list(), n_cmd(0)

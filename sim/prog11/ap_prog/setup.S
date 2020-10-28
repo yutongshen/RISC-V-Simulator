@@ -1,144 +1,25 @@
 #include "riscv_def.h"
-#define MTIMER_TEST
+#include "mmap_soc.h"
 
 .section .text.init
 .align 2
-.globl _entry
-_entry:
+.globl _start
+_start:
     j handle_reset;
 
-# M-mode Trap Handle
-
 .align 2
-.globl trap_entry_m
-trap_entry_m:
-    # supervisor trap
-    # get trapframe pointer (save a0 into mcratch)
-    csrrw a0, mscratch, a0;
-
-    # push reg x1~x31 into trapframe
-    sd x1, 0*8(a0);
-    sd x2, 1*8(a0);
-    sd x3, 2*8(a0);
-    sd x4, 3*8(a0);
-    sd x5, 4*8(a0);
-    sd x6, 5*8(a0);
-    sd x7, 6*8(a0);
-    sd x8, 7*8(a0);
-    sd x9, 8*8(a0);
-    sd x11, 10*8(a0);
-    sd x12, 11*8(a0);
-    sd x13, 12*8(a0);
-    sd x14, 13*8(a0);
-    sd x15, 14*8(a0);
-    sd x16, 15*8(a0);
-    sd x17, 16*8(a0);
-    sd x18, 17*8(a0);
-    sd x19, 18*8(a0);
-    sd x20, 19*8(a0);
-    sd x21, 20*8(a0);
-    sd x22, 21*8(a0);
-    sd x23, 22*8(a0);
-    sd x24, 23*8(a0);
-    sd x25, 24*8(a0);
-    sd x26, 25*8(a0);
-    sd x27, 26*8(a0);
-    sd x28, 27*8(a0);
-    sd x29, 28*8(a0);
-    sd x20, 29*8(a0);
-    sd x31, 30*8(a0);
-
-    # load stack point and save trapframe point into mcratch
-    csrrw t0, mscratch, a0;
-    sd t0, 9*8(a0);
-
-    # push status, epc, tval, cause
-    csrr t0, mstatus;
-    sd t0, 31*8(a0);
-    csrr t0, mepc;
-    sd t0, 32*8(a0);
-    csrr t0, mtval;
-    sd t0, 33*8(a0);
-    csrr t0, mcause;
-    sd t0, 34*8(a0);
-
-    csrr sp, mscratch;
-    j trap_handler_m;
-
-.align 2
-.globl pop_trapframe_m
-pop_trapframe_m:
-    # a0 need to save trapframe pointer
-    # pop epc and reg x1~x31 from trapframe
-    ld t0, 32*8(a0);
-    csrw mepc, t0;
-    ld x1, 0*8(a0);
-    ld x2, 1*8(a0);
-    ld x3, 2*8(a0);
-    ld x4, 3*8(a0);
-    ld x5, 4*8(a0);
-    ld x6, 5*8(a0);
-    ld x7, 6*8(a0);
-    ld x8, 7*8(a0);
-    ld x9, 8*8(a0);
-    ld x11, 10*8(a0);
-    ld x12, 11*8(a0);
-    ld x13, 12*8(a0);
-    ld x14, 13*8(a0);
-    ld x15, 14*8(a0);
-    ld x16, 15*8(a0);
-    ld x17, 16*8(a0);
-    ld x18, 17*8(a0);
-    ld x19, 18*8(a0);
-    ld x20, 19*8(a0);
-    ld x21, 20*8(a0);
-    ld x22, 21*8(a0);
-    ld x23, 22*8(a0);
-    ld x24, 23*8(a0);
-    ld x25, 24*8(a0);
-    ld x26, 25*8(a0);
-    ld x27, 26*8(a0);
-    ld x28, 27*8(a0);
-    ld x29, 28*8(a0);
-    ld x20, 29*8(a0);
-    ld x31, 30*8(a0);
-
-    ld a0, 9*8(a0);
-    mret;
-
-trap_mret:
-    csrr a0, mscratch;
-    j pop_trapframe_m;
-    
-.align 2
-trap_handler_m:
+trap_vector:
     csrr sp, mscratch;
     csrr t0, mcause;
-    bltz t0, interrupt_handle_m;
     li t1, CAUSE_SUPERVISOR_ECALL;
     beq t0, t1, scall;
     j _abort;
-
-interrupt_handle_m:
-#ifdef MTIMER_TEST
-    # Set timer interval
-    li a0, 1000;
-    jal set_timer_interval;
-
-    # Set stime
-    li t0, MIP_SSIP;
-    csrs mip, t0;
-    j trap_mret;
-#endif
-
 scall:
     j _abort;
 
-# S-mode Trap Handle
-
 .align 2
-.globl trap_entry_s
-trap_entry_s:
+.globl trap_entry
+trap_entry:
     # supervisor trap
     # get trapframe pointer (save a0 into scratch)
     csrrw a0, sscratch, a0;
@@ -190,11 +71,11 @@ trap_entry_s:
     sd t0, 34*8(a0);
 
     csrr sp, sscratch;
-    j trap_handler_s;
+    j trap_handle;
 
 .align 2
-.globl pop_trapframe_s
-pop_trapframe_s:
+.globl pop_trapframe
+pop_trapframe:
     # a0 need to save trapframe pointer
     # pop epc and reg x1~x31 from trapframe
     ld t0, 32*8(a0);
@@ -233,7 +114,7 @@ pop_trapframe_s:
     ld a0, 9*8(a0);
     sret;
 
-trap_handler_s:
+trap_handle:
     csrr t0, scause;
     bltz t0, interrupt_handle;
     li t1, CAUSE_MISALIGNED_FETCH;
@@ -250,12 +131,6 @@ trap_handler_s:
     beq t0, t1, store_page_fault;
 
 interrupt_handle:
-#ifdef MTIMER_TEST
-    # Set stime
-    li t0, MIP_SSIP;
-    csrc sip, t0;
-    j trap_sret;
-#endif
 misaligned_fetch:
 sbreak:
     j _abort; # no interrupt
@@ -264,7 +139,7 @@ ucall:
     csrr t0, sepc;
     addi t0, t0, 4;
     sd t0, 32*8(a0);
-    j trap_sret;
+    j trap_ret;
 
 insn_page_fault:
 load_page_fault:
@@ -272,11 +147,11 @@ store_page_fault:
     csrr a0, stval;
     csrr a1, scause;
     jal fault_handle;
-    j trap_sret;
+    j trap_ret;
 
-trap_sret:
+trap_ret:
     csrr a0, sscratch;
-    j pop_trapframe_s;
+    j pop_trapframe;
     
 
 handle_reset:
@@ -322,40 +197,16 @@ handle_reset:
     csrw mscratch, sp;
 
     # set machine trap entry
-    la t0, trap_entry_m;
+    la t0, trap_vector;
     csrw mtvec, t0;
     csrr t0, mtvec;
-
-#ifdef MTIMER_TEST
-    # Set timer
-    li a0, 5000;
-    jal set_timer_interval;
-
-    # Enable interrupt
-    li a0, MSTATUS_MPIE;
-    csrs mstatus, a0;
-
-    # Enable mtimer
-    li a0, MIP_MTIP;
-    csrs mie, a0;
-rtime:
-    # j rtime;
-
-#endif
 
     # Initialize virtual memory
     j vm_boot;
 
-set_timer_interval:
-    li a1, MTIME_ADDR;
-    lw a1, 0(a1);
-    add a0, a0, a1;
-    li a1, MTIMECMP_ADDR;
-    sw a0, 0(a1);
-    ret;
 
-get_time:
-    li a0, MTIME_ADDR;
+rdtime:
+    li a0, CLINT_RG_TIME;
     lw a0, 0(a0);
     ret;
 
@@ -368,7 +219,7 @@ _abort:
     j _write_tohost;
 
 _write_tohost:
-    la t0, tohost;
+    li t0, HTIF_RG_TOHOST;
 1:  sd a0, 0(t0);
     j 1b;
 
@@ -382,12 +233,12 @@ user_space:
     ecall;
 
 
-.section .tohost
-.align 6
-.globl tohost
-tohost:
-    .word 0
-.align 6
-.globl fromhost
-fromhost:
-    .word 0
+.section .data
+.align 4
+str:
+.dword 0x40
+.dword 1
+.dword hello
+.dword 13
+hello:
+.string "hello word!\n"

@@ -9,7 +9,6 @@
 
 class Finisher : public Slave
 {
-    virtual void _init();
     uint32_t exit_code;
 
 public:

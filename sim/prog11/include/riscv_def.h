@@ -3,8 +3,6 @@
 
 #define EXIT_CODE_PASS 0x1
 #define EXIT_CODE_ERROR 0x3
-#define MTIMECMP_ADDR 0x10000800
-#define MTIME_ADDR 0x10000ff8
 
 #define PGSIZE 4096
 #define TRAPFRAM_SIZE (35 * 8)

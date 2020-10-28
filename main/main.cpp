@@ -180,6 +180,11 @@ int main(int argc, char **argv)
     Finisher finisher;
 
     // ==========================================================
+    //                     Define HTIF
+    // ==========================================================
+    HTIF htif_0;
+
+    // ==========================================================
     //                     Define BootROM
     // ==========================================================
     ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
@@ -224,6 +229,7 @@ int main(int argc, char **argv)
     bridge_0.bus_connect(&peribus_0);
     peribus_0.s_connect(FINISHER_BASE - BRIDGE_0_BASE, &finisher);
     peribus_0.s_connect(UART_BASE - BRIDGE_0_BASE, &uart_0);
+    peribus_0.s_connect(HTIF_BASE - BRIDGE_0_BASE, &htif_0);
     peribus_0.s_connect(CLINT_BASE - BRIDGE_0_BASE, &clint_0);
     peribus_0.s_connect(PLIC_BASE - BRIDGE_0_BASE, &plic_0);
 
@@ -234,22 +240,27 @@ int main(int argc, char **argv)
     sys_0.add(&clint_0);
     sys_0.add(&uart_0);
 
-    HTIF htif_0;
     htif_0.bus_connect(&bus_0);
-    htif_0.set_host(0x80007000, 0x80007040);
 
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));
     uint64_t end_code;
-    while (!finisher.get_exit_code() && cycle-- /* && !htif_0.exit() */) {
+    while (!finisher.get_exit_code() && cycle-- && !htif_0.exit()) {
         sys_0.run();
-        // htif_0.run();
     }
 
     putchar('\n');
-    printf("SIMEND: %s(0x%x)\n",
-           (finisher.get_exit_code() == 0x5555) ? "PASS" : "FAIL",
-           finisher.get_exit_code() >> 16);
+    if (finisher.get_exit_code()) {
+        printf("SIMEND: %s(0x%x)\n",
+               (finisher.get_exit_code() == 0x5555) ? "PASS" : "FAIL",
+               finisher.get_exit_code() >> 16);
+    } else if (htif_0.exit()) {
+        printf("SIMEND: %s(0x%x)\n",
+               (!htif_0.get_exit_code()) ? "PASS" : "FAIL",
+               finisher.get_exit_code() >> 1);
+    } else {
+        printf("SIMEND: TIMEOUT!!!");
+    }
     // Print page-table
     uint64_t pt_base((cpu_0.get_satp() & SATP_PPN) << PAGE_SHIFT);
     print_pt(&bus_0, pt_base);

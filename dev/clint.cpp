@@ -28,26 +28,21 @@ bool CLINT::write(const Addr &addr,
                   const DataType &data_type,
                   const uint64_t &wdata)
 {
-    uint8_t len;
     uint64_t mask, _wdata;
     switch (data_type) {
     case DATA_TYPE_DWORD:
-        len = 8;
         mask = -1UL;
         break;
     case DATA_TYPE_WORD:
     case DATA_TYPE_WORD_UNSIGNED:
-        len = 4;
         mask = -1U;
         break;
     case DATA_TYPE_HWORD:
     case DATA_TYPE_HWORD_UNSIGNED:
-        len = 2;
         mask = 0xffff;
         break;
     case DATA_TYPE_BYTE:
     case DATA_TYPE_BYTE_UNSIGNED:
-        len = 1;
         mask = 0xff;
         break;
     default:

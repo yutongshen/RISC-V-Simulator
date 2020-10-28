@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "mmap_soc.h"
 #include "riscv_def.h"
 #include "type_def.h"
 #include "util.h"
@@ -70,6 +71,9 @@ void vm_boot()
     l1_user_pt[0] = ((pte_t) l2_user_pt >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_V;
     l1_pt[N_PTE - 1] =
         ((pte_t) l1_kernel_pt >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_V;
+    l1_kernel_pt[N_PTE - 2] =
+        ((pte_t) BRIDGE_0_BASE >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_D | PTE_A |
+        PTE_R | PTE_W | PTE_X | PTE_V;
     l1_kernel_pt[N_PTE - 1] = ((pte_t) _start >> PAGE_SHIFT << PTE_PPN_SHIFT) |
                               PTE_D | PTE_A | PTE_R | PTE_W | PTE_X | PTE_V;
 

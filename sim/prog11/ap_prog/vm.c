@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "mmap_soc.h"
 #include "riscv_def.h"
 #include "type_def.h"
 #include "util.h"
@@ -14,8 +15,8 @@
 #define l2_user_pt pt[2]
 #define l1_kernel_pt pt[3]
 
-#define pa2kva(x) ((pte_t)(x) - (pte_t) _entry - MEGAPAGE)
-#define pa2uva(x) ((pte_t)(x) - (pte_t) _entry)
+#define pa2kva(x) ((pte_t)(x) - (pte_t) _start - MEGAPAGE)
+#define pa2uva(x) ((pte_t)(x) - (pte_t) _start)
 #define uva2kva(x) ((pte_t)(x) -MEGAPAGE)
 
 typedef uint64_t pte_t;
@@ -26,9 +27,10 @@ typedef struct {
 
 extern volatile uint64_t tohost;
 extern volatile uint64_t fromhost;
-extern void pop_trapframe_m(trapframe_t *tf);
-extern void trap_entry_s();
+extern void pop_trapframe(trapframe_t *tf);
+extern void trap_entry();
 extern int user_space();
+extern void _start();
 
 pte_t pt[N_PT][N_PTE] __attribute__((aligned(PGSIZE)));
 
@@ -64,14 +66,15 @@ void fault_handle(uint64_t addr, uint64_t cause)
 
 void vm_boot()
 {
-    extern int _entry[];
-
     // build user and kernel page
     l1_pt[0] = ((pte_t) l1_user_pt >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_V;
     l1_user_pt[0] = ((pte_t) l2_user_pt >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_V;
     l1_pt[N_PTE - 1] =
         ((pte_t) l1_kernel_pt >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_V;
-    l1_kernel_pt[N_PTE - 1] = ((pte_t) _entry >> PAGE_SHIFT << PTE_PPN_SHIFT) |
+    l1_kernel_pt[N_PTE - 2] =
+        ((pte_t) BRIDGE_0_BASE >> PAGE_SHIFT << PTE_PPN_SHIFT) | PTE_D | PTE_A |
+        PTE_R | PTE_W | PTE_X | PTE_V;
+    l1_kernel_pt[N_PTE - 1] = ((pte_t) _start >> PAGE_SHIFT << PTE_PPN_SHIFT) |
                               PTE_D | PTE_A | PTE_R | PTE_W | PTE_X | PTE_V;
 
     // set CSR satp
@@ -92,13 +95,6 @@ void vm_boot()
     write_csr(pmpaddr0, (1UL << (57 - 3)) - 1U);
     write_csr(pmpcfg0, PMP_R | PMP_W | PMP_X | set_field(0, PMP_A, PMP_NAPOT));
 
-    // delegate interrupt for supervisor
-    write_csr(mideleg, MIP_SSIP);
-
-    // Enable supervisor interrupt
-    set_csr(mstatus, MSTATUS_SIE);
-    set_csr(sie, MIP_SSIP);
-
     // delegate exception for supervisor
     write_csr(medeleg, (1 << CAUSE_MISALIGNED_FETCH) | (1 << CAUSE_USER_ECALL) |
                            (1 << CAUSE_BREAKPOINT) |
@@ -107,16 +103,16 @@ void vm_boot()
                            (1 << CAUSE_STORE_PAGE_FAULT));
 
     // set supervisor trap entry
-    write_csr(stvec, pa2kva(&trap_entry_s));
+    write_csr(stvec, pa2kva(&trap_entry));
 
     // set supervisor trapframe pointer
     uint64_t scratch;
     read_csr(mscratch, scratch);
-    write_csr(sscratch, pa2kva(scratch - TRAPFRAM_SIZE));
+    write_csr(sscratch, pa2kva(scratch));
 
     // switch to user mode
     trapframe_t tf;
     memset(&tf, 0, sizeof(tf));
     tf.epc = pa2uva(&user_space);
-    pop_trapframe_m(&tf);
+    pop_trapframe(&tf);
 }

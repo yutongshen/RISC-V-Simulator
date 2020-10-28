@@ -219,7 +219,7 @@ _abort:
     j _write_tohost;
 
 _write_tohost:
-    la t0, tohost;
+    li t0, HTIF_RG_TOHOST;
 1:  sd a0, 0(t0);
     j 1b;
 
@@ -232,16 +232,6 @@ user_space:
     li a0, 1;
     ecall;
 
-
-.section .tohost
-.align 6
-.globl tohost
-tohost:
-    .word 0
-.align 6
-.globl fromhost
-fromhost:
-    .word 0
 
 .section .data
 .align 4

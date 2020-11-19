@@ -4,7 +4,7 @@
 static volatile uint32_t *uart_txfifo = (volatile uint32_t *) UART_RG_TXFIFO;
 static volatile uint32_t *uart_txctrl = (volatile uint32_t *) UART_RG_TXCTRL;
 
-void putchar(uint8_t ch)
+void cputchar(uint8_t ch)
 {
     int32_t r;
     do {
@@ -14,10 +14,10 @@ void putchar(uint8_t ch)
     } while (r < 0);
 }
 
-void puts(const uint8_t *str)
+void cputs(const uint8_t *str)
 {
     while (*str)
-        putchar(*(str++));
+        cputchar(*(str++));
 }
 
 void print_hex(uint32_t num)
@@ -26,31 +26,31 @@ void print_hex(uint32_t num)
     for (i = 0; i < 8; num <<= 4, ++i) {
         d = ((num & 0xf0000000) >> 28);
         if (d < 10)
-            putchar(d + 0x30);
+            cputchar(d + 0x30);
         else
-            putchar(d - 10 + 0x61);
+            cputchar(d - 10 + 0x61);
     }
 }
 
 void print_mismatch(uint32_t *test, uint32_t *expect)
 {
-    puts("MEM[");
-    print_hex((uint32_t) test);
-    puts("] = ");
+    cputs("MEM[");
+    print_hex((uint64_t) test);
+    cputs("] = ");
     print_hex(*test);
-    puts(", expect ");
+    cputs(", expect ");
     print_hex(*expect);
-    putchar('\n');
+    cputchar('\n');
 }
 
 void print_match(uint32_t *test)
 {
-    puts("MEM[");
-    print_hex((uint32_t) test);
-    puts("] = ");
+    cputs("MEM[");
+    print_hex((uint64_t) test);
+    cputs("] = ");
     print_hex(*test);
-    puts(", pass!");
-    putchar('\n');
+    cputs(", pass!");
+    cputchar('\n');
 }
 
 uint32_t ans_cmp()
@@ -75,10 +75,10 @@ uint32_t ans_cmp()
     }
 
     if (err) {
-        puts("============== FAIL ==============\n");
-        puts("There are some error.\n");
+        cputs("============== FAIL ==============\n");
+        cputs("There are some error.\n");
     } else {
-        puts("============ ALL PASS ============\n");
+        cputs("============ ALL PASS ============\n");
     }
 
     return err;

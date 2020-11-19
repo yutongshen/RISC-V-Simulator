@@ -26,7 +26,7 @@ all: build_elf
 build_elf: ${OBJ}
 	${CC} ${OBJ} -o ${ELF_NAME}
 	# make march=rv32i mabi=ilp32 -C prog${prog}
-	make march=rv64i mabi=lp64 -C prog${prog}
+	# make march=rv64i mabi=lp64 -C prog${prog}
 
 %.o: %.c
 	${CC} -c ${CFLAGS} $^

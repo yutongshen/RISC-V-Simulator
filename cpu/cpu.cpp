@@ -240,6 +240,7 @@ void CPU::run()
             cpu_trace << remark << std::endl;
         }
         low_power = 1;
+        pc += 4;
     }
     regs[0] = 0UL;
 
@@ -323,7 +324,7 @@ void CPU::take_interrupt(uint64_t ints)
 
     // Set CPU low power disable
     if (ints && low_power)
-        low_power = 0, npc += 4UL;
+        low_power = 0;
 
     // Check M-mode interrupts
     bool m_en((csr->prv == PRV_M && (csr->mstatus & MSTATUS_MIE)) ||
@@ -357,14 +358,21 @@ void CPU::take_interrupt(uint64_t ints)
 
         throw Trap((1UL << 63) | ctz(ints_en));
     }
-
-    // Execute instruction after wfi
-    pc = npc;
 }
 
 void CPU::set_power_on(bool power_sta)
 {
     this->power_sta = power_sta;
+    if (verbose) {
+        uint64_t mtime;
+        mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
+        printf("%6ld ns: ** CORE%ld POWER %s!! **\n", mtime, csr->mhartid, power_sta ? "ON" : "OFF");
+    }
+}
+
+bool CPU::get_power_sta()
+{
+    return this->power_sta;
 }
 
 void CPU::bus_connect(pBus bus)

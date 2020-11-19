@@ -50,10 +50,27 @@ bool Cluster::write(const Addr &addr,
     i = 0x0;
     switch (addr) {
     case RG_PWR_REQ:
+        for (i = 0; i < 8; ++i, _wdata >>= 1) {
+            if (cores[i]) {
+                if (!cores[i]->get_power_sta() && (_wdata & 0x1))
+                    cores[i]->set_power_on(true);
+                else if (cores[i]->get_power_sta() && !(_wdata & 0x1))
+                    cores[i]->set_power_on(false);
+            }
+        }
+        break;
+    case RG_PWR_REQ_SET:
         _wdata &= 0xff;
         for (i = 0; _wdata; ++i, _wdata >>= 1) {
             if (cores[i] && (_wdata & 0x1))
                 cores[i]->set_power_on(true);
+        }
+        break;
+    case RG_PWR_REQ_CLR:
+        _wdata &= 0xff;
+        for (i = 0; _wdata; ++i, _wdata >>= 1) {
+            if (cores[i] && (_wdata & 0x1))
+                cores[i]->set_power_on(false);
         }
         break;
     case RG_CPU7_PC:
@@ -85,7 +102,11 @@ bool Cluster::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     rdata = 0L;
     switch (addr) {
     case RG_PWR_REQ:
-        /* Read all zero */
+        for (i = 0; i < 8; ++i) {
+            if (cores[i]) {
+                rdata |= cores[i]->get_power_sta() << i;
+            }
+        }
         break;
     case RG_CPU7_PC:
         ++i;

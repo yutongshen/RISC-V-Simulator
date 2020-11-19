@@ -34,6 +34,7 @@ public:
     ~CPU();
     virtual void run();
     void set_power_on(bool power_sta);
+    bool get_power_sta();
     void bus_connect(pBus bus);
     bool support_extension(char ext);
     inline uint64_t get_cpuid() { return csr->mhartid; }

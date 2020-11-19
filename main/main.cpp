@@ -79,34 +79,33 @@ int main(int argc, char **argv)
     //                     Define CPU
     // ==========================================================
     CPU cpu_0(CPU0, argparser.get_int("PC"));
-    cpu_0.set_power_on(true);
 #if (CORE_NUM > 1)
     CPU cpu_1(CPU1);
-    cpu_1.set_power_on(true);
+    // cpu_1.set_power_on(true);
 #endif
 #if (CORE_NUM > 2)
     CPU cpu_2(CPU2);
-    cpu_2.set_power_on(true);
+    // cpu_2.set_power_on(true);
 #endif
 #if (CORE_NUM > 3)
     CPU cpu_3(CPU3);
-    cpu_3.set_power_on(true);
+    // cpu_3.set_power_on(true);
 #endif
 #if (CORE_NUM > 4)
     CPU cpu_4(CPU4);
-    cpu_4.set_power_on(true);
+    // cpu_4.set_power_on(true);
 #endif
 #if (CORE_NUM > 5)
     CPU cpu_5(CPU5);
-    cpu_5.set_power_on(true);
+    // cpu_5.set_power_on(true);
 #endif
 #if (CORE_NUM > 6)
     CPU cpu_6(CPU6);
-    cpu_6.set_power_on(true);
+    // cpu_6.set_power_on(true);
 #endif
 #if (CORE_NUM > 7)
     CPU cpu_7(CPU7);
-    cpu_7.set_power_on(true);
+    // cpu_7.set_power_on(true);
 #endif
 
     // ==========================================================
@@ -241,6 +240,8 @@ int main(int argc, char **argv)
     sys_0.add(&uart_0);
 
     htif_0.bus_connect(&bus_0);
+
+    cpu_0.set_power_on(true);
 
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));

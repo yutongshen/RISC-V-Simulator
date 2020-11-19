@@ -5,7 +5,7 @@
 
 void CLINT::_init() {}
 
-CLINT::CLINT() : ip{0}, time(0), timecmp{0}, Device(), Slave(0x10000) {}
+CLINT::CLINT() : ip{0}, time(0), timecmp{(uint64_t) -1}, Device(), Slave(0x10000) {}
 
 CLINT::~CLINT() {}
 

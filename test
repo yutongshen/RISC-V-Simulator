@@ -1,0 +1,22 @@
+#/bin/sh
+
+for prog_type in brom_prog ap_prog; do
+  mkdir ./build/prog/${prog_type};
+  mkdir ./build/prog/${prog_type}/include;
+  for src_dir in common prog0; do
+    if [ -d ./sim/${src_dir}/${prog_type} ]; then
+      cp ./sim/${src_dir}/${prog_type}/* ./build/prog/${prog_type}/ 2> /dev/null || :;
+    fi
+    if [ "${src_dir}" == "common" ]; then
+      if [ -d ./sim/${src_dir}/include ]; then
+        cp ./sim/${src_dir}/include/* ./build/prog/${prog_type}/include/ 2> /dev/null || :;
+      fi
+    else
+      if [ -d ./sim/${src_dir}/${prog_type}/include ]; then
+        cp ./sim/${src_dir}/${prog_type}/include/* ./build/prog/${prog_type}/include/ 2> /dev/null || :;
+      fi
+    fi
+  done
+  cp ./build/mmap_soc.h ./build/prog/${prog_type}/include;
+done
+

@@ -23,6 +23,7 @@ public:
                       const DataType &data_type,
                       uint64_t &rdata);
     void set_ip(const uint8_t &id, uint64_t *ip);
+    const uint64_t *get_time();
 };
 
 

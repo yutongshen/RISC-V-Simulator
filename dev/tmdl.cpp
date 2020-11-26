@@ -1,0 +1,148 @@
+#include "tmdl.h"
+#include "mmap/tmdl_reg.h"
+#include "util/util.h"
+
+TMDL::TMDL(const char *path) : Slave(0x1000)
+{
+    FILE *file = fopen(path, "r");
+    if ( file != NULL )
+    {
+        char line[256];
+        while (fgets(line, sizeof line, file) != NULL)
+        {
+            tmdl_log.push_back(line);
+        }
+        fclose(file);
+    }
+}
+
+TMDL::~TMDL() {}
+
+bool TMDL::write(const Addr &addr,
+                     const DataType &data_type,
+                     const uint64_t &wdata)
+{
+    if (addr == RG_TM_PRINT) {
+        printf("% 6ld ns: [TMDL PRINT] ", *time);
+        tm_print(tmdl_log[wdata].c_str());
+    }
+    else if (addr == RG_TM_ARGS) {
+        arg_fifo[arg_head++] = (uint64_t) wdata;
+        arg_head %= FIFO_DEPTH;
+    }
+    return 1;
+}
+
+bool TMDL::read(const Addr &addr,
+                    const DataType &data_type,
+                    uint64_t &rdata)
+{
+    rdata = 0;
+
+    switch (data_type) {
+    case DATA_TYPE_DWORD:
+        break;
+    case DATA_TYPE_WORD:
+        rdata = sext(rdata, 32);
+        break;
+    case DATA_TYPE_WORD_UNSIGNED:
+        rdata = zext(rdata, 32);
+        break;
+    case DATA_TYPE_HWORD:
+        rdata = sext(rdata, 16);
+        break;
+    case DATA_TYPE_HWORD_UNSIGNED:
+        rdata = zext(rdata, 16);
+        break;
+    case DATA_TYPE_BYTE:
+        rdata = sext(rdata, 8);
+        break;
+    case DATA_TYPE_BYTE_UNSIGNED:
+        rdata = zext(rdata, 8);
+        break;
+    default:
+        abort();
+    }
+
+    return 1;
+}
+
+void TMDL::tm_print(const char *fmt)
+{
+    char  str[128];
+    char  label[8];
+    char *str_ptr(str);
+    char *label_ptr(label);
+    char  qualifier;
+
+    for (; *fmt; ++fmt) 
+    {
+        label_ptr = label;
+        if (*fmt != '%')
+        {
+            *(str_ptr++) = *fmt;
+            continue;
+        }
+        else
+        {
+            *str_ptr = '\0';
+            printf("%s", str);
+            str_ptr = str;
+            ++fmt;
+        }
+        *(label_ptr++) = '%';
+BUILD_LABEL:
+        *(label_ptr++) = *fmt;
+        switch (*fmt) {
+            case '\0':
+                return;
+            case '%':
+                printf("%%");
+                continue;
+            case 'l':
+            case 'h':
+                qualifier = *(fmt++);
+                goto BUILD_LABEL;
+            case 's':
+            case 'n':
+                printf("[!! TMODEL CANNOT SUPPORT %%%c !!]", *fmt);
+                break;
+            case 'p':
+                *label_ptr = '\0';
+                printf(label, (void *) arg_fifo[arg_tail]);
+                break;
+            case 'c':
+                *label_ptr = '\0';
+                printf(label, (uint8_t) arg_fifo[arg_tail]);
+                break;
+            case 'd':
+            case 'i':
+            case 'u':
+            case 'o':
+            case 'x':
+            case 'X':
+                *label_ptr = '\0';
+                if (qualifier == 'l')
+                    printf(label, (uint64_t) arg_fifo[arg_tail]);
+                else if (qualifier == 'h')
+                    printf(label, (uint16_t) arg_fifo[arg_tail]);
+                else
+                    printf(label, (uint32_t) arg_fifo[arg_tail]);
+                break;
+            case 'f':
+                printf(label, (float) arg_fifo[arg_tail]);
+                break;
+            default:
+                ++fmt;
+                goto BUILD_LABEL;
+        }
+        ++arg_tail;
+        arg_tail %= FIFO_DEPTH;
+    }
+    *str_ptr = '\0';
+    printf("%s", str);
+}
+
+void TMDL::set_time(const uint64_t *time) {
+    this->time = time;
+}

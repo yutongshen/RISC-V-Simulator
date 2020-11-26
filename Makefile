@@ -1,18 +1,25 @@
-root_dir := $(PWD)
-bld_dir  := ./build
-src_dir  := ./main ./sys ./dev ./cpu ./bus ./mem ./fesvr ./util
-dts_dir  := ./dts
-dts_file := riscv64emu.dts
-sim_dir  := ./sim
-sim_file := sim
-mmap_dir := ./mmap
-rv_ext   := rv64mi rv64si rv64ui rv64um rv64ua rv64uc rv64uf rv64ud #benchmarks
-obj_path  = $(src_dir:=/*.o)
-test     := ${bld_dir}/main ./sim/prog9/boot.bin ./sim/prog9/rv64ui/rv64ui-p-add.bin -dump -mem_addr 0x80001000 -mem_len 0x10 -sim_end 0x80001000 -sim_end_code 0x1 -cycle 0x100 -o ./build/dump.out
-err_ignore := 2> /dev/null || :
+root_dir      := $(PWD)
+bld_dir       := ./build
+src_dir       := ./main ./sys ./dev ./cpu ./bus ./mem ./fesvr ./util
+dts_dir       := ./dts
+dts_file      := riscv64emu.dts
+sim_dir       := ./sim
+sim_file      := sim
+mmap_dir      := ./mmap
+rv_ext        := rv64mi rv64si rv64ui rv64um rv64ua rv64uc rv64uf rv64ud #benchmarks
+obj_path       = $(src_dir:=/*.o)
+test          := ${bld_dir}/main ./sim/prog9/boot.bin ./sim/prog9/rv64ui/rv64ui-p-add.bin -dump -mem_addr 0x80001000 -mem_len 0x10 -sim_end 0x80001000 -sim_end_code 0x1 -cycle 0x100 -o ./build/dump.out
+tmdl_msg_log  := tmdl_msg.log
+prog_list     := brom_prog ap_prog
+prog_src_list := common prog${prog}
+inc_src_list  := common prog${prog} prog${prog}/$${prog_type}
+err_ignore    := 2> /dev/null || :
 
-INIT_MMAP  := ./script/build_mmap -i 
-XTEND_MMAP := ./script/build_mmap -x 
+INIT_MMAP     := ./script/build_mmap -i 
+XTEND_MMAP    := ./script/build_mmap -x 
+
+TMDL_PARSE_C  := ./script/tmdl_parse -c
+TMDL_PARSE_S  := ./script/tmdl_parse -s
 
 CC      := g++
 CFLAGS  := 
@@ -42,14 +49,15 @@ ${bld_dir}:
 	mkdir -p ${bld_dir}
 
 sim: all
+	@rm -rf ${bld_dir}/${tmdl_msg_log};
 	@if [ -d ${bld_dir}/prog ]; then \
-	  rm -rf ${bld_dir}/prog; \
+	    rm -rf ${bld_dir}/prog; \
 	fi
 	@mkdir ${bld_dir}/prog;
 	
 	@${INIT_MMAP} ${mmap_dir}/mmap.h ${bld_dir}/mmap_soc.h
 	@for file in ${mmap_dir}/*_reg.h; do \
-	  ${XTEND_MMAP} ${bld_dir}/mmap_soc.h $${file}; \
+	    ${XTEND_MMAP} ${bld_dir}/mmap_soc.h $${file}; \
 	done
 	@dtc -I dts -O dtb ${dts_dir}/${dts_file} > ${bld_dir}/prog/riscv64emu.dtb;
 	
@@ -57,65 +65,53 @@ sim: all
 	@cp ${sim_dir}/common/* ${bld_dir}/prog ${err_ignore};
 	@cp ${sim_dir}/prog${prog}/* ${bld_dir}/prog ${err_ignore};
 	
-	# Move brom_prog
-	@mkdir ${bld_dir}/prog/brom_prog;
-	@if [ -d ${sim_dir}/common/brom_prog ]; then \
-	  cp ${sim_dir}/common/brom_prog/* ${bld_dir}/prog/brom_prog/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/prog${prog}/brom_prog ]; then \
-	  cp ${sim_dir}/prog${prog}/brom_prog/* ${bld_dir}/prog/brom_prog/ ${err_ignore}; \
-	fi
-	@mkdir ${bld_dir}/prog/brom_prog/include;
-	@if [ -d ${sim_dir}/common/include ]; then \
-	  cp ${sim_dir}/common/include/* ${bld_dir}/prog/brom_prog/include/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/common/brom_prog/include ]; then \
-	  cp ${sim_dir}/common/brom_prog/include/* ${bld_dir}/prog/brom_prog/include/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/prog${prog}/include ]; then \
-	  cp ${sim_dir}/prog${prog}/include/* ${bld_dir}/prog/brom_prog/include/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/prog${prog}/brom_prog/include ]; then \
-	  cp ${sim_dir}/prog${prog}/brom_prog/include/* ${bld_dir}/prog/brom_prog/include/ ${err_ignore}; \
-	fi
-	@cp ${bld_dir}/mmap_soc.h ${bld_dir}/prog/brom_prog/include;
-	
-	# Move ap_prog
-	@mkdir ${bld_dir}/prog/ap_prog;
-	@if [ -d ${sim_dir}/common/ap_prog ]; then \
-	  cp ${sim_dir}/common/ap_prog/* ${bld_dir}/prog/ap_prog/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/prog${prog}/ap_prog ]; then \
-	  cp ${sim_dir}/prog${prog}/ap_prog/* ${bld_dir}/prog/ap_prog/ ${err_ignore}; \
-	fi
-	@mkdir ${bld_dir}/prog/ap_prog/include;
-	@if [ -d ${sim_dir}/common/include ]; then \
-	  cp ${sim_dir}/common/include/* ${bld_dir}/prog/ap_prog/include/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/common/ap_prog/include ]; then \
-	  cp ${sim_dir}/common/ap_prog/include/* ${bld_dir}/prog/ap_prog/include/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/prog${prog}/include ]; then \
-	  cp ${sim_dir}/prog${prog}/include/* ${bld_dir}/prog/ap_prog/include/ ${err_ignore}; \
-	fi
-	@if [ -d ${sim_dir}/prog${prog}/ap_prog/include ]; then \
-	  cp ${sim_dir}/prog${prog}/ap_prog/include/* ${bld_dir}/prog/ap_prog/include/ ${err_ignore}; \
-	fi
-	@cp ${bld_dir}/mmap_soc.h ${bld_dir}/prog/ap_prog/include;
+	@for prog_type in ${prog_list}; do \
+	    mkdir ${bld_dir}/prog/$${prog_type}; \
+	    mkdir ${bld_dir}/prog/$${prog_type}/include; \
+	    for src_dir in ${prog_src_list}; do \
+	        for file in ${sim_dir}/$${src_dir}/$${prog_type}/*; do \
+	            if [[ ! "$${file}" == "${sim_dir}/$${src_dir}/$${prog_type}/*" ]]; then \
+	                _file=$$(basename $${file}); \
+	                if [[ "$${_file#*.}" == "c" ]]; then \
+	                    ${TMDL_PARSE_C} $${file} ${bld_dir}/prog/$${prog_type}/$${_file} ${bld_dir}/${tmdl_msg_log}; \
+					elif [[ "$${_file#*.}" == "S" ]] || [[ "$${_file#*.}" == "s" ]]; then \
+					    ${TMDL_PARSE_S} $${file} ${bld_dir}/prog/$${prog_type}/$${_file} ${bld_dir}/${tmdl_msg_log}; \
+	                else \
+	                    cp $${file} ${bld_dir}/prog/$${prog_type}/ ${err_ignore}; \
+	                fi; \
+	            fi; \
+	        done; \
+	    done; \
+	    for src_dir in ${inc_src_list}; do \
+	        for file in ${sim_dir}/$${src_dir}/include/*; do \
+	            if [[ ! "$${file}" == "${sim_dir}/$${src_dir}/include/*" ]]; then \
+	                _file=$$(basename $${file}); \
+	                if [[ "$${_file#*.}" == "c" ]]; then \
+	                    ${TMDL_PARSE_C} $${file} ${bld_dir}/prog/$${prog_type}/include/$${_file} ${bld_dir}/${tmdl_msg_log}; \
+					elif [[ "$${_file#*.}" == "S" ]] || [[ "$${_file#*.}" == "s" ]]; then \
+					    ${TMDL_PARSE_S} $${file} ${bld_dir}/prog/$${prog_type}/include/$${_file} ${bld_dir}/${tmdl_msg_log}; \
+	                else \
+	                    cp $${file} ${bld_dir}/prog/$${prog_type}/include/ ${err_ignore}; \
+	                fi; \
+	            fi; \
+	        done; \
+	    done; \
+	    cp ${bld_dir}/mmap_soc.h ${bld_dir}/prog/$${prog_type}/include; \
+	done;
 	
 	# Compile
 	@make -C ${sim_dir};
 	@make -C ${bld_dir}/prog;
 	
 	# Simulation start
-	${sim_dir}/${sim_file} ${bld_dir} ${bld_dir}/prog;
+	${sim_dir}/${sim_file} ${bld_dir} ${bld_dir}/prog ${bld_dir}/${tmdl_msg_log};
 	
 check-leak: all
 	valgrind -q --leak-check=full ${test}
 
 link-make:
 	@for dir in ${src_dir}; do \
-		ln -sf ../.Makefile $${dir}/Makefile; \
+	    ln -sf ../.Makefile $${dir}/Makefile; \
 	done
 
 link-clang-format:

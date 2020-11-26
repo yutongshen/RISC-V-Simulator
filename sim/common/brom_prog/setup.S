@@ -45,12 +45,14 @@ _start:
 
     jal main;
 
+
     # ELF loader
     li a0, PROG_ELF;
     jal elf_loader;
     mv a2, a0;
     csrr a0, mhartid;
     li a1, DTB_FILE;
+    /* TM_PRINT="Load code successfully! sp=0x%lx, a0=0x%lx, a1=0x%lx, a2=0x%lx", sp, a0, a1, a2 */
     jr a2;
 
 

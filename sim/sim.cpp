@@ -76,7 +76,7 @@ int main(int argc, char **argv)
         return 0;
     }
     const char *dump_file("dump.out");
-    char main_cmd[200];
+    char main_cmd[512];
     char dump_path[100];
     char gold_path[100];
     char buff[100];
@@ -86,11 +86,11 @@ int main(int argc, char **argv)
     bool bmp_flag(0);
     bool done;
     sprintf(main_cmd,
-            "%s/main %s/brom.bin %s/flash.bin -dump -mem_addr 0x%08x -mem_len "
-            "0x1000 -sim_end "
-            "0x%08x -sim_end_code 0x%08x -cycle 0xffffff -o %s/%s",
+            "%s/main %s/brom.bin %s/flash.bin -dump -mem_addr 0x%08x "
+            "-mem_len 0x1000 -sim_end 0x%08x -sim_end_code 0x%08x "
+            "-tmdl_log %s -cycle 0xffffff -o %s/%s",
             argv[1], argv[2], argv[2], TEST_START, SIM_END, SIM_END_CODE,
-            argv[1], dump_file);
+            argv[3], argv[1], dump_file);
     printf("%s\n", main_cmd);
     printf("====================== Program start ======================\n");
     system(main_cmd);

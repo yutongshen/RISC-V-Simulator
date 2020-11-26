@@ -120,3 +120,7 @@ void CLINT::set_ip(const uint8_t &id, uint64_t *ip)
         abort();
     }
 }
+
+const uint64_t *CLINT::get_time() {
+    return (const uint64_t *) &time;
+}

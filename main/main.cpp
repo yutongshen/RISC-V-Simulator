@@ -8,6 +8,7 @@
 #include "dev/finisher.h"
 #include "dev/plic.h"
 #include "dev/uart.h"
+#include "dev/tmdl.h"
 #include "fesvr/htif.h"
 #include "mem/flash.h"
 #include "mem/ram.h"
@@ -63,6 +64,8 @@ int main(int argc, char **argv)
                            0);
     argparser.add_argument("-sim_end_code", "SIMENDCODE",
                            "The value is used for check terminate", "-1", 0);
+    argparser.add_argument("-tmdl_log", "TMDLLOG", "The TMDL log file path",
+                           "", 0);
     argparser.add_argument("-cycle", "CYCLE", "The max simulation cycles",
                            "0x10000", 0);
     argparser.add_argument("-pc", "PC", "Initialize program count (default: 0)",
@@ -184,6 +187,11 @@ int main(int argc, char **argv)
     HTIF htif_0;
 
     // ==========================================================
+    //                     Define HTIF
+    // ==========================================================
+    TMDL tmdl(argparser.get_str("TMDLLOG").c_str());
+
+    // ==========================================================
     //                     Define BootROM
     // ==========================================================
     ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
@@ -231,7 +239,7 @@ int main(int argc, char **argv)
     peribus_0.s_connect(HTIF_BASE - BRIDGE_0_BASE, &htif_0);
     peribus_0.s_connect(CLINT_BASE - BRIDGE_0_BASE, &clint_0);
     peribus_0.s_connect(PLIC_BASE - BRIDGE_0_BASE, &plic_0);
-
+    peribus_0.s_connect(TMDL_BASE - BRIDGE_0_BASE, &tmdl);
 
     System sys_0;
     sys_0.add(&cluster_0);
@@ -242,6 +250,7 @@ int main(int argc, char **argv)
     htif_0.bus_connect(&bus_0);
 
     cpu_0.set_power_on(true);
+    tmdl.set_time(clint_0.get_time());
 
     // Run
     uint64_t cycle(argparser.get_int("CYCLE"));

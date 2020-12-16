@@ -2,7 +2,7 @@
 #include "mmap_soc.h"
 #include "riscv_def.h"
 #define PROG_ELF FLASH_BASE
-#define DTB_FILE (FLASH_BASE + 0x10000)
+#define DTB_FILE (BROM_BASE + 0x1000)
 
 .section .text
 .globl _start
@@ -42,7 +42,10 @@ _start:
     
     # initialize sp
     la sp, STACK_POINTER
+    /* TM_PRINT="**** BOOTROM PROG START ****" */
 
+    li a0, MSTATUS_FS;
+    csrs mstatus, a0;
     jal main;
 
 
@@ -52,7 +55,8 @@ _start:
     mv a2, a0;
     csrr a0, mhartid;
     li a1, DTB_FILE;
-    /* TM_PRINT="Load code successfully! sp=0x%lx, a0=0x%lx, a1=0x%lx, a2=0x%lx", sp, a0, a1, a2 */
+    /* TM_PRINT="Load code successfully! sp=0x%08lx, a0=0x%08lx, a1=0x%08lx, a2=0x%08lx", sp, a0, a1, a2 */
+    /* TM_PRINT="**** BOOTROM PROG END ****" */
     jr a2;
 
 

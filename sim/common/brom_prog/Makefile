@@ -33,7 +33,7 @@ build_log: $(ELF_NAME)
 	$(RISCV_OBJDUMP) $< > $(ELF_NAME).log
 
 build_hex: $(ELF_NAME)
-	$(RISCV_OBJCOPY) $< -j .text $(ELF_NAME).bin
+	$(RISCV_OBJCOPY) $< -j .text -j .rodata $(ELF_NAME).bin
 
 %.o: %.bmp
 	$(RISCV_OBJCOPY) -I binary -O elf64-littleriscv -B riscv:rv64 $^ $@

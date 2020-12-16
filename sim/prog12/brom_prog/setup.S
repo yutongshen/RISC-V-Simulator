@@ -1,8 +1,8 @@
 # This progrom is runing in boot ROM, it just initialize some configuration, load code into sram and jump to sram
 #include "mmap_soc.h"
 #include "riscv_def.h"
-#define SYSRAM_PROG_ELF FLASH_BASE
-#define DTB_FILE (FLASH_BASE + 0x10000)
+#define POSTBL_PROG_ELF FLASH_BASE
+#define DTB_FILE (BROM_BASE + 0x1000)
 
 .section .text
 .globl _start
@@ -41,14 +41,38 @@ _start:
     li x31, 0;
     
     # initialize sp
+    csrr t0, mhartid;
     la sp, STACK_POINTER
+    slli t0, t0, 8;
+    add  sp, sp, t0;
 
     jal main;
 
-    csrr t0, mhartid;
-    bnez t0, 1f;
+    csrr a0, mhartid;
+    bnez a0, 1f;
+
+    # CPU 1~7 power on
+    li t0, CLST_0_RG_CPU1_PC;
+    sw zero, 0(t0);
+    li t0, CLST_0_RG_CPU2_PC;
+    sw zero, 0(t0);
+    li t0, CLST_0_RG_CPU3_PC;
+    sw zero, 0(t0);
+    li t0, CLST_0_RG_CPU4_PC;
+    sw zero, 0(t0);
+    li t0, CLST_0_RG_CPU5_PC;
+    sw zero, 0(t0);
+    li t0, CLST_0_RG_CPU6_PC;
+    sw zero, 0(t0);
+    li t0, CLST_0_RG_CPU7_PC;
+    sw zero, 0(t0);
+
+    li t1, 0xfe;
+    li t0, CLST_0_RG_PWR_REQ_SET;
+    sw t1, 0(t0);
+
     # ELF loader
-    li a0, SYSRAM_PROG_ELF;
+    li a0, POSTBL_PROG_ELF;
     jal elf_loader;
 
     # send ipi
@@ -63,15 +87,19 @@ _start:
     sw t0, 24(t1);
     sw t0, 28(t1);
 
+	mv a2, a0;
     j 2f;
 1:
     li t0, MIP_MSIP;
     csrs mie, t0;
+    /* TM_PRINT="CPU%d: Enter to WFI", a0 */
+    fence;
+    fence.i;
     wfi;
     csrc mip, t0;
     csrc mie, t0;
+    li a2, 0x80000000;
 2:
-	li a2, 0x80000000;
     csrr a0, mhartid;
     li a1, DTB_FILE;
     jr a2;

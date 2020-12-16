@@ -3,6 +3,7 @@
 #include "riscv_def.h"
 #define VM_ENABLE
 #define KERNEL_PROG_ELF (FLASH_BASE + 0x10000)
+#define STACK_TOP 0x80008000
 
 .section .text
 .globl _start
@@ -17,8 +18,6 @@ _start:
     li x7, 0;
     li x8, 0;
     li x9, 0;
-    li x10, 0;
-    li x11, 0;
     li x12, 0;
     li x13, 0;
     li x14, 0;
@@ -41,21 +40,44 @@ _start:
     li x31, 0;
     
     # initialize sp
-    la sp, STACK_POINTER
+    li   sp, STACK_TOP;
+    slli t0, a0, 12;
+    add  sp, sp, t0;
+    /* TM_PRINT="CPU%d: **** POST-BOOTLOADER BEGIN ****", a0 */
 
     # set fs
     li t0, MSTATUS_FS;
     csrs mstatus, t0;
 
-    jal main;
+    beqz a0, main_init;
+    jal init_secondary;
+
+
+main_init:
+    jal init_primary;
 
     # ELF loader
-    li a0, KERNEL_PROG_ELF;
-    jal elf_loader;
+    # li a0, KERNEL_PROG_ELF;
+    # jal elf_loader;
+    /* TM_PRINT="CPU%d: **** POST-BOOTLOADER END ****", a0 */
 
-#ifdef VM_ENABLE
-    j vm_boot;
-#else
-    li a0, DISK_1_BASE;
-    jr a0;
-#endif
+##ifdef VM_ENABLE
+#    j vm_boot;
+##else
+#    li a0, DISK_1_BASE;
+#    jr a0;
+##endif
+
+SystemExit:
+    /* End simulation */
+    li a0, 0x5555;
+    li a1, FINISHER_RG_FINISH;
+    sw a0, 0(a1);
+dead_loop:
+    j dead_loop
+
+.globl __wfi
+__wfi:
+    fence;
+    fence.i;
+    wfi;

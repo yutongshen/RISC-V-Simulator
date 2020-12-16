@@ -6,7 +6,6 @@
 
 #define PGSIZE 4096
 #define TRAPFRAM_SIZE (35 * 8)
-#define STACK_TOP (_end + PGSIZE)
 
 #define set_csr(name, value) { \
     asm volatile("csrs " #name ", %0"::"r"(value)); \

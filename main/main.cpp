@@ -194,7 +194,7 @@ int main(int argc, char **argv)
     // ==========================================================
     //                     Define BootROM
     // ==========================================================
-    ROM boot_rom(argparser.get_str(0).c_str(), 0x1000);
+    ROM boot_rom(argparser.get_str(0).c_str(), 0x8000);
 
     // ==========================================================
     //                     Define SRAM
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
                (!htif_0.get_exit_code()) ? "PASS" : "FAIL",
                finisher.get_exit_code() >> 1);
     } else {
-        printf("SIMEND: TIMEOUT!!!");
+        printf("SIMEND: TIMEOUT!!!\n");
     }
     // Print page-table
     uint64_t pt_base((cpu_0.get_satp() & SATP_PPN) << PAGE_SHIFT);

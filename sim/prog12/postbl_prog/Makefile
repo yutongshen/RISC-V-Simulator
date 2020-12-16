@@ -1,11 +1,11 @@
-ELF_NAME := sysram
+ELF_NAME := main
 
 export CROSS_PREFIX ?= riscv64-unknown-elf-
 export RISCV_GCC ?= $(CROSS_PREFIX)gcc
 export RISCV_OBJDUMP ?= $(CROSS_PREFIX)objdump -xsd
 export RISCV_OBJCOPY ?= $(CROSS_PREFIX)objcopy -O binary
 
-INCDIR := ../include/
+INCDIR := ./include/
 LDFILE := link.ld
 CFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g -mabi=lp64 -I$(INCDIR)
 LDFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g -mabi=lp64 -T$(LDFILE) -lgcc

@@ -61,10 +61,10 @@ XtendFile()
             fi
         else
             if [ "${word[0]}" == "#define" ] && [[ ${word[1]} == RG_* ]]; then
-                sed -i "${LINE_NUM} a #define\ ${BASE%BASE}${word[1]}\ (${BASE}\ +\ ${word[2]})" ${MMAP_SOC_H}
-                sed -i "${LINE_NUM} a #define\ ${BASE%BASE}${word[1]}_32P\ ((UINT32P) (${BASE}\ +\ ${word[2]}))" ${MMAP_SOC_H}
                 sed -i "${LINE_NUM} a #define\ ${BASE%BASE}${word[1]}_64P\ ((UINT64P) (${BASE}\ +\ ${word[2]}))" ${MMAP_SOC_H}
-                LINE_NUM=`expr ${LINE_NUM} + 1`
+                sed -i "${LINE_NUM} a #define\ ${BASE%BASE}${word[1]}_32P\ ((UINT32P) (${BASE}\ +\ ${word[2]}))" ${MMAP_SOC_H}
+                sed -i "${LINE_NUM} a #define\ ${BASE%BASE}${word[1]}\ (${BASE}\ +\ ${word[2]})" ${MMAP_SOC_H}
+                LINE_NUM=`expr ${LINE_NUM} + 3`
             fi
         fi
     done < ${MMAP_XTEND_H}

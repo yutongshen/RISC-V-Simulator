@@ -3,7 +3,6 @@ OUTPUT_ARCH( "riscv" )
 /*****************************************************************************
  * Define memory layout
  ****************************************************************************/
-STACK_POINTER = 0x00030000;
 
 /* Specify the default entry point to the program */
 
@@ -15,9 +14,8 @@ ENTRY(_start)
 
 SECTIONS
 {
-  . = 0x00010000;
+  . = 0x80000000;
   .text : { setup.o(.text) }
   .text : { *(.text) }
-  _end = .;
 }
 

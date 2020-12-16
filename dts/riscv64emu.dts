@@ -133,7 +133,7 @@
 
     bootrom: bootrom@0 {
         device_type = "bootrom";
-        reg = <0x00000000 0x00000000 0x00000000 0x00001000>;
+        reg = <0x00000000 0x00000000 0x00000000 0x00008000>;
     };
 
     sram1: sram@10000 {

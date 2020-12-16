@@ -18,7 +18,7 @@ SECTIONS
   .text : { *(.text) }
   .comment : { *(.comment) }
   .riscv.attributes : { *(.riscv.attributes) }
-  . = 0x00030000;
+  . = 0x00020000;
   STACK_POINTER = .;
 }
 

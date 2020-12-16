@@ -3,6 +3,7 @@
 // #define MTIMER_TEST
 // #define PLIC_TEST
 #define CPU_NUM 1
+#define STACK_TOP _end + PGSIZE
 
 .section .text.init
 .align 2

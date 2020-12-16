@@ -130,7 +130,15 @@ BUILD_LABEL:
                     printf(label, (uint32_t) arg_fifo[arg_tail]);
                 break;
             case 'f':
-                printf(label, (float) arg_fifo[arg_tail]);
+                {
+                    *label_ptr = '\0';
+                    union uint32_float32 {
+                        uint32_t ui;
+                        float f;
+                    } _value;
+                    _value.ui = arg_fifo[arg_tail];
+                    printf(label, _value.f);
+                }
                 break;
             default:
                 ++fmt;

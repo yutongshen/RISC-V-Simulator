@@ -219,6 +219,7 @@ int main(int argc, char **argv)
     //                     Define HTIF
     // ==========================================================
     TMDL tmdl(argparser.get_str("TMDLLOG").c_str());
+    tmdl.bind_irq(plic_0.get_pending());
 
     // ==========================================================
     //                     Define BootROM
@@ -300,6 +301,7 @@ int main(int argc, char **argv)
     } else {
         printf("SIMEND: TIMEOUT!!!\n");
     }
+
     // Print page-table
     uint64_t pt_base((cpu_0.get_satp() & SATP_PPN) << PAGE_SHIFT);
     print_pt(&bus_0, pt_base);

@@ -15,6 +15,7 @@ class TMDL : public Slave
     uint32_t arg_tail;
     const uint64_t *time;
     std::vector<std::string> tmdl_log;
+    uint32_t *force_irq;
 
 public:
     TMDL(const char *path);
@@ -27,6 +28,7 @@ public:
                       uint64_t &rdata);
     void tm_print(const char *fmt);
     void set_time(const uint64_t *time);
+    void bind_irq(uint32_t *irq);
 };
 
 

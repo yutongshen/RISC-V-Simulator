@@ -30,6 +30,9 @@ bool TMDL::write(const Addr &addr,
         arg_fifo[arg_head++] = (uint64_t) wdata;
         arg_head %= FIFO_DEPTH;
     }
+    else if (addr >= RG_TM_FORCE_IRQ) {
+        force_irq[(addr - RG_TM_FORCE_IRQ) >> 2] = wdata;
+    }
     return 1;
 }
 
@@ -38,6 +41,9 @@ bool TMDL::read(const Addr &addr,
                     uint64_t &rdata)
 {
     rdata = 0;
+    if (addr >= RG_TM_FORCE_IRQ) {
+        rdata = force_irq[(addr - RG_TM_FORCE_IRQ) >> 2];
+    }
 
     switch (data_type) {
     case DATA_TYPE_DWORD:
@@ -154,3 +160,7 @@ BUILD_LABEL:
 void TMDL::set_time(const uint64_t *time) {
     this->time = time;
 }
+
+void TMDL::bind_irq(uint32_t *irq) {
+    force_irq = irq;
+};

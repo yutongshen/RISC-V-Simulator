@@ -30,7 +30,7 @@ public:
     virtual bool read(const Addr &addr,
                       const DataType &data_type,
                       uint64_t &rdata);
-    void bind_irqdst(uint64_t *irqsrc, uint8_t offset, uint8_t target);
+    void bind_irqdst(uint64_t *dst, uint8_t offset, uint8_t target);
     uint32_t *get_pending();
 };
 

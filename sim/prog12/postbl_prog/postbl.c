@@ -12,14 +12,15 @@ extern void query_hart(void *dtb);
 extern void query_clint(void *dtb);
 extern void query_plic(void *dtb);
 extern volatile uintptr_t *mtime;
+extern volatile uint32_t *ints_priority;
 
 void basic_init(void)
 {
     // Enable float
     write_csr(mstatus, MSTATUS_FS);
 
-    // Enable MSIP
-    write_csr(mie, MIP_MSIP)
+    // Enable MSIE
+    write_csr(mie, MIP_MSIP);
 
     // Delegate interript
     write_csr(mideleg, MIP_SSIP | MIP_STIP | MIP_SEIP);
@@ -60,17 +61,18 @@ int init_primary(int mhartid, void *dtb)
     query_plic(dtb);
 
     // test
-    // /* TM_PRINT="TEST" */
-    // hls_t *hls = HLS(1);
-    // *(uint32_t *)((void *) hls->mtimecmp + 4) = 0x0123456789ABCDEF;
-    // /* TM_PRINT="%lx", *HLS(1)->mtimecmp */
-    // /* TM_PRINT="%lx", *HLS(2)->mtimecmp */
+    /* TM_PRINT="TEST" */
+    hls_t *hls = HLS(3);
+    *hls->plic_sie = 0xffffffff;
+    hls->plic_sth->thresh = 0x9;
+    ints_priority[1] = 10;
+    ints_priority[2] = 10;
+    ints_priority[3] = 10;
+    ints_priority[4] = 10;
+    ints_priority[5] = 10;
+    *TMDL_RG_TM_FORCE_IRQ_32P |= 0x2;
 
-    // for (int i = 0; i < 100; ++i)
-    // {
-    //     /* TM_PRINT="mtime = %x", mtime[0] */
-    //     /* TM_PRINT="mtime = %x", ((char *) mtime)[1] */
-    // }
+    for (int i = 0; i < 1000; ++i);
 
     return 0;
 }
@@ -79,7 +81,14 @@ int init_secondary(int mhartid, void *dtb)
 {
     /* TM_PRINT="CPU%d: Initialize secondary", mhartid */
     basic_init();
+    set_csr(mie, MIP_MEIP);
+    set_csr(mie, MIP_SEIP);
     __wfi();
     /* TM_PRINT="CPU%d: Initialize secondary done", mhartid */
+    hls_t *hls = HLS_SELF;
+    /* TM_PRINT="CPU%d: IRQ_%d triggered", mhartid, hls->plic_sth->id */
+    clear_csr(mie, MIP_MEIP);
+    clear_csr(mie, MIP_SEIP);
+    __wfi();
     return 0;
 }

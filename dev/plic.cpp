@@ -44,7 +44,7 @@ void PLIC::run()
             }
         }
         if (max_id && prior[max_id] > threshold[i]) {
-            *(irqdst[i]) |= 1U << irqoffset[i];
+            *(irqdst[i]) |= 1UL << irqoffset[i];
             int_id[i] = max_id;
             dispatch[max_id >> 5] |= 1U << (max_id & 0x1f);
         }
@@ -80,7 +80,6 @@ bool PLIC::write(const Addr &addr,
 
     _wdata = wdata & mask;
 
-
     if (addr >= RG_PRIOR_TH)  // Priorty threshole, Claim/Complete
     {
         tar_n = (addr - RG_PRIOR_TH) >> 12;
@@ -99,11 +98,11 @@ bool PLIC::write(const Addr &addr,
         if (tar_n < TARGET_NUM) {
             int_n = addr & 0x7f;
             if (int_n < INT_REG_NUM) {
-                enable[tar_n * INT_NUM + int_n] = _wdata;
+                enable[tar_n * INT_REG_NUM + int_n] = _wdata;
             }
         }
     }
-    else if (addr < RG_PEND)  // Pending
+    else if (addr >= RG_PEND)  // Pending
     {
         /* Write ignore */
     }
@@ -123,31 +122,10 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     uint32_t int_n, tar_n;
 
     rdata = 0L;
-    if (addr < 0x1000)  // Priorty
-    {
-        int_n = addr >> 2;
-        if (int_n < INT_NUM) {
-            rdata = prior[int_n];
-        }
-    } else if (addr < 0x2000)  // Pending
-    {
-        int_n = (addr - 0x1000) >> 2;
-        if (int_n < INT_REG_NUM) {
-            rdata = pending[int_n];
-        }
 
-    } else if (addr < 0x200000)  // Enable
+    if (addr >= RG_PRIOR_TH)  // Priorty threshole, Claim/Complete
     {
-        tar_n = (addr - 0x2000) >> 7;
-        if (tar_n < TARGET_NUM) {
-            int_n = (addr & 0x7f);
-            if (int_n < INT_REG_NUM) {
-                rdata = enable[tar_n * INT_NUM + int_n];
-            }
-        }
-    } else if (addr < 0x4000000)  // Priorty threshole, Claim/Complete
-    {
-        tar_n = (addr - 0x200000) >> 12;
+        tar_n = (addr - RG_PRIOR_TH) >> 12;
         if (tar_n < TARGET_NUM) {
             if (addr & 0x4) {
                 rdata = int_id[tar_n];
@@ -160,6 +138,31 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
             }
         }
     }
+    else if (addr >= RG_ENABLE)  // Enable
+    {
+        tar_n = (addr - RG_ENABLE) >> 7;
+        if (tar_n < TARGET_NUM) {
+            int_n = (addr & 0x7f);
+            if (int_n < INT_REG_NUM) {
+                rdata = enable[tar_n * INT_REG_NUM + int_n];
+            }
+        }
+    }
+    else if (addr >= RG_PEND)  // Pending
+    {
+        int_n = (addr - RG_PEND) >> 2;
+        if (int_n < INT_REG_NUM) {
+            rdata = pending[int_n];
+        }
+    }
+    else if (addr >= RG_PRIOR)  // Priorty
+    {
+        int_n = (addr - RG_PRIOR) >> 2;
+        if (int_n < INT_NUM) {
+            rdata = prior[int_n];
+        }
+    }
+
 
     switch (data_type) {
     case DATA_TYPE_DWORD:

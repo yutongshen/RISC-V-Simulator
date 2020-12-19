@@ -192,6 +192,8 @@ void query_clint(void *dtb)
     fdt_scan(dtb, &proc);
 }
 
+volatile uint32_t *ints_priority;
+
 typedef struct {
     uint32_t find;
     uint32_t *addr;
@@ -243,6 +245,7 @@ void plic_done(fdt_scan_node *node, void *buffer)
         scan->find = 0;
         
         /* TM_PRINT="Find PLIC@%lx", (uint64_t) scan->addr */
+        ints_priority = scan->addr + RG_PLIC_PRIOR;
 
         uint32_t n = scan->len >> 3;
 
@@ -259,13 +262,13 @@ void plic_done(fdt_scan_node *node, void *buffer)
                     if (ints_type == MEIP_BIT)
                     {
                         /* TM_PRINT="Routing CPU%d MEIP", hart_id */
-                        hls->plic_mth = scan->addr + RG_PLIC_PRIOR_TH + (i << 10);
+                        hls->plic_mth = (void *) (scan->addr + RG_PLIC_PRIOR_TH + (i << 10));
                         hls->plic_mie = scan->addr + RG_PLIC_ENABLE + (i << 5);
                     }
                     else if (ints_type == SEIP_BIT)
                     {
                         /* TM_PRINT="Routing CPU%d SEIP", hart_id */
-                        hls->plic_sth = scan->addr + RG_PLIC_PRIOR_TH + (i << 10);
+                        hls->plic_sth = (void *) (scan->addr + RG_PLIC_PRIOR_TH + (i << 10));
                         hls->plic_sie = scan->addr + RG_PLIC_ENABLE + (i << 5);
                     }
                     break;

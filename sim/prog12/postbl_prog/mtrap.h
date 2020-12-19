@@ -3,12 +3,17 @@
 #include <stdint.h>
 
 typedef struct {
+    volatile uint32_t thresh;
+    volatile uint32_t id;
+} plic_th_t;
+
+typedef struct {
   volatile uintptr_t* mtimecmp;
   volatile uint32_t* ipi;
   volatile uint32_t ipi_pending;
-  volatile uint32_t* plic_mth;
+  volatile plic_th_t* plic_mth;
   volatile uint32_t* plic_mie;
-  volatile uint32_t* plic_sth;
+  volatile plic_th_t* plic_sth;
   volatile uint32_t* plic_sie;
 } hls_t;
 

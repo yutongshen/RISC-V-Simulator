@@ -14,9 +14,4 @@
 #define RG_UART_IP 0x05
 #define RG_UART_DIV 0x06
 
-typedef struct {
-    uint32_t find;
-    uint32_t *addr;
-} uart_scan;
-
 #endif

@@ -9,6 +9,11 @@ extern void __wfi(void);
 extern void fdt_scan(fdt_header *header, fdt_proc *proc);
 extern void *get_fdt_address(fdt_scan_prop *prop);
 
+typedef struct {
+    uint32_t find;
+    uint32_t *addr;
+} finisher_scan;
+
 void finisher_open(fdt_scan_node *node, void *buffer)
 {
     finisher_scan *scan = buffer;

@@ -47,7 +47,10 @@ typedef struct {
     void (*open)(fdt_scan_node *node, void *buffer);
     void (*prop)(fdt_scan_prop *prop, void *buffer);
     void (*done)(fdt_scan_node *node, void *buffer);
+    void (*close)(fdt_scan_node *node, void *buffer);
     void *buffer;
 } fdt_proc;
+
+uint32_t byte_reverse(uint32_t x);
 
 #endif

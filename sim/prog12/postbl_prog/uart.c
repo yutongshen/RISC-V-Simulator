@@ -8,6 +8,11 @@ volatile uint32_t *uart = 0;
 extern void fdt_scan(fdt_header *header, fdt_proc *proc);
 extern void *get_fdt_address(fdt_scan_prop *prop);
 
+typedef struct {
+    uint32_t find;
+    uint32_t *addr;
+} uart_scan;
+
 void uart_open(fdt_scan_node *node, void *buffer)
 {
     uart_scan *scan = buffer;

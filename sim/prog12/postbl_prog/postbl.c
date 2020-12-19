@@ -1,14 +1,17 @@
 #include <string.h>
-#include "mtrap.h"
 #include "fdt.h"
 #include "riscv_def.h"
+#include "mtrap.h"
 
 extern void sysexit(uint16_t code);
 extern void printm(const char *fmt, ...);
 extern void __wfi(void);
 extern void query_uart(void *dtb);
 extern void query_finisher(void *dtb);
-
+extern void query_hart(void *dtb);
+extern void query_clint(void *dtb);
+extern void query_plic(void *dtb);
+extern volatile uintptr_t *mtime;
 
 void basic_init(void)
 {
@@ -52,6 +55,22 @@ int init_primary(int mhartid, void *dtb)
     printm("Load UART sucessfully\n");
 
     query_finisher(dtb);
+    query_hart(dtb);
+    query_clint(dtb);
+    query_plic(dtb);
+
+    // test
+    // /* TM_PRINT="TEST" */
+    // hls_t *hls = HLS(1);
+    // *(uint32_t *)((void *) hls->mtimecmp + 4) = 0x0123456789ABCDEF;
+    // /* TM_PRINT="%lx", *HLS(1)->mtimecmp */
+    // /* TM_PRINT="%lx", *HLS(2)->mtimecmp */
+
+    // for (int i = 0; i < 100; ++i)
+    // {
+    //     /* TM_PRINT="mtime = %x", mtime[0] */
+    //     /* TM_PRINT="mtime = %x", ((char *) mtime)[1] */
+    // }
 
     return 0;
 }
@@ -61,5 +80,6 @@ int init_secondary(int mhartid, void *dtb)
     /* TM_PRINT="CPU%d: Initialize secondary", mhartid */
     basic_init();
     __wfi();
+    /* TM_PRINT="CPU%d: Initialize secondary done", mhartid */
     return 0;
 }

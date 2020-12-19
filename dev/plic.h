@@ -3,7 +3,7 @@
 #include "bus/slave.h"
 #include "dev/device.h"
 
-#define TARGET_NUM 8
+#define TARGET_NUM 8 * 2
 #define INT_NUM 32
 #define INT_REG_NUM ((INT_NUM >> 5) + !!(INT_NUM & 0x1f))
 
@@ -12,6 +12,7 @@ class PLIC : public Device, public Slave
     virtual void _init();
     bool csr_connect[TARGET_NUM];
     uint64_t *irqdst[TARGET_NUM];
+    uint8_t irqoffset[TARGET_NUM];
     uint32_t prior[INT_NUM];
     uint32_t pending[INT_REG_NUM];
     uint32_t dispatch[INT_NUM];
@@ -29,7 +30,7 @@ public:
     virtual bool read(const Addr &addr,
                       const DataType &data_type,
                       uint64_t &rdata);
-    void bind_irqdst(uint64_t *irqsrc, uint8_t target);
+    void bind_irqdst(uint64_t *irqsrc, uint8_t offset, uint8_t target);
     uint32_t *get_pending();
 };
 

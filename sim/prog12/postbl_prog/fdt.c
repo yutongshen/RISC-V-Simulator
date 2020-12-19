@@ -49,20 +49,14 @@ const uint32_t *fdt_scan_recursive(fdt_scan_node *node, fdt_proc *proc, const ui
     prop.node           = node;
 
     while (1) {
-        // /* TM_PRINT="STRUCT = 0x%x", byte_reverse(*struct_ptr) */
         switch (byte_reverse(*struct_ptr)) {
         case FDT_BEGIN_NODE:
             child.name = (const char *) &struct_ptr[1];
-            // /* TM_PRINT="FDT_BEGIN_NODE:" */
-            // /* TM_PRINT="PTR = %p", (uint64_t) child.name */
-            // /* TM_PRINT="NAME_LEN = %d", strlen(child.name) */
-            // /* TM_PRINT="NAME:" */
-            // print(child.name);
             if (proc->open) proc->open(&child, proc->buffer);
             struct_ptr = fdt_scan_recursive(&child, proc, struct_ptr + 2 + (strlen(child.name) >> 2), string, level + 1);
+            if (proc->close) proc->close(&child, proc->buffer);
             break;
         case FDT_END_NODE:
-            // /* TM_PRINT="==== FDT SCAN RECURSIVE END LEVEL %d ====", level */
             ++struct_ptr;
             if (proc->done) proc->done(node, proc->buffer);
             return struct_ptr;
@@ -74,24 +68,14 @@ const uint32_t *fdt_scan_recursive(fdt_scan_node *node, fdt_proc *proc, const ui
             if (node && !strcmp(prop.name, "#address-cells")) node->address_cells = byte_reverse(*prop.value);
             else if (node && !strcmp(prop.name, "#size-cells")) node->size_cells = byte_reverse(*prop.value);
             if (proc->prop) proc->prop(&prop, proc->buffer);
-            // /* TM_PRINT="FDT_PROP:" */
-            // /* TM_PRINT="PTR = %p", (uint64_t) prop.name */
-            // /* TM_PRINT="NAME_LEN = %d", strlen(prop.name) */
-            // /* TM_PRINT="PROP_NAME:" */
-            // print(prop.name);
-            // /* TM_PRINT="PROP_VALUE: %x", byte_reverse(*(prop.value)) */
-            // /* TM_PRINT="PROP_VALUE:" */
-            // print((const char *) prop.value);
             break;
         case FDT_NOP:
             ++struct_ptr;
             break;
         case FDT_END:
-            // /* TM_PRINT="==== FDT SCAN RECURSIVE END LEVEL %d ====", level */
             ++struct_ptr;
             return struct_ptr;
         default:
-            // /* TM_PRINT="==== FDT SCAN RECURSIVE END LEVEL %d ====", level */
             ++struct_ptr;
             return struct_ptr;
         }

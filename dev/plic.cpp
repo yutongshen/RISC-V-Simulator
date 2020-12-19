@@ -27,7 +27,7 @@ void PLIC::run()
         if (!csr_connect[i])
             continue;
 #ifndef IRQ_PREEMPTION
-        if (*(irqdst[i]) & MIP_MEIP)
+        if (*(irqdst[i]) & (1U << irqoffset[i]))
             continue;
 #endif
 
@@ -44,7 +44,7 @@ void PLIC::run()
             }
         }
         if (max_id && prior[max_id] > threshold[i]) {
-            *(irqdst[i]) |= MIP_MEIP;
+            *(irqdst[i]) |= 1U << irqoffset[i];
             int_id[i] = max_id;
             dispatch[max_id >> 5] |= 1U << (max_id & 0x1f);
         }
@@ -80,34 +80,38 @@ bool PLIC::write(const Addr &addr,
 
     _wdata = wdata & mask;
 
-    if (addr < 0x1000)  // Priorty
+
+    if (addr >= RG_PRIOR_TH)  // Priorty threshole, Claim/Complete
     {
-        int_n = addr >> 2;
-        if (int_n < INT_NUM) {
-            prior[int_n] = _wdata;
+        tar_n = (addr - RG_PRIOR_TH) >> 12;
+        if (tar_n < TARGET_NUM) {
+            if (addr & 0x4) {
+                int_id[tar_n] = _wdata;
+                *(irqdst[tar_n]) &= ~(1U << irqoffset[tar_n]);  // Clear target
+            } else {
+                threshold[tar_n] = _wdata;
+            }
         }
-    } else if (addr < 0x2000)  // Pending
+    }
+    else if (addr >= RG_ENABLE)  // Enable
     {
-        /* Write ignore */
-    } else if (addr < 0x200000)  // Enable
-    {
-        tar_n = (addr - 0x2000) >> 7;
+        tar_n = (addr - RG_ENABLE) >> 7;
         if (tar_n < TARGET_NUM) {
             int_n = addr & 0x7f;
             if (int_n < INT_REG_NUM) {
                 enable[tar_n * INT_NUM + int_n] = _wdata;
             }
         }
-    } else if (addr < 0x4000000)  // Priorty threshole, Claim/Complete
+    }
+    else if (addr < RG_PEND)  // Pending
     {
-        tar_n = (addr - 0x200000) >> 12;
-        if (tar_n < TARGET_NUM) {
-            if (addr & 0x4) {
-                int_id[tar_n] = _wdata;
-                *(irqdst[tar_n]) &= ~MIP_MEIP;  // Clear target
-            } else {
-                threshold[tar_n] = _wdata;
-            }
+        /* Write ignore */
+    }
+    else if (addr >= RG_PRIOR)  // Priorty
+    {
+        int_n = (addr - RG_PRIOR) >> 2;
+        if (int_n < INT_NUM) {
+            prior[int_n] = _wdata;
         }
     }
     prior[0] = 0;
@@ -186,12 +190,13 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     return 1;
 }
 
-void PLIC::bind_irqdst(uint64_t *dst, uint8_t target)
+void PLIC::bind_irqdst(uint64_t *dst, uint8_t offset, uint8_t target)
 {
     if (csr_connect[target])
         abort();
     csr_connect[target] = 1;
     this->irqdst[target] = dst;
+    this->irqoffset[target] = offset;
 }
 
 uint32_t *PLIC::get_pending()

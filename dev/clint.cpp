@@ -28,7 +28,7 @@ bool CLINT::write(const Addr &addr,
                   const DataType &data_type,
                   const uint64_t &wdata)
 {
-    uint64_t mask, _wdata;
+    uint64_t mask, _wdata, _addr;
     switch (data_type) {
     case DATA_TYPE_DWORD:
         mask = -1UL;
@@ -49,21 +49,22 @@ bool CLINT::write(const Addr &addr,
         abort();
     }
 
-    _wdata = wdata & mask;
+    _wdata = (wdata & mask) << ((addr & 0x7) << 3);
+    _addr = addr & ~0x7;
 
     if (addr >= RG_MSIP && addr < RG_MSIP + 4 * CORE_NUM) {
         uint8_t id((addr - RG_MSIP) >> 2);
         if (ip[id]) {
-            if (_wdata) {
+            if (wdata & mask) {
                 *(ip[id]) |= MIP_MSIP;
             } else {
                 *(ip[id]) &= ~MIP_MSIP;
             }
         }
-    } else if (addr >= RG_TIMECMP && addr < RG_TIMECMP + 8 * CORE_NUM) {
-        uint8_t id((addr - RG_TIMECMP) >> 3);
+    } else if (_addr >= RG_TIMECMP && _addr < RG_TIMECMP + 8 * CORE_NUM) {
+        uint8_t id((_addr - RG_TIMECMP) >> 3);
         timecmp[id] = _wdata;
-    } else if (addr == RG_TIME) {
+    } else if (_addr == RG_TIME) {
         time = _wdata;
     }
     return 1;
@@ -71,17 +72,20 @@ bool CLINT::write(const Addr &addr,
 
 bool CLINT::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
+    uint64_t _addr;
+    _addr = addr & ~0x7;
+
     rdata = 0;
     if (addr >= RG_MSIP && addr < RG_MSIP + 4 * CORE_NUM) {
         uint8_t id((addr - RG_MSIP) >> 2);
         if (ip[id]) {
             rdata = !!(*(ip[id]) & MIP_MTIP);
         }
-    } else if (addr >= RG_TIMECMP && addr < RG_TIMECMP + 8 * CORE_NUM) {
-        uint8_t id((addr - RG_TIMECMP) >> 3);
-        rdata = timecmp[id];
-    } else if (addr == RG_TIME) {
-        rdata = time;
+    } else if (_addr >= RG_TIMECMP && _addr < RG_TIMECMP + 8 * CORE_NUM) {
+        uint8_t id((_addr - RG_TIMECMP) >> 3);
+        rdata = timecmp[id] >> ((addr & 0x7) << 3);
+    } else if (_addr == RG_TIME) {
+        rdata = time >> ((addr & 0x7) << 3);
     }
 
     switch (data_type) {

@@ -364,12 +364,19 @@ uint64_t dscratch;
     (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_XS | \
      MSTATUS_SUM | MSTATUS_MXR | MSTATUS_UXL)
 
-#define MIP_SSIP (0x1UL << 1)
-#define MIP_MSIP (0x1UL << 3)
-#define MIP_STIP (0x1UL << 5)
-#define MIP_MTIP (0x1UL << 7)
-#define MIP_SEIP (0x1UL << 9)
-#define MIP_MEIP (0x1UL << 11)
+#define MIP_SSIP_BIT (1)
+#define MIP_MSIP_BIT (3)
+#define MIP_STIP_BIT (5)
+#define MIP_MTIP_BIT (7)
+#define MIP_SEIP_BIT (9)
+#define MIP_MEIP_BIT (11)
+
+#define MIP_SSIP (0x1UL << MIP_SSIP_BIT)
+#define MIP_MSIP (0x1UL << MIP_MSIP_BIT)
+#define MIP_STIP (0x1UL << MIP_STIP_BIT)
+#define MIP_MTIP (0x1UL << MIP_MTIP_BIT)
+#define MIP_SEIP (0x1UL << MIP_SEIP_BIT)
+#define MIP_MEIP (0x1UL << MIP_MEIP_BIT)
 
 #define PMP_R (0x1UL << 0)
 #define PMP_W (0x1UL << 1)

@@ -3,7 +3,6 @@
 #include "riscv_def.h"
 #define VM_ENABLE
 #define KERNEL_PROG_ELF (FLASH_BASE + 0x10000)
-#define STACK_TOP 0x80008000
 
 .section .text
 .globl _start
@@ -40,14 +39,10 @@ _start:
     li x31, 0;
     
     # initialize sp
-    li   sp, STACK_TOP;
-    slli t0, a0, 12;
+    la   sp, stack + PGSIZE - TRAPFRAM_SIZE;
+    slli t0, a0, PGSHFT;
     add  sp, sp, t0;
     /* TM_PRINT="CPU%d: **** POST-BOOTLOADER BEGIN ****", a0 */
-
-    # set fs
-    li t0, MSTATUS_FS;
-    csrs mstatus, t0;
 
     beqz a0, main_init;
     jal init_secondary;
@@ -81,3 +76,9 @@ __wfi:
     fence;
     fence.i;
     wfi;
+
+.section .bss
+.align PGSHFT
+stack:
+    .skip PGSIZE * MAX_HARTS
+

@@ -4,7 +4,9 @@
 #define EXIT_CODE_PASS 0x1
 #define EXIT_CODE_ERROR 0x3
 
-#define PGSIZE 4096
+#define MAX_HARTS 8
+#define PGSHFT 12
+#define PGSIZE (1 << PGSHFT)
 #define TRAPFRAM_SIZE (35 * 8)
 
 #define set_csr(name, value) { \

@@ -34,6 +34,10 @@ void PLIC::run()
         max_id = 0;
         for (int j = 0; j < INT_REG_NUM; ++j) {
             id = j << 5;
+            // if (pending[j])
+            // {
+            //     printf("enable[%d] = 0x%x", i * INT_REG_NUM + j, enable[i * INT_REG_NUM + j]);
+            // }
             int_valid = enable[i * INT_REG_NUM + j] & pending[j] & ~dispatch[j];
             while (int_valid) {
                 if (int_valid & 0x1) {
@@ -79,6 +83,7 @@ bool PLIC::write(const Addr &addr,
     }
 
     _wdata = wdata & mask;
+    // printf("[%lx] = %lx\n", addr, _wdata);
 
     if (addr >= RG_PRIOR_TH)  // Priorty threshole, Claim/Complete
     {

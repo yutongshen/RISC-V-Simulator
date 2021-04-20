@@ -120,7 +120,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
 
     case CSR_SIP_ADDR:
         _mask = MIP_SSIP & mideleg;
-        return set_csr(CSR_MIP_ADDR, (mie & ~_mask) | (value & _mask));
+        return set_csr(CSR_MIP_ADDR, (mip & ~_mask) | (value & _mask));
 
     // Machine
     case CSR_MSTATUS_ADDR: {

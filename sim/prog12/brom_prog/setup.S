@@ -1,7 +1,7 @@
 # This progrom is runing in boot ROM, it just initialize some configuration, load code into sram and jump to sram
 #include "mmap_soc.h"
 #include "riscv_def.h"
-#define POSTBL_PROG_ELF FLASH_BASE
+#define POSTBL_PROG_ELF FLASH_BASE + 0x4000000L
 #define DTB_FILE (BROM_BASE + 0x1000)
 
 .section .text

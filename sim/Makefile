@@ -50,6 +50,8 @@ auto-format:
 
 clean:
 	@for dir in ${PROG_DIR}; do \
-	    make -C $${dir} clean; \
+	    if [ -f "$${dir}/Makefile" ]; then \
+	        make -C $${dir} clean; \
+	    fi \
 	done
 	rm -rf *.o .*.swp .*.swo ${ELF_NAME}

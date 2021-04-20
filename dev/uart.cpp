@@ -62,6 +62,7 @@ bool Uart::write(const Addr &addr,
 
     _wdata = wdata & mask;
 
+    //printf("write [%lx] = %lx\n", addr, _wdata);
     switch (addr) {
     case RG_TXFIFO:
         if (txctrl & UART_TXEN) {
@@ -161,6 +162,7 @@ bool Uart::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         abort();
     }
 
+    // printf("read [%lx] = %lx\n", addr, rdata);
 
     return 1;
 }

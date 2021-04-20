@@ -45,7 +45,13 @@ _start:
     /* TM_PRINT="CPU%d: **** POST-BOOTLOADER BEGIN ****", a0 */
 
     beqz a0, main_init;
+
+    li t0, MIP_MSIP;
+    csrs mie, t0;
+other_init:
+    wfi;
     jal init_secondary;
+    j other_init;
 
 
 main_init:
@@ -80,5 +86,5 @@ __wfi:
 .section .bss
 .align PGSHFT
 stack:
-    .skip PGSIZE * MAX_HARTS
+    .skip PGSIZE * (MAX_HARTS + 1)
 

@@ -24,5 +24,7 @@ auto-format:
 clean:
 	rm -rf *.dtb *.bin .*.swp .*.swo
 	@for dir in ${src_dir}; do \
-	    make -C $${dir} clean; \
+	    if [ -f "$${dir}/Makefile" ]; then \
+	        make -C $${dir} clean; \
+	    fi \
 	done

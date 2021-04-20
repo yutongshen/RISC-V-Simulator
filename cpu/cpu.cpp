@@ -320,8 +320,6 @@ void CPU::trap_handling(Trap &t, uint64_t epc)
 
 void CPU::take_interrupt(uint64_t ints)
 {
-    uint64_t npc(pc);
-
     // Set CPU low power disable
     if (ints && low_power)
         low_power = 0;

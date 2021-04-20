@@ -39,7 +39,6 @@ void test_done(fdt_scan_node *node, void *buffer)
 
 const uint32_t *fdt_scan_recursive(fdt_scan_node *node, fdt_proc *proc, const uint32_t *struct_ptr, const char *string, int level)
 {
-    // /* TM_PRINT="==== FDT SCAN RECURSIVE BEGIN LEVEL %d ====", level */
     fdt_scan_node child;
     fdt_scan_prop prop;
     
@@ -84,7 +83,7 @@ const uint32_t *fdt_scan_recursive(fdt_scan_node *node, fdt_proc *proc, const ui
 
 void fdt_scan(fdt_header *header, fdt_proc *proc)
 {
-    /* TM_PRINT="FDT SCAN BEGIN" */
+    /* TM_PRINT="==== FDT SCAN BEGIN ====" */
     /* TM_PRINT="MAGIC   = 0x%x", byte_reverse(header->magic) */
     /* TM_PRINT="VERSION = 0x%x", byte_reverse(header->version) */
     if (byte_reverse(header->magic) != FDT_MAGIC) return;
@@ -96,7 +95,12 @@ void fdt_scan(fdt_header *header, fdt_proc *proc)
         (const char *) header + byte_reverse(header->off_dt_strings),
         0
     );
-    /* TM_PRINT="FDT SCAN END" */
+    /* TM_PRINT="==== FDT SCAN END ====" */
+}
+
+uintptr_t get_fdt_all_size(fdt_header *header)
+{
+    return byte_reverse(header->totalsize);
 }
 
 void *get_fdt_address(fdt_scan_prop *prop)

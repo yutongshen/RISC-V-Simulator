@@ -195,7 +195,7 @@
             #interrupt-cells = <1>;
             interrupt-controller;
             compatible = "riscv,plic0";
-            riscv,ndev = <16>;
+            riscv,ndev = <32>;
             reg = <0x14000000 0x4000000>;
             interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>,
                                   <&cpu1_intc 11>, <&cpu1_intc 9>,
@@ -209,8 +209,8 @@
     };
 
     chosen {
-        // riscv,kernel-start = <0x0 0x80200000>;
-        // riscv,kernel-end = <0x0 0x80600000>;
+        riscv,kernel-start = <0x1 0x00000000>;
+        riscv,kernel-end = <0x1 0x02000000>;
         bootargs = "root=/dev/sda2";
         linux,platform = <0x00000600>;
     };

@@ -192,13 +192,16 @@ void query_clint(void *dtb)
     fdt_scan(dtb, &proc);
 }
 
-volatile uint32_t *ints_priority;
+uint32_t plic_ndevs;
+volatile uint32_t *plic_priorities;
+volatile const uint32_t *plic_pending;
 
 typedef struct {
     uint32_t find;
     uint32_t *addr;
     uint32_t *ints;
     uint32_t len;
+    uint32_t ndev;
 } plic_scan;
 
 void plic_open(fdt_scan_node *node, void *buffer)
@@ -217,11 +220,11 @@ void plic_prop(fdt_scan_prop *prop, void *buffer)
     
     if (!strcmp(prop->name, "compatible") && !strcmp((const char *) prop->value, "riscv,plic0"))
     {
-        scan->find |= 1;
+        scan->find = 1;
     }
-    else if (!strcmp(prop->name, "interrupt-controller"))
+    else if (!strcmp(prop->name, "riscv,ndev"))
     {
-        scan->find |= 2;
+        scan->ndev = byte_reverse(prop->value[0]);
     }
     else if (!strcmp(prop->name, "reg"))
     {
@@ -238,14 +241,17 @@ void plic_done(fdt_scan_node *node, void *buffer)
 {
     plic_scan *scan = buffer;
 
-    if (scan->find == 0x3)
+    if (scan->find)
     {
         assert(scan->addr);
         assert(!(scan->len & 0x7)); // Must 2 (value) * 4 (bytes/value) * n (M-mode & S-mode)
         scan->find = 0;
         
         /* TM_PRINT="Find PLIC@%lx", (uint64_t) scan->addr */
-        ints_priority = scan->addr + RG_PLIC_PRIOR;
+        plic_priorities = scan->addr + RG_PLIC_PRIOR;
+        plic_pending    = scan->addr + RG_PLIC_PEND;
+        plic_ndevs      = scan->ndev;
+        /* TM_PRINT="There are %d device IRQs connect to PLIC", plic_ndevs */
 
         uint32_t n = scan->len >> 3;
 
@@ -287,6 +293,66 @@ void query_plic(void *dtb)
     proc.open = &plic_open;
     proc.prop = &plic_prop;
     proc.done = &plic_done;
+    proc.buffer = &scan;
+    fdt_scan(dtb, &proc);
+}
+
+void *kernel_start = NULL;
+void *kernel_end = NULL;
+const char *bootargs = NULL;
+
+typedef struct {
+    fdt_scan_node *chosen_node;
+} chosen_scan;
+
+void chosen_open(fdt_scan_node *node, void *buffer)
+{
+    chosen_scan *scan = buffer;
+
+    if (!strcmp(node->name, "chosen"))
+    {
+        /* TM_PRINT="scan->chosen_node = %#x", (uint64_t) scan->chosen_node */
+        assert(!scan->chosen_node);
+        scan->chosen_node = node;
+        /* TM_PRINT="scan->chosen_node = %#x", (uint64_t) scan->chosen_node */
+    }
+    
+}
+
+void chosen_prop(fdt_scan_prop *prop, void *buffer)
+{
+    chosen_scan *scan = buffer;
+
+    if (scan->chosen_node != prop->node) return;
+    
+    if (!strcmp(prop->name, "riscv,kernel-start"))
+    {
+        assert(!kernel_start);
+        kernel_start = get_fdt_address(prop);
+        /* TM_PRINT="Setting kernel_start = %#x", (uint64_t) kernel_start */
+    }
+    else if (!strcmp(prop->name, "riscv,kernel-end"))
+    {
+        assert(!kernel_end);
+        kernel_end = get_fdt_address(prop);
+        /* TM_PRINT="Setting kernel_end = %#x", (uint64_t) kernel_end */
+    }
+    else if (!strcmp(prop->name, "bootargs"))
+    {
+        bootargs = (const char *) prop->value;
+        printm("bootargs = %s\n", bootargs);
+    }
+}
+
+
+void query_chosen(void *dtb)
+{
+    fdt_proc proc;
+    chosen_scan scan;
+    memset(&scan, 0, sizeof(scan));
+    memset(&proc, 0, sizeof(proc));
+    proc.open = &chosen_open;
+    proc.prop = &chosen_prop;
     proc.buffer = &scan;
     fdt_scan(dtb, &proc);
 }

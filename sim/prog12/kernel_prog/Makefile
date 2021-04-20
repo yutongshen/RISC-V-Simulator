@@ -27,13 +27,16 @@ OBJ     := $(OBJ_C) $(OBJ_S) $(OBJ_BMP)
 all: build_elf build_log build_hex
 
 build_elf: $(OBJ) | $(LDFILE)
-	$(RISCV_GCC) $^ $(LDFLAGS) -o $(ELF_NAME)
+	# $(RISCV_GCC) $^ $(LDFLAGS) -o $(ELF_NAME)
+	$(RISCV_OBJCOPY) vmlinux vmlinux.bin
+	cp vmlinux.bin $(ELF_NAME)
+	# cp vmlinux $(ELF_NAME)
 
 build_log: $(ELF_NAME)
-	$(RISCV_OBJDUMP) $< > $(ELF_NAME).log
+	# $(RISCV_OBJDUMP) $< > $(ELF_NAME).log
 
 build_hex: $(ELF_NAME)
-	$(RISCV_OBJCOPY) $< -j .text $(ELF_NAME).bin
+	# $(RISCV_OBJCOPY) $< -j .text $(ELF_NAME).bin
 
 %.o: %.bmp
 	$(RISCV_OBJCOPY) -I binary -O elf64-littleriscv -B riscv:rv64 $^ $@

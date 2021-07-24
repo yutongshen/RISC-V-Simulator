@@ -41,7 +41,7 @@ $ make
 - You also can modify `main/main.cpp` to change those configuration
 ## Usage
 - We provide `prog0`~`prog12` test program that you can check processor is correct or not
-- You can using the following command to simulation
+- You can using the following command to simulate
 
 ```=sh
 make sim prog=0

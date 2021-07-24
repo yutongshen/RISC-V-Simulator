@@ -364,7 +364,8 @@ void CPU::set_power_on(bool power_sta)
     if (verbose) {
         uint64_t mtime;
         mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
-        printf("%6ld ns: ** CORE%ld POWER %s!! **\r\n", mtime, csr->mhartid, power_sta ? "ON" : "OFF");
+        printf("%6ld ns: ** CORE%ld POWER %s!! **\r\n", mtime, csr->mhartid,
+               power_sta ? "ON" : "OFF");
     }
 }
 

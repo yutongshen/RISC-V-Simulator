@@ -36,7 +36,8 @@ void PLIC::run()
             id = j << 5;
             // if (pending[j])
             // {
-            //     printf("enable[%d] = 0x%x", i * INT_REG_NUM + j, enable[i * INT_REG_NUM + j]);
+            //     printf("enable[%d] = 0x%x", i * INT_REG_NUM + j, enable[i *
+            //     INT_REG_NUM + j]);
             // }
             int_valid = enable[i * INT_REG_NUM + j] & pending[j] & ~dispatch[j];
             while (int_valid) {
@@ -96,8 +97,7 @@ bool PLIC::write(const Addr &addr,
                 threshold[tar_n] = _wdata;
             }
         }
-    }
-    else if (addr >= RG_ENABLE)  // Enable
+    } else if (addr >= RG_ENABLE)  // Enable
     {
         tar_n = (addr - RG_ENABLE) >> 7;
         if (tar_n < TARGET_NUM) {
@@ -106,12 +106,10 @@ bool PLIC::write(const Addr &addr,
                 enable[tar_n * INT_REG_NUM + int_n] = _wdata;
             }
         }
-    }
-    else if (addr >= RG_PEND)  // Pending
+    } else if (addr >= RG_PEND)  // Pending
     {
         /* Write ignore */
-    }
-    else if (addr >= RG_PRIOR)  // Priorty
+    } else if (addr >= RG_PRIOR)  // Priorty
     {
         int_n = (addr - RG_PRIOR) >> 2;
         if (int_n < INT_NUM) {
@@ -142,8 +140,7 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
                 rdata = threshold[tar_n];
             }
         }
-    }
-    else if (addr >= RG_ENABLE)  // Enable
+    } else if (addr >= RG_ENABLE)  // Enable
     {
         tar_n = (addr - RG_ENABLE) >> 7;
         if (tar_n < TARGET_NUM) {
@@ -152,15 +149,13 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
                 rdata = enable[tar_n * INT_REG_NUM + int_n];
             }
         }
-    }
-    else if (addr >= RG_PEND)  // Pending
+    } else if (addr >= RG_PEND)  // Pending
     {
         int_n = (addr - RG_PEND) >> 2;
         if (int_n < INT_REG_NUM) {
             rdata = pending[int_n];
         }
-    }
-    else if (addr >= RG_PRIOR)  // Priorty
+    } else if (addr >= RG_PRIOR)  // Priorty
     {
         int_n = (addr - RG_PRIOR) >> 2;
         if (int_n < INT_NUM) {
@@ -210,4 +205,15 @@ void PLIC::bind_irqdst(uint64_t *dst, uint8_t offset, uint8_t target)
 uint32_t *PLIC::get_pending()
 {
     return pending;
+}
+
+void PLIC::set_pending(int32_t irq_id, uint8_t value)
+{
+    if (irq_id < 0)
+        abort();
+
+    if (value)
+        pending[irq_id >> 5] |= (1 << (irq_id & 0x1f));
+    else
+        pending[irq_id >> 5] &= ~(1 << (irq_id & 0x1f));
 }

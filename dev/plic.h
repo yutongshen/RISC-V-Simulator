@@ -7,6 +7,16 @@
 #define INT_NUM 32
 #define INT_REG_NUM ((INT_NUM >> 5) + !!(INT_NUM & 0x1f))
 
+#define DEV_RISING_IRQ()              \
+    {                                 \
+        plic->set_pending(irq_id, 1); \
+    }
+
+#define DEV_FALLING_IRQ()             \
+    {                                 \
+        plic->set_pending(irq_id, 0); \
+    }
+
 class PLIC : public Device, public Slave
 {
     virtual void _init();
@@ -32,6 +42,7 @@ public:
                       uint64_t &rdata);
     void bind_irqdst(uint64_t *dst, uint8_t offset, uint8_t target);
     uint32_t *get_pending();
+    void set_pending(int32_t irq_id, uint8_t value);
 };
 
 

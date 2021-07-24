@@ -12,4 +12,6 @@
 #define CPU6 6
 #define CPU7 7
 
+#define UART_IRQ_ID 1
+
 #endif

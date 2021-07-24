@@ -7,8 +7,8 @@
 #include "dev/clint.h"
 #include "dev/finisher.h"
 #include "dev/plic.h"
-#include "dev/uart.h"
 #include "dev/tmdl.h"
+#include "dev/uart.h"
 #include "fesvr/htif.h"
 #include "mem/flash.h"
 #include "mem/ram.h"
@@ -64,8 +64,8 @@ int main(int argc, char **argv)
                            0);
     argparser.add_argument("-sim_end_code", "SIMENDCODE",
                            "The value is used for check terminate", "-1", 0);
-    argparser.add_argument("-tmdl_log", "TMDLLOG", "The TMDL log file path",
-                           "", 0);
+    argparser.add_argument("-tmdl_log", "TMDLLOG", "The TMDL log file path", "",
+                           0);
     argparser.add_argument("-cycle", "CYCLE", "The max simulation cycles",
                            "0x10000", 0);
     argparser.add_argument("-pc", "PC", "Initialize program count (default: 0)",
@@ -142,35 +142,51 @@ int main(int argc, char **argv)
     //                     Define PLIC
     // ==========================================================
     PLIC plic_0;
-    plic_0.bind_irqdst(cpu_0.get_mip_ptr(), MIP_MEIP_BIT, cpu_0.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_0.get_mip_ptr(), MIP_SEIP_BIT, cpu_0.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_0.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_0.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_0.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_0.get_cpuid() * 2 + 1);
 #if (CORE_NUM > 1)
-    plic_0.bind_irqdst(cpu_1.get_mip_ptr(), MIP_MEIP_BIT, cpu_1.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_1.get_mip_ptr(), MIP_SEIP_BIT, cpu_1.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_1.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_1.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_1.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_1.get_cpuid() * 2 + 1);
 #endif
 #if (CORE_NUM > 2)
-    plic_0.bind_irqdst(cpu_2.get_mip_ptr(), MIP_MEIP_BIT, cpu_2.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_2.get_mip_ptr(), MIP_SEIP_BIT, cpu_2.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_2.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_2.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_2.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_2.get_cpuid() * 2 + 1);
 #endif
 #if (CORE_NUM > 3)
-    plic_0.bind_irqdst(cpu_3.get_mip_ptr(), MIP_MEIP_BIT, cpu_3.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_3.get_mip_ptr(), MIP_SEIP_BIT, cpu_3.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_3.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_3.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_3.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_3.get_cpuid() * 2 + 1);
 #endif
 #if (CORE_NUM > 4)
-    plic_0.bind_irqdst(cpu_4.get_mip_ptr(), MIP_MEIP_BIT, cpu_4.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_4.get_mip_ptr(), MIP_SEIP_BIT, cpu_4.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_4.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_4.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_4.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_4.get_cpuid() * 2 + 1);
 #endif
 #if (CORE_NUM > 5)
-    plic_0.bind_irqdst(cpu_5.get_mip_ptr(), MIP_MEIP_BIT, cpu_5.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_5.get_mip_ptr(), MIP_SEIP_BIT, cpu_5.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_5.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_5.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_5.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_5.get_cpuid() * 2 + 1);
 #endif
 #if (CORE_NUM > 6)
-    plic_0.bind_irqdst(cpu_6.get_mip_ptr(), MIP_MEIP_BIT, cpu_6.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_6.get_mip_ptr(), MIP_SEIP_BIT, cpu_6.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_6.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_6.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_6.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_6.get_cpuid() * 2 + 1);
 #endif
 #if (CORE_NUM > 7)
-    plic_0.bind_irqdst(cpu_7.get_mip_ptr(), MIP_MEIP_BIT, cpu_7.get_cpuid() * 2 + 0);
-    plic_0.bind_irqdst(cpu_7.get_mip_ptr(), MIP_SEIP_BIT, cpu_7.get_cpuid() * 2 + 1);
+    plic_0.bind_irqdst(cpu_7.get_mip_ptr(), MIP_MEIP_BIT,
+                       cpu_7.get_cpuid() * 2 + 0);
+    plic_0.bind_irqdst(cpu_7.get_mip_ptr(), MIP_SEIP_BIT,
+                       cpu_7.get_cpuid() * 2 + 1);
 #endif
 
     // ==========================================================
@@ -203,7 +219,7 @@ int main(int argc, char **argv)
     // ==========================================================
     //                     Define UART
     // ==========================================================
-    Uart uart_0;
+    Uart uart_0(UART_IRQ_ID, &plic_0);
 
     // ==========================================================
     //                     Define UART

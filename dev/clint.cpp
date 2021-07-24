@@ -5,7 +5,10 @@
 
 void CLINT::_init() {}
 
-CLINT::CLINT() : ip{0}, time(0), timecmp{(uint64_t) -1}, Device(), Slave(0x10000) {}
+CLINT::CLINT()
+    : ip{0}, time(0), timecmp{(uint64_t) -1}, Device(), Slave(0x10000)
+{
+}
 
 CLINT::~CLINT() {}
 
@@ -125,6 +128,7 @@ void CLINT::set_ip(const uint8_t &id, uint64_t *ip)
     }
 }
 
-const uint64_t *CLINT::get_time() {
+const uint64_t *CLINT::get_time()
+{
     return (const uint64_t *) &time;
 }

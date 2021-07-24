@@ -35,13 +35,15 @@ $ make
 |DDR1    |0x0\_8000\_0000 |   8 MB | RW       | Y       |
 |FLASH   |0x1\_0000\_0000 |   1 GB | RW       | Y       |
 
-  - \*CLINT: Core-local Interrupt Controller
-  - \*PLIC: Platform Level Interrupt Controller
+:::info
+- \*CLINT: Core-local Interrupt Controller
+- \*PLIC: Platform Level Interrupt Controller
+:::
 
-- Also you can modify those configuration throgh rewrite `main/main.cpp`
+- You also can modify `main/main.cpp` to change those configuration
 ## Usage
-- We provide `prog0`~`prog10` test program that you can check processor is correct or not
-- You can use makefile to exacute simulator. e.g.
+- We provide `prog0`~`prog12` test program that you can check processor is correct or not
+- You can using the following command to simulation
 
 ```=sh
 make sim prog=0

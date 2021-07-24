@@ -280,7 +280,7 @@ void CPU::trap_handling(Trap &t, uint64_t epc)
                   << std::setw(16) << epc << ", tval = " << std::hex
                   << std::setfill('0') << std::setw(16) << t.get_tval()
                   << std::endl;
-        // printf("%s, epc = %08lx, tval = %08lx\n", t.get_name(), epc,
+        // printf("%s, epc = %08lx, tval = %08lx\r\n", t.get_name(), epc,
         //        t.get_tval());
     }
     if (interrupt) {
@@ -364,7 +364,7 @@ void CPU::set_power_on(bool power_sta)
     if (verbose) {
         uint64_t mtime;
         mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
-        printf("%6ld ns: ** CORE%ld POWER %s!! **\n", mtime, csr->mhartid, power_sta ? "ON" : "OFF");
+        printf("%6ld ns: ** CORE%ld POWER %s!! **\r\n", mtime, csr->mhartid, power_sta ? "ON" : "OFF");
     }
 }
 

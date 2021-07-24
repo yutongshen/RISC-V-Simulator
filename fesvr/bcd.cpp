@@ -17,6 +17,8 @@ uint64_t BCD::handle_read(uint64_t args)
 
 uint64_t BCD::handle_write(uint64_t args)
 {
+    if ((int) args == '\n')
+        putchar('\r');
     putchar((int) args);
     return 1;
 }

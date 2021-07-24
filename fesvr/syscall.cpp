@@ -26,7 +26,7 @@ uint64_t SysCall::func(uint64_t args)
         sysbus_read(args, DATA_TYPE_DWORD, sys_id);
 
         if (sys_id >= TABLE_SIZE || !table[sys_id]) {
-            printf("Unknown Syscall ID : 0x%lx\n", sys_id);
+            printf("Unknown Syscall ID : 0x%lx\r\n", sys_id);
             abort();
         }
         // std::cout << std::hex << "SYS_ID: " << sys_id << std::endl;
@@ -49,6 +49,8 @@ uint64_t SysCall::SysWrite(uint64_t args)
 
     for (int i = 0; i < len; ++i) {
         sysbus_read(pbuf + i, DATA_TYPE_BYTE, tmp);
+        if ((char) tmp == '\n');
+            putchar('\r');
         putchar((char) tmp);
         // buff[i] = tmp;
     }

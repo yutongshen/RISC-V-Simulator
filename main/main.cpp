@@ -27,13 +27,13 @@ void print_pt(Bus *bus, const uint64_t &base)
         return;
     vector<uint64_t> fifo(0);
     uint64_t pte(0);
-    printf("\nPAGE TABLE %08lx\n", base);
-    printf("%3s %8s %s %s %s %s %s %s %s\n", "ID", "ADDR", "V", "R", "W", "X",
+    printf("\r\nPAGE TABLE %08lx\r\n", base);
+    printf("%3s %8s %s %s %s %s %s %s %s\r\n", "ID", "ADDR", "V", "R", "W", "X",
            "U", "A", "D");
     for (uint16_t i = 0; i < 512; ++i) {
         bus->read(base + (i << 3), DATA_TYPE_DWORD, pte);
         if (pte & PTE_V) {
-            printf("%03x %08lx %d %d %d %d %d %d %d\n", i,
+            printf("%03x %08lx %d %d %d %d %d %d %d\r\n", i,
                    pte >> PTE_PPN_SHIFT << PAGE_SHIFT, !!(pte & PTE_V),
                    !!(pte & PTE_R), !!(pte & PTE_W), !!(pte & PTE_X),
                    !!(pte & PTE_U), !!(pte & PTE_A), !!(pte & PTE_D));
@@ -289,17 +289,18 @@ int main(int argc, char **argv)
         sys_0.run();
     }
 
+    putchar('\r');
     putchar('\n');
     if (finisher.get_exit_code()) {
-        printf("SIMEND: %s(0x%x)\n",
+        printf("SIMEND: %s(0x%x)\r\n",
                (finisher.get_exit_code() == 0x5555) ? "PASS" : "FAIL",
                finisher.get_exit_code() >> 16);
     } else if (htif_0.exit()) {
-        printf("SIMEND: %s(0x%x)\n",
+        printf("SIMEND: %s(0x%x)\r\n",
                (!htif_0.get_exit_code()) ? "PASS" : "FAIL",
                finisher.get_exit_code() >> 1);
     } else {
-        printf("SIMEND: TIMEOUT!!!\n");
+        printf("SIMEND: TIMEOUT!!!\r\n");
     }
 
     // Print page-table
@@ -312,14 +313,14 @@ int main(int argc, char **argv)
         uint64_t idx(dump_start);
         uint64_t dump_len(argparser.get_int("MEMLEN") << 2);
         FILE *output(fopen(argparser.get_str("OUTPUT").c_str(), "w"));
-        fprintf(output, "SIMEND\n");
-        fprintf(output, "%08x\n",
+        fprintf(output, "SIMEND\r\n");
+        fprintf(output, "%08x\r\n",
                 (bus_0.read(SIM_END, DATA_TYPE_WORD, end_code),
                  (uint32_t) end_code));
-        fprintf(output, "MEMDUMP\n");
+        fprintf(output, "MEMDUMP\r\n");
         for (; idx < dump_start + dump_len; idx += 4) {
             bus_0.read(idx, DATA_TYPE_WORD, end_code);
-            fprintf(output, "%08x\n", (uint32_t) end_code);
+            fprintf(output, "%08x\r\n", (uint32_t) end_code);
         }
     }
     return 0;

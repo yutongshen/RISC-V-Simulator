@@ -1,5 +1,6 @@
 #ifndef __UART__
 #define __UART__
+#include <thread>
 #include "bus/slave.h"
 #include "dev/device.h"
 
@@ -12,9 +13,13 @@
 #define UART_RXFIFO_DEPTH 8
 #define UART_TXFIFO_DEPTH 8
 
+
 class Uart : public Device, public Slave
 {
     virtual void _init();
+    static void getch();
+    static int8_t end;
+
     uint32_t txctrl;
     uint32_t rxctrl;
     uint32_t ie;
@@ -25,9 +30,11 @@ class Uart : public Device, public Slave
     int8_t tx_rptr;
     int8_t tx_wptr;
 
-    uint32_t rxfifo[UART_RXFIFO_DEPTH];
-    int8_t rx_rptr;
-    int8_t rx_wptr;
+    static uint32_t rxfifo[UART_RXFIFO_DEPTH];
+    static int8_t rx_rptr;
+    static int8_t rx_wptr;
+
+    std::thread t_getch;
 
 public:
     Uart();

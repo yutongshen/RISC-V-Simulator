@@ -86,6 +86,8 @@ void TMDL::tm_print(const char *fmt)
         label_ptr = label;
         if (*fmt != '%')
         {
+            if (*fmt == '\n')
+                *(str_ptr++) = '\r';
             *(str_ptr++) = *fmt;
             continue;
         }
@@ -153,7 +155,9 @@ BUILD_LABEL:
         ++arg_tail;
         arg_tail %= FIFO_DEPTH;
     }
-    *str_ptr = '\0';
+    // *str_ptr++ = '\r';
+    // *str_ptr++ = '\n';
+    *str_ptr   = '\0';
     printf("%s", str);
 }
 

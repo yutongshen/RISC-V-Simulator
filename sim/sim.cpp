@@ -91,10 +91,10 @@ int main(int argc, char **argv)
             "-tmdl_log %s -cycle 0x9ffff -o %s/%s",
             argv[1], argv[2], argv[2], TEST_START, SIM_END, SIM_END_CODE,
             argv[3], argv[1], dump_file);
-    printf("%s\n", main_cmd);
-    printf("====================== Program start ======================\n");
+    printf("%s\r\n", main_cmd);
+    printf("====================== Program start ======================\r\n");
     system(main_cmd);
-    // printf("======================= Program end =======================\n");
+    // printf("======================= Program end =======================\r\n");
     // sprintf(dump_path, "%s/%s", argv[1], dump_file);
     // sprintf(gold_path, "%s/golden.hex", argv[2]);
     // sprintf(bmp_res_path, "%s/result.bmp", argv[1]);

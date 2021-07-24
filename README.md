@@ -35,10 +35,8 @@ $ make
 |DDR1    |0x0\_8000\_0000 |   8 MB | RW       | Y       |
 |FLASH   |0x1\_0000\_0000 |   1 GB | RW       | Y       |
 
-:::info
 - \*CLINT: Core-local Interrupt Controller
 - \*PLIC: Platform Level Interrupt Controller
-:::
 
 - You also can modify `main/main.cpp` to change those configuration
 ## Usage

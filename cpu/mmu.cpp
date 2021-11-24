@@ -378,7 +378,7 @@ bool MMU::pmp_ok(const Addr &addr,
             if (any_match) {
                 if (!all_match)
                     return 0;
-                return (prv == PRV_M && !(cfg && PMP_R)) ||
+                return (prv == PRV_M && !(cfg && PMP_L)) ||
                        (type == ACCESS_TYPE_FETCH && (cfg && PMP_X)) ||
                        (type == ACCESS_TYPE_LOAD && (cfg && PMP_R)) ||
                        (type == ACCESS_TYPE_STORE && (cfg && PMP_W));

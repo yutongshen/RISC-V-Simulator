@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 count=0;
 caller_pat="\/\*[[:blank:]]*TM_PRINT[[:blank:]]*=[[:blank:]]*\"([[:print:]]*)\"(.*)\*\/";

@@ -45,7 +45,7 @@ $ make
 - You can use the following command to simulate
 
 ```=sh
-make sim prog=13
+make sim prog=13 # linux simulation
 ```
 
 - prog13 is contain [bbl](https://github.com/riscv-software-src/riscv-pk), [Linux](https://github.com/riscvarchive/riscv-linux) and [busybox](https://busybox.net/)
@@ -53,10 +53,10 @@ make sim prog=13
 - Linux login
   - user name: root
   - password: root
-![](./figures/linux_login.gif)
+  ![](./figures/linux_login.gif)
 
 - CPU and Linux information
-![](./figures/cpuinfo.png)
+  ![](./figures/cpuinfo.png)
 
 
 ## Authors

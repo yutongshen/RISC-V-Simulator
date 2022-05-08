@@ -53,10 +53,10 @@ make sim prog=13 # linux simulation
 - Linux login
   - user name: root
   - password: root
-  ![](./figures/linux_login.gif)
+  <br>![](./figures/linux_login.gif)
 
 - CPU and Linux information
-  ![](./figures/cpuinfo.png)
+  <br>![](./figures/cpuinfo.png)
 
 
 ## Authors

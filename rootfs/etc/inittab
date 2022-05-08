@@ -1,0 +1,8 @@
+::sysinit:/etc/rcS
+
+::respawn:/sbin/getty 115200 ttySIF0
+
+::shutdown:/sbin/ifdown -a
+::shutdown:/bin/sync
+::shutdown:/bin/umount -a -r
+

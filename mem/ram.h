@@ -7,10 +7,12 @@ typedef uint64_t *pUint64;
 class RAM : public Slave
 {
     pUint64 data;
+    void _init_data(const char *init_file);
 
 public:
     RAM(uint64_t size = 0x4000UL);
     RAM(const char *str_size);
+    RAM(const char *init_file, const char *str_size);
     ~RAM();
     virtual bool write(const Addr &addr,
                        const DataType &data_type,

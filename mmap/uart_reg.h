@@ -8,6 +8,8 @@
 #define RG_RXCTRL 0x0C
 #define RG_IE 0x10
 #define RG_IP 0x14
-#define RG_DIV 0x18
+#define RG_IC 0x18
+#define RG_DIV 0x1c
+#define RG_LCR 0x20
 
 #endif

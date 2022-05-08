@@ -1,8 +1,15 @@
+SHELL    := /bin/bash
 CC       := g++
 OBJCOPY  := objcopy
 ELF_NAME := sim
 
 CFLAGS   := 
+ifeq (true,${debug})
+CFLAGS  += -g 
+endif
+ifeq (1,${debug})
+CFLAGS  += -g 
+endif
 
 PROG_DIR := $(wildcard */)
 
@@ -24,7 +31,7 @@ OBJ      := ${OBJ_C} ${OBJ_CPP} ${OBJ_S} ${OBJ_DAT}
 all: build_elf
 
 build_elf: ${OBJ}
-	${CC} ${OBJ} -o ${ELF_NAME}
+	${CC} ${OBJ} ${CFLAGS} -o ${ELF_NAME}
 	# make march=rv32i mabi=ilp32 -C prog${prog}
 	# make march=rv64i mabi=lp64 -C prog${prog}
 

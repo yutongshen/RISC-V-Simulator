@@ -19,7 +19,9 @@
 #include "util/util.h"
 using namespace std;
 
-bool verbose(1);
+bool verbose(0);
+bool __exit(0);
+// uint64_t cycle;
 
 void print_pt(Bus *bus, const uint64_t &base)
 {
@@ -252,12 +254,12 @@ int main(int argc, char **argv)
     //                     Define DRAM
     // ==========================================================
     RAM ddr_0("8mb");
-    RAM ddr_1("32mb");
+    RAM ddr_1(argparser.get_str(1).c_str(), "128mb");
 
     // ==========================================================
     //                     Define FLASH
     // ==========================================================
-    Flash flash_0(argparser.get_str(1).c_str(), "1gb");
+    Flash flash_0(argparser.get_str(2).c_str(), "1gb");
 
     // ==========================================================
     //                     Define Bridge
@@ -299,9 +301,9 @@ int main(int argc, char **argv)
     tmdl.set_time(clint_0.get_time());
 
     // Run
-    uint64_t cycle(argparser.get_int("CYCLE"));
     uint64_t end_code;
-    while (!finisher.get_exit_code() && cycle-- && !htif_0.exit()) {
+    // cycle = argparser.get_int("CYCLE");
+    while (!__exit /* && cycle--*/) {
         sys_0.run();
     }
 
@@ -321,7 +323,7 @@ int main(int argc, char **argv)
 
     // Print page-table
     uint64_t pt_base((cpu_0.get_satp() & SATP_PPN) << PAGE_SHIFT);
-    print_pt(&bus_0, pt_base);
+    // print_pt(&bus_0, pt_base);
 
     // Dump
     if (argparser.get_bool("DUMP")) {

@@ -1,11 +1,26 @@
 #include "mem/ram.h"
+#include <fstream>
 #include "util/util.h"
+
+void RAM::_init_data(const char *init_file)
+{
+    std::ifstream data_stream(init_file, std::ios::binary | std::ios::in);
+    if (!data_stream)
+        abort();
+    data_stream.read((char *) data, size);
+}
 
 RAM::RAM(uint64_t size) : Slave(size), data(new uint64_t[size >> 3]) {}
 
 RAM::RAM(const char *str_size)
     : Slave(str_size), data(new uint64_t[this->size >> 3])
 {
+}
+
+RAM::RAM(const char *init_file, const char *str_size)
+    : Slave(str_size), data(new uint64_t[this->size >> 3])
+{
+    _init_data(init_file);
 }
 
 RAM::~RAM()

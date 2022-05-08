@@ -2,6 +2,8 @@
 #include "mmap/finisher_reg.h"
 #include "util/util.h"
 
+extern bool __exit;
+
 Finisher::Finisher() : exit_code(0), Slave(0x1000) {}
 
 Finisher::~Finisher() {}
@@ -12,6 +14,7 @@ bool Finisher::write(const Addr &addr,
 {
     if (addr == RG_FINISH) {
         exit_code = (uint32_t) wdata;
+        __exit = !!wdata;
     }
     return 1;
 }

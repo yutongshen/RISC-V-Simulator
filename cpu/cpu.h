@@ -2,6 +2,7 @@
 #define __CPU__
 
 #include <fstream>
+#include <stack>
 #include "bus/bus.h"
 #include "cpu/csr.h"
 #include "cpu/mmu.h"
@@ -17,6 +18,7 @@ class CPU : public Device
     static const char regs_name[32][5];
     static const char fregs_name[32][5];
     static const char *fence_flag(const uint8_t &arg);
+    static void get_funct_offset(char *str, const uint64_t &pc);
     std::ofstream cpu_trace;
     bool low_power;
     bool power_sta;
@@ -25,6 +27,8 @@ class CPU : public Device
     uint64_t fregs[32];
     pCSR csr;
     pMMU mmu;
+    std::stack<uint64_t> pcs;
+    std::stack<uint64_t> ras;
     virtual void _init();
     void trap_handling(Trap &t, uint64_t epc);
     void take_interrupt(uint64_t interrupts);

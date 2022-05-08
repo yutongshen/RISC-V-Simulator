@@ -1,8 +1,11 @@
 #include "uart.h"
+#include <assert.h>
+#include <unistd.h>
 #include <iostream>
 #include "mmap/uart_reg.h"
 #include "util/util.h"
 
+extern uint64_t __exit;
 int8_t stdin_buff[STDIN_BUFF_SIZE];
 int32_t stdin_wptr = 0;
 int32_t stdin_rptr = 0;
@@ -10,45 +13,33 @@ int8_t stdin_mon_end = 0;
 
 void getch()
 {
+    uint32_t exit_key = 0;
     system("stty raw -echo");
     while (!stdin_mon_end) {
-        if ((stdin_rptr - stdin_wptr + STDIN_BUFF_SIZE) % STDIN_BUFF_SIZE !=
-            1)  // non-full
-        {
-            stdin_buff[stdin_wptr++] = getchar();
+        if (!FIFO_FULL(stdin, STDIN_BUFF_SIZE)) {
+            exit_key = exit_key << 8 | (stdin_buff[stdin_wptr++] = getchar());
+            // printf("[DEBUG] exit_key = %08x\n", exit_key);
             stdin_wptr %= STDIN_BUFF_SIZE;
+            if (exit_key == (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
+                             ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
+                __exit = 1;
         }
     }
-    system("stty cooked");
+    system("stty -raw echo");
+    assert(exit_key != (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
+                        ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0));
 }
 
 void Uart::_init() {}
 
-Uart::Uart()
-    : txctrl(0),
-      rxctrl(0),
-      ie(0),
-      ip(0),
-      div(0),
-      txfifo{0},
-      tx_rptr(0),
-      tx_wptr(0),
-      rxfifo{0},
-      rx_rptr(0),
-      rx_wptr(0),
-      t_getch(getch),
-      Device(),
-      Slave(0x1000),
-      IRQSource(-1, NULL)
-{
-}
-
 Uart::Uart(uint32_t irq_id, PLIC *plic)
     : txctrl(0),
       rxctrl(0),
+      nstop(0),
+      txcnt(0),
+      rxcnt(0),
       ie(0),
       ip(0),
-      div(0),
       txfifo{0},
       tx_rptr(0),
       tx_wptr(0),
@@ -60,6 +51,8 @@ Uart::Uart(uint32_t irq_id, PLIC *plic)
       Slave(0x1000),
       IRQSource(irq_id, plic)
 {
+    if (isatty(fileno(stdout)))
+        setbuf(stdout, NULL);
 }
 
 Uart::~Uart()
@@ -72,7 +65,7 @@ Uart::~Uart()
 void Uart::run()
 {
     if (txctrl & UART_TXEN) {
-        if (tx_rptr - tx_wptr) {
+        if (!FIFO_EMPT(tx)) {
             if (txfifo[tx_rptr] == '\n')
                 putchar('\r');
             putchar((uint8_t) txfifo[tx_rptr++]);
@@ -80,25 +73,37 @@ void Uart::run()
         }
     }
     if (rxctrl & UART_RXEN) {
-        while (((rx_rptr - rx_wptr + UART_RXFIFO_DEPTH) % UART_RXFIFO_DEPTH !=
-                1) &&
-               (stdin_rptr - stdin_wptr)) {
+        while (!FIFO_FULL(rx, UART_RXFIFO_DEPTH) && !FIFO_EMPT(stdin)) {
             // printf("[DEBUG] rx_rptr = %d, rx_wptr = %d, stdin_rptr = %d,
-            // stdin_wptr = %d\r\n", rx_rptr, rx_wptr, stdin_rptr, stdin_wptr);
-            // printf("[DEBUG] %d\r\n", (rx_rptr - rx_wptr + UART_RXFIFO_DEPTH)
-            // % UART_RXFIFO_DEPTH); for (int i = 0; i < UART_RXFIFO_DEPTH; ++i)
+            // stdin_wptr = %d\r\n",
+            //         rx_rptr, rx_wptr, stdin_rptr, stdin_wptr);
+            // printf("[DEBUG] txwm_ie = %x, rxwm_ie = %x\r\n",
+            //         (ie >> 0) & 1, (ie >> 1) & 1);
+            // printf("[DEBUG] txwm_ip = %x, rxwm_ip = %x\r\n",
+            //         (ip >> 0) & 1, (ip >> 1) & 1);
+            // for (int i = 0; i < UART_RXFIFO_DEPTH; ++i)
             //     printf("%d: 0x%x\r\n", i, rxfifo[i]);
             rxfifo[rx_wptr++] = stdin_buff[stdin_rptr++];
             rx_wptr %= UART_RXFIFO_DEPTH;
             stdin_rptr %= STDIN_BUFF_SIZE;
         }
     }
-    if (ie) {
-        if (rx_wptr - rx_rptr)
-            DEV_RISING_IRQ()
-        else
-            DEV_FALLING_IRQ()
+    if ((tx_wptr - tx_rptr + UART_TXFIFO_DEPTH) % UART_TXFIFO_DEPTH <=
+        (UART_TXFIFO_DEPTH >> 3) * txcnt) {
+        ip |= 1 << 0;
+    } else {
+        ip &= ~(1 << 0);
     }
+    if ((rx_wptr - rx_rptr + UART_RXFIFO_DEPTH) % UART_RXFIFO_DEPTH >
+        (UART_RXFIFO_DEPTH >> 3) * rxcnt) {
+        ip |= 1 << 1;
+    } else {
+        ip &= ~(1 << 1);
+    }
+    if (ie & ip)
+        DEV_RISING_IRQ();
+    else
+        DEV_FALLING_IRQ();
 }
 
 bool Uart::write(const Addr &addr,
@@ -129,12 +134,13 @@ bool Uart::write(const Addr &addr,
 
     _wdata = wdata & mask;
 
-    // printf("write [%lx] = %lx\n", addr, _wdata);
+    // if (addr != RG_TXFIFO)
+    //     printf("[DEBUG] write [%lx] = %lx\r\n", addr, _wdata);
+
     switch (addr) {
     case RG_TXFIFO:
         if (txctrl & UART_TXEN) {
-            if ((tx_rptr - tx_wptr + UART_TXFIFO_DEPTH) % UART_TXFIFO_DEPTH !=
-                1) {  // check non-full
+            if (!FIFO_FULL(tx, UART_TXFIFO_DEPTH)) {
                 txfifo[tx_wptr++] = _wdata;
                 tx_wptr %= UART_TXFIFO_DEPTH;
             }
@@ -143,18 +149,24 @@ bool Uart::write(const Addr &addr,
     case RG_RXFIFO:
         break;
     case RG_TXCTRL:
-        txctrl = _wdata;
+        txctrl = _wdata & (1 << 0);
+        nstop = _wdata & (1 << 1);
+        txcnt = _wdata & (7 << 16);
         break;
     case RG_RXCTRL:
-        rxctrl = _wdata;
+        rxctrl = _wdata & (1 << 0);
+        rxcnt = _wdata & (7 << 16);
         break;
     case RG_IE:
-        ie = _wdata;
+        ie = _wdata & 0x7;
         break;
     case RG_IP:
         break;
+    case RG_IC:
+        ip &= ~(_wdata & 0x7);
+        break;
     case RG_DIV:
-        div = _wdata;
+        div = _wdata & 0xffff;
         break;
     }
 
@@ -166,29 +178,29 @@ bool Uart::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     rdata = 0L;
     switch (addr) {
     case RG_TXFIFO:
-        rdata = ((tx_rptr - tx_wptr) % UART_TXFIFO_DEPTH == 1) ? -1 : 0;
+        rdata = ((uint64_t) FIFO_FULL(tx, UART_TXFIFO_DEPTH)) << 31;
         break;
     case RG_RXFIFO:
-        if (rxctrl & UART_RXEN) {
-            if (rx_rptr - rx_wptr) {  // check non-empty
-                rdata = rxfifo[rx_rptr++];
-                rx_rptr %= UART_RXFIFO_DEPTH;
-            } else {
-                rdata = -1;
-            }
+        if (!FIFO_EMPT(rx)) {
+            rdata = rxfifo[rx_rptr++];
+            rx_rptr %= UART_RXFIFO_DEPTH;
+        } else {
+            rdata = 1 << 31;
         }
         break;
     case RG_TXCTRL:
-        rdata = txctrl;
+        rdata = txcnt << 16 | nstop << 1 | txctrl;
         break;
     case RG_RXCTRL:
-        rdata = rxctrl;
-        rxctrl = -1;
+        rdata = rxcnt << 16 | rxctrl;
         break;
     case RG_IE:
         rdata = ie;
         break;
     case RG_IP:
+        rdata = ip;
+        break;
+    case RG_IC:
         rdata = ip;
         break;
     case RG_DIV:
@@ -221,7 +233,8 @@ bool Uart::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         abort();
     }
 
-    // printf("read [%lx] = %lx\n", addr, rdata);
+    // if (addr != RG_TXFIFO && addr != RG_RXFIFO && addr != RG_IP)
+    //     printf("[DEBUG] read [%lx] = %lx\r\n", addr, rdata);
 
     return 1;
 }

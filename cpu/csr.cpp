@@ -24,6 +24,7 @@ CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
 
     mstatus = set_field(mstatus, MSTATUS_UXL, 2);
     mstatus = set_field(mstatus, MSTATUS_SXL, 2);
+    mstatus = set_field(mstatus, MSTATUS_FS, 2);
 
     mhartid = cpuid;
     // pmpaddr[0] = -1UL;
@@ -40,6 +41,8 @@ const char *CSR::csr_name(const uint32_t &addr)
         return #name;
 #include "cpu/csr_config.h"
 #undef CSR_NAME_DECLARE
+    default:
+        return "unknown";
     }
 }
 
@@ -127,7 +130,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
                 MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
                 MSTATUS_TVM | MSTATUS_TSR | MSTATUS_UXL | MSTATUS_SXL |
-                MSTATUS_MPP | MSTATUS_SPP | MSTATUS_FS /* | MSTATUS_XS*/;
+                MSTATUS_MPP | MSTATUS_SPP /* | MSTATUS_FS | MSTATUS_XS*/;
         mstatus = (mstatus & ~_mask) | (value & _mask);
         mstatus = set_field(mstatus, MSTATUS_UXL, 2);
         mstatus = set_field(mstatus, MSTATUS_SXL, 2);
@@ -139,11 +142,12 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
             value |= 1UL << ('C' - 'A');
         if (!(value & (1UL << ('F' - 'A'))))
             value &= ~(1UL << ('D' - 'A'));
+
         _mask = 0;
         _mask |= 1UL << ('M' - 'A');
         _mask |= 1UL << ('A' - 'A');
-        _mask |= 1UL << ('F' - 'A');
-        _mask |= 1UL << ('D' - 'A');
+        // _mask |= 1UL << ('F' - 'A');
+        // _mask |= 1UL << ('D' - 'A');
         _mask |= 1UL << ('C' - 'A');
         _mask &= max_isa;
         misa = (misa & ~_mask) | (value & _mask);

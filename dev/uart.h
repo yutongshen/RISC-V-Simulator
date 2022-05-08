@@ -17,6 +17,9 @@
 
 #define STDIN_BUFF_SIZE 128
 
+#define FIFO_FULL(x, depth) ((x##_rptr - x##_wptr + depth) % depth == 1)
+#define FIFO_EMPT(x) (x##_rptr == x##_wptr)
+
 void getch();
 
 class Uart : public Device, public Slave, public IRQSource
@@ -25,6 +28,9 @@ class Uart : public Device, public Slave, public IRQSource
 
     uint32_t txctrl;
     uint32_t rxctrl;
+    uint32_t nstop;
+    uint32_t txcnt;
+    uint32_t rxcnt;
     uint32_t ie;
     uint32_t ip;
     uint32_t div;
@@ -40,8 +46,7 @@ class Uart : public Device, public Slave, public IRQSource
     std::thread t_getch;
 
 public:
-    Uart();
-    Uart(uint32_t irq_id, PLIC *plic);
+    Uart(uint32_t irq_id = -1, PLIC *plic = NULL);
     ~Uart();
     virtual void run();
     virtual bool write(const Addr &addr,

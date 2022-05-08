@@ -15,6 +15,34 @@ using namespace std;
 #define LS_STORE 0x2
 
 extern bool verbose;
+extern bool __exit;
+
+void CPU::get_funct_offset(char *str, const uint64_t &pc)
+{
+    uint64_t pc_ref0, pc_ref1;
+    char str_ref0[64], str_ref1[64];
+    FILE *flist = fopen("./build/prog/funct.list", "r");
+    // std::cout << "[DBG]: " << (uint64_t) flist << "\r\n";
+    if (flist) {
+        pc_ref0 = 0;
+        sprintf(str_ref0, "__unknown__");
+        while (!feof(flist)) {
+            fscanf(flist, "%lx %s", &pc_ref1, str_ref1);
+            // std::cout << "[DBG]: " << pc_ref1 << ", " << str_ref1 << "\r\n";
+            if (pc < pc_ref1) {
+                sprintf(str, "<%s+0x%lx>", str_ref0, pc - pc_ref0);
+                return;
+            }
+            pc_ref0 = pc_ref1;
+            sprintf(str_ref0, "%s", str_ref1);
+        }
+        if (pc >= pc_ref0) {
+            sprintf(str, "<%s+0x%lx>", str_ref0, pc - pc_ref0);
+            return;
+        }
+    }
+    sprintf(str, "<__unknown__+0x%lx>", pc);
+}
 
 const char CPU::regs_name[32][5] = {
     "zero", "ra", "sp", "gp", "tp",  "t0",  "t1", "t2", "s0", "s1", "a0",
@@ -51,6 +79,8 @@ CPU::CPU(uint64_t cpuid, uint64_t pc)
       pc(pc),
       regs{0},
       fregs{0},
+      ras(),
+      pcs(),
       csr(new CSR(cpuid, &this->pc)),
       mmu(new MMU(csr))
 {
@@ -61,6 +91,17 @@ CPU::CPU(uint64_t cpuid, uint64_t pc)
 
 CPU::~CPU()
 {
+    char str[64];
+    get_funct_offset(str, pc);
+    std::cout << "CPU" << csr->mhartid << ":\r\n";
+    std::cout << "  At   " << std::hex << std::setfill('0') << std::setw(8)
+              << pc << " " << str << "\r\n";
+    while (!pcs.empty()) {
+        get_funct_offset(str, pcs.top());
+        std::cout << "  From " << std::hex << std::setfill('0') << std::setw(8)
+                  << pcs.top() << " " << str << "\r\n";
+        pcs.pop();
+    }
     delete mmu;
     delete csr;
     cpu_trace.close();
@@ -83,12 +124,16 @@ void CPU::run()
             return;
 
         // Instruction Execute
+        uint64_t paddr;
+        bool ras_push(0), ras_pop(0);
+        uint64_t ipc(pc);
         DataType mem_val_type;
         uint16_t instr_len(0), write_reg(REG_ZERO), write_csr(-1),
             load_store(LS_NONE);
         uint64_t mem_addr, mem_val;
 
         uint32_t insn(mmu->fetch(pc, pc_alignment_mask));
+        insn = (insn & 3) == 3 ? insn : (insn & 0xffff);
         bool aq(bit(insn, 26)), rl(bit(insn, 25));
         uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
             rd(bits_zext(insn, 11, 7)), funct3(bits_zext(insn, 14, 12)),
@@ -146,7 +191,6 @@ void CPU::run()
         _c_rd = (_c_rd & 0x7) | 0x8;
 
         if (verbose) {
-            uint64_t ppc;
             uint64_t mtime;
             switch (csr->prv) {
             case 0:
@@ -163,15 +207,24 @@ void CPU::run()
             cpu_trace << std::dec << std::setfill(' ') << std::setw(5) << mtime
                       << "ns ";
             cpu_trace << std::hex << std::setfill('0') << std::setw(16) << pc;
-            ppc = mmu->trace_pt(pc, 8, ACCESS_TYPE_FETCH, csr->prv);
-            if (pc != ppc) {
+            paddr = mmu->trace_pt(pc, 8, ACCESS_TYPE_FETCH, csr->prv);
+            if (pc != paddr) {
                 cpu_trace << "(" << std::hex << std::setfill('0')
-                          << std::setw(16) << ppc << ")";
+                          << std::setw(16) << paddr << ")";
             }
             cpu_trace << ": " << std::hex << std::setfill('0') << std::setw(8)
                       << insn << " ";
         }
 #include "cpu/exec.h"
+
+        // if (ras_push) {
+        //     pcs.push(ipc);
+        //     ras.push(regs[REG_RA]);
+        // }
+        // else if (ras_pop) {
+        //     pcs.pop();
+        //     ras.pop();
+        // }
 
         if (verbose) {
             cpu_trace << remark << std::endl;
@@ -196,8 +249,17 @@ void CPU::run()
                 cpu_trace << "  "
                           << ((load_store == LS_LOAD) ? "LOAD " : "STORE")
                           << "    [" << std::hex << std::setfill('0')
-                          << std::setw(16) << std::right << mem_addr
-                          << std::setfill('-')
+                          << std::setw(16) << std::right << mem_addr;
+
+                paddr = mmu->trace_pt(mem_addr, data_len >> 3,
+                                      load_store == LS_STORE ? ACCESS_TYPE_STORE
+                                                             : ACCESS_TYPE_LOAD,
+                                      csr->prv);
+                if (mem_addr != paddr) {
+                    cpu_trace << "(" << std::hex << std::setfill('0')
+                              << std::setw(16) << paddr << ")";
+                }
+                cpu_trace << std::setfill('-')
                           << std::setw(18 - (data_len >> 2)) << std::left
                           << "] " << std::hex << std::setfill('0')
                           << std::setw(data_len >> 2) << std::right << mem_val
@@ -228,11 +290,11 @@ void CPU::run()
                           << csr->get_csr(write_csr) << std::endl;
             }
         }
+        // if (!(csr->mstatus & MSTATUS_FS)) __exit = 1;
     } catch (Trap &t) {
         if ((int64_t) t.get_cause() >= 0)
             if (verbose) {
                 cpu_trace << remark << std::endl;
-                // cout << hex << "MSTATUS : " << csr->mstatus << endl;
             }
         trap_handling(t, pc);
     } catch (WaitForInterrupt &t) {
@@ -247,27 +309,6 @@ void CPU::run()
     ++csr->time;
     ++csr->mcycle;
     ++csr->minstret;
-
-    // uint64_t addr(0x80002008), rdata;
-    // cout << hex
-    //      << "MEM[2008] : " << (mmu->read(addr, DATA_TYPE_DWORD, rdata),
-    //      rdata)
-    //      << endl;
-    // cout << hex << "STVAL : " << csr->stval << endl;
-    // cout << hex << "SEPC : " << csr->sepc << endl;
-    // cout << hex << "MSTATUS : " << csr->get_csr(CSR_MSTATUS_ADDR) << endl;
-    // cout << hex << "SIE : " << csr->get_csr(CSR_SIE_ADDR) << endl;
-    // cout << hex << "SIP : " << csr->get_csr(CSR_SIP_ADDR) << endl;
-    // if (csr->mhartid == 1) {
-    //     uint64_t mtime;
-    //     mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
-    //     cout << dec << "Time: " << mtime << endl;
-    //     cout << hex << "MIP : " << csr->mip << endl;
-    //     cout << hex << "MIE : " << csr->mie << endl;
-    // }
-    // cout << hex << "SATP : " << csr->satp << endl;
-    // cout << hex << "MSCRATCH : " << csr->mscratch << endl;
-    // cout << hex << "SSCRATCH : " << csr->sscratch << endl;
 }
 
 void CPU::trap_handling(Trap &t, uint64_t epc)

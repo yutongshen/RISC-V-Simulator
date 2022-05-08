@@ -4,6 +4,8 @@
 #include "fesvr/syscall.h"
 #include "mmap/htif_reg.h"
 
+extern bool __exit;
+
 HTIF::HTIF()
     : exitcode(0),
       sysbus(0),
@@ -126,6 +128,7 @@ uint64_t HTIF::get_exit_code()
 
 void HTIF::set_exit_code(uint64_t code)
 {
+    __exit = !!code;
     exitcode = code;
 }
 

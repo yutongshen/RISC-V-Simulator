@@ -319,11 +319,11 @@
 
 #define FREG_FILL_MSB_WORD 0xffffffff00000000UL
 
-#define confirm_insn_legal(x)                  \
-    do {                                       \
-        if (!(x)) {                            \
-            throw TrapIllegalInstruction((x)); \
-        }                                      \
+#define confirm_insn_legal(x)                   \
+    do {                                        \
+        if (!(x)) {                             \
+            throw TrapIllegalInstruction(insn); \
+        }                                       \
     } while (0)
 
 #define require_privilege(x) confirm_insn_legal(csr->prv >= (x))
@@ -367,32 +367,34 @@
     pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_JAL                                           \
-    instr_len = 4;                                             \
-    if (!rd)                                                   \
-        sprintf(remark, "j %08lx", pc + imm_j & 0xffffffff);   \
-    else if (rd == REG_RA)                                     \
-        sprintf(remark, "jal %08lx", pc + imm_j & 0xffffffff); \
-    else                                                       \
-        sprintf(remark, "jal %s,%08lx", regs_name[rd],         \
-                pc + imm_j & 0xffffffff);                      \
-    regs[rd] = pc + 4UL;                                       \
-    write_reg = rd;                                            \
-    pc += imm_j;                                               \
+#define INSTRUCT_JAL                                                \
+    instr_len = 4;                                                  \
+    if (!rd)                                                        \
+        sprintf(remark, "j %08lx", pc + imm_j);                     \
+    else if (rd == REG_RA)                                          \
+        sprintf(remark, "jal %08lx", pc + imm_j);                   \
+    else                                                            \
+        sprintf(remark, "jal %s,%08lx", regs_name[rd], pc + imm_j); \
+    ras_push = rd == REG_RA;                                        \
+    regs[rd] = pc + 4UL;                                            \
+    write_reg = rd;                                                 \
+    pc += imm_j;                                                    \
     break;
 
 #define INSTRUCT_JALR                                                          \
     {                                                                          \
         instr_len = 4;                                                         \
-        if (imm_i || !(rd == 0 || rd == 1))                                    \
+        if (imm_i || !(rd == REG_ZERO || rd == REG_RA))                        \
             sprintf(remark, "jalr %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
                     regs_name[rs1]);                                           \
-        else if (rd == 1)                                                      \
+        else if (rd == REG_RA)                                                 \
             sprintf(remark, "jalr %s", regs_name[rs1]);                        \
-        else if (rs1 == 1)                                                     \
+        else if (rs1 == REG_RA)                                                \
             sprintf(remark, "ret");                                            \
         else                                                                   \
             sprintf(remark, "jr %s", regs_name[rs1]);                          \
+        ras_push = rd == REG_RA;                                               \
+        ras_pop = rs1 == REG_RA && !imm_i;                                     \
         uint64_t rs1_data(regs[rs1]);                                          \
         regs[rd] = pc + 4UL;                                                   \
         write_reg = rd;                                                        \
@@ -404,10 +406,9 @@
     instr_len = 4;                                                         \
     if (rs2)                                                               \
         sprintf(remark, "beq %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b & 0xffffffff);                                  \
+                pc + imm_b);                                               \
     else                                                                   \
-        sprintf(remark, "beqz %s,%08lx", regs_name[rs1],                   \
-                pc + imm_b & 0xffffffff);                                  \
+        sprintf(remark, "beqz %s,%08lx", regs_name[rs1], pc + imm_b);      \
     pc += regs[rs1] == regs[rs2] ? imm_b : 4UL;                            \
     break;
 
@@ -415,52 +416,47 @@
     instr_len = 4;                                                         \
     if (rs2)                                                               \
         sprintf(remark, "bne %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b & 0xffffffff);                                  \
+                pc + imm_b);                                               \
     else                                                                   \
-        sprintf(remark, "bnez %s,%08lx", regs_name[rs1],                   \
-                pc + imm_b & 0xffffffff);                                  \
+        sprintf(remark, "bnez %s,%08lx", regs_name[rs1], pc + imm_b);      \
     pc += regs[rs1] != regs[rs2] ? imm_b : 4UL;                            \
     break;
 
 #define INSTRUCT_BLT                                                       \
     instr_len = 4;                                                         \
     if (!rs1)                                                              \
-        sprintf(remark, "bgtz %s,%08lx", regs_name[rs2],                   \
-                pc + imm_b & 0xffffffff);                                  \
+        sprintf(remark, "bgtz %s,%08lx", regs_name[rs2], pc + imm_b);      \
     else if (!rs2)                                                         \
-        sprintf(remark, "bltz %s,%08lx", regs_name[rs1],                   \
-                pc + imm_b & 0xffffffff);                                  \
+        sprintf(remark, "bltz %s,%08lx", regs_name[rs1], pc + imm_b);      \
     else                                                                   \
         sprintf(remark, "blt %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b & 0xffffffff);                                  \
+                pc + imm_b);                                               \
     pc += (int64_t) regs[rs1] < (int64_t) regs[rs2] ? imm_b : 4UL;         \
     break;
 
 #define INSTRUCT_BGE                                                       \
     instr_len = 4;                                                         \
     if (!rs1)                                                              \
-        sprintf(remark, "blez %s,%08lx", regs_name[rs2],                   \
-                pc + imm_b & 0xffffffff);                                  \
+        sprintf(remark, "blez %s,%08lx", regs_name[rs2], pc + imm_b);      \
     else if (!rs2)                                                         \
-        sprintf(remark, "bgez %s,%08lx", regs_name[rs1],                   \
-                pc + imm_b & 0xffffffff);                                  \
+        sprintf(remark, "bgez %s,%08lx", regs_name[rs1], pc + imm_b);      \
     else                                                                   \
         sprintf(remark, "bge %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b & 0xffffffff);                                  \
+                pc + imm_b);                                               \
     pc += (int64_t) regs[rs1] >= (int64_t) regs[rs2] ? imm_b : 4UL;        \
     break;
 
 #define INSTRUCT_BLTU                                                   \
     instr_len = 4;                                                      \
     sprintf(remark, "bltu %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-            pc + imm_b & 0xffffffff);                                   \
+            pc + imm_b);                                                \
     pc += regs[rs1] < regs[rs2] ? imm_b : 4UL;                          \
     break;
 
 #define INSTRUCT_BGEU                                                   \
     instr_len = 4;                                                      \
     sprintf(remark, "bgeu %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-            pc + imm_b & 0xffffffff);                                   \
+            pc + imm_b);                                                \
     pc += regs[rs1] >= regs[rs2] ? imm_b : 4UL;                         \
     break;
 
@@ -1349,15 +1345,16 @@
     pc += 2UL;                                                              \
     break;
 
-#define INSTRUCT_C_JAL                                         \
-    instr_len = 2;                                             \
-    sprintf(remark, "c.jal %08lx", pc + imm_c_j & 0xffffffff); \
-    sprintf(remark, "%s (check)", remark);                     \
-    require_extension('C');                                    \
-    throw TrapIllegalInstruction(insn); /* RV32C only */       \
-    regs[REG_RA] = pc + 2UL;                                   \
-    write_reg = REG_RA;                                        \
-    ` pc += imm_c_j;                                           \
+#define INSTRUCT_C_JAL                                   \
+    instr_len = 2;                                       \
+    sprintf(remark, "c.jal %08lx", pc + imm_c_j);        \
+    sprintf(remark, "%s (check)", remark);               \
+    require_extension('C');                              \
+    throw TrapIllegalInstruction(insn); /* RV32C only */ \
+    ras_push = 1;                                        \
+    regs[REG_RA] = pc + 2UL;                             \
+    write_reg = REG_RA;                                  \
+    ` pc += imm_c_j;                                     \
     break;
 
 #define INSTRUCT_C_LI                                                    \
@@ -1475,27 +1472,25 @@
     pc += 2UL;                                                                 \
     break;
 
-#define INSTRUCT_C_J                                         \
-    instr_len = 2;                                           \
-    sprintf(remark, "c.j %08lx", pc + imm_c_j & 0xffffffff); \
-    require_extension('C');                                  \
-    pc += imm_c_j;                                           \
+#define INSTRUCT_C_J                            \
+    instr_len = 2;                              \
+    sprintf(remark, "c.j %08lx", pc + imm_c_j); \
+    require_extension('C');                     \
+    pc += imm_c_j;                              \
     break;
 
-#define INSTRUCT_C_BEQZ                                   \
-    instr_len = 2;                                        \
-    sprintf(remark, "c.beqz %s,%08lx", regs_name[_c_rs1], \
-            pc + imm_c_b & 0xffffffff);                   \
-    require_extension('C');                               \
-    pc += !regs[_c_rs1] ? imm_c_b : 2UL;                  \
+#define INSTRUCT_C_BEQZ                                                  \
+    instr_len = 2;                                                       \
+    sprintf(remark, "c.beqz %s,%08lx", regs_name[_c_rs1], pc + imm_c_b); \
+    require_extension('C');                                              \
+    pc += !regs[_c_rs1] ? imm_c_b : 2UL;                                 \
     break;
 
-#define INSTRUCT_C_BNEZ                                   \
-    instr_len = 2;                                        \
-    sprintf(remark, "c.bnez %s,%08lx", regs_name[_c_rs1], \
-            pc + imm_c_b & 0xffffffff);                   \
-    require_extension('C');                               \
-    pc += regs[_c_rs1] ? imm_c_b : 2UL;                   \
+#define INSTRUCT_C_BNEZ                                                  \
+    instr_len = 2;                                                       \
+    sprintf(remark, "c.bnez %s,%08lx", regs_name[_c_rs1], pc + imm_c_b); \
+    require_extension('C');                                              \
+    pc += regs[_c_rs1] ? imm_c_b : 2UL;                                  \
     break;
 
 #define INSTRUCT_C_SLLI                                        \
@@ -1561,6 +1556,7 @@
         sprintf(remark, "c.jr %s", regs_name[c_rs1]); \
         require_extension('C');                       \
         confirm_insn_legal(c_rs1);                    \
+        ras_pop = c_rs1 == REG_RA;                    \
         pc = (regs[c_rs1]) & ~1UL;                    \
     }                                                 \
     break;
@@ -1589,6 +1585,7 @@
         require_extension('C');                         \
         confirm_insn_legal(c_rs1);                      \
         uint64_t rs1_data(regs[c_rs1]);                 \
+        ras_push = 1;                                   \
         regs[REG_RA] = pc + 2UL;                        \
         write_reg = REG_RA;                             \
         pc = (rs1_data) & ~1UL;                         \
@@ -1653,7 +1650,6 @@
     instr_len = 4;                                                       \
     sprintf(remark, "lr.w%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
             regs_name[rs1]);                                             \
-    sprintf(remark, "%s (check)", remark);                               \
     require_extension('A');                                              \
     if (regs[rs1] & 3UL)                                                 \
         throw TrapLoadAccessFault(regs[rs1]);                            \

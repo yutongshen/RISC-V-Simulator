@@ -1,3 +1,4 @@
+SHELL         := /bin/bash
 root_dir      := $(PWD)
 bld_dir       := ./build
 src_dir       := ./main ./sys ./dev ./cpu ./bus ./mem ./fesvr ./util
@@ -100,7 +101,7 @@ sim: all
 	done;
 	
 	# Compile
-	@make -C ${sim_dir};
+	@make -C ${sim_dir} debug=${debug};
 	@make -C ${bld_dir}/prog || exit 1;
 	
 	# Simulation start

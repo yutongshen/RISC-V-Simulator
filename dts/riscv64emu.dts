@@ -7,15 +7,28 @@
     #size-cells = <2>;
     interrupt-parent = <&plic>;
 
+    rtcclk: rtcclk {
+        compatible = "fixed-clock";
+        #clock-cells = <1>;
+        clock-frequency = <0x1c2000>;
+        clock-output-names = "rtcclk";
+    };
+
     cpus {
         linux,phandle = <1>;
         #address-cells = <1>;
         #size-cells = <0>;
+        timebase-frequency = <1000000000>;
         cpu0: cpu@0 {
             device_type = "cpu";
             reg = <0x0>;
             status = "okay";
-			mmu-type = "riscv,sv48";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             linux,boot-cpu;
             cpu0_intc: interrupt-controller {
                 #interrupt-cells = <1>;
@@ -26,8 +39,13 @@
         cpu1: cpu@1 {
             device_type = "cpu";
             reg = <0x1>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu1_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -37,8 +55,13 @@
         cpu2: cpu@2 {
             device_type = "cpu";
             reg = <0x2>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu2_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -48,8 +71,13 @@
         cpu3: cpu@3 {
             device_type = "cpu";
             reg = <0x3>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu3_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -59,8 +87,13 @@
         cpu4: cpu@4 {
             device_type = "cpu";
             reg = <0x4>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu4_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -70,8 +103,13 @@
         cpu5: cpu@5 {
             device_type = "cpu";
             reg = <0x5>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu5_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -81,8 +119,13 @@
         cpu6: cpu@6 {
             device_type = "cpu";
             reg = <0x6>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu6_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -92,8 +135,13 @@
         cpu7: cpu@7 {
             device_type = "cpu";
             reg = <0x7>;
-            status = "disable";
-			mmu-type = "riscv,sv48";
+            status = "okay";
+            compatible = "riscv";
+            riscv,isa = "rv64imacfd";
+            mmu-type = "riscv,sv48";
+            riscv,pmpregions = <16>;
+            riscv,pmpgranularity = <4>;
+            clock-frequency = <1000000000>;
             cpu7_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -136,6 +184,7 @@
         reg = <0x00000000 0x00000000 0x00000000 0x00008000>;
     };
 
+    /*
     sram1: sram@10000 {
         device_type = "memory";
         reg = <0x00000000 0x00010000 0x00000000 0x00010000>;
@@ -150,22 +199,23 @@
         device_type = "memory";
         reg = <0x00000000 0x20000000 0x00000000 0x00800000>;
     };
+    */
 
     dram2: dram@80000000 {
         device_type = "memory";
-        reg = <0x00000000 0x80000000 0x00000000 0x00800000>;
+        reg = <0x00000000 0x80000000 0x00000000 0x08000000>;
     };
-
-    flash: flash@100000000 {
+    
+    /* flash: flash@100000000 {
         device_type = "memory";
         reg = <0x00000001 0x00000000 0x00000000 0x40000000>;
-    };
+    }; */
 
-    peribus: peribus@10000000 {
-        compatible = "riscv,bus";
+    peri: peri {
+        compatible = "simple-bus";
         #address-cells = <1>;
         #size-cells = <1>;
-        reg = <0x00000000 0x10000000 0x00000000 0x10000000>;
+        ranges;
         
         finisher@10000000 {
             compatible = "sifive,test0";
@@ -173,9 +223,11 @@
         };
 
         uart0: uart@10001000 {
+            interrupts = <0x1>;
+            interrupt-parent = <&plic>;
             compatible = "sifive,uart0";
+            clocks = <&rtcclk 0>;
             reg = <0x10001000 0x1000>;
-            interrupts = <0>;
         };
 
         clint0: clint@10010000 {
@@ -191,7 +243,7 @@
                                   <&cpu7_intc 7>, <&cpu7_intc 3>;
         };
 
-        plic: interrupt-controller@14000000{
+        plic: interrupt-controller@14000000 {
             #interrupt-cells = <1>;
             interrupt-controller;
             compatible = "riscv,plic0";
@@ -209,9 +261,14 @@
     };
 
     chosen {
-        riscv,kernel-start = <0x1 0x00000000>;
-        riscv,kernel-end = <0x1 0x02000000>;
-        bootargs = "root=/dev/sda2";
+        riscv,kernel-start = <0x0 0x80200000>;
+        riscv,kernel-end   = <0x0 0x87000000>;
+        bootargs = "root=/dev/srda ro console=ttySIF0";
+        stdout-path = "uart0@10001000";
         linux,platform = <0x00000600>;
+    };
+
+    aliases {
+        serial0 = &uart0;
     };
 };

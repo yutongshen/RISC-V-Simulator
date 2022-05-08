@@ -1,4 +1,5 @@
 #include "system.h"
+#include <stdio.h>
 
 System::System() : devices(std::vector<pDevice>()) {}
 

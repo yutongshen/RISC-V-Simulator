@@ -2,13 +2,14 @@ ELF_NAME := brom
 
 export CROSS_PREFIX ?= riscv64-unknown-elf-
 export RISCV_GCC ?= $(CROSS_PREFIX)gcc
-export RISCV_OBJDUMP ?= $(CROSS_PREFIX)objdump -xsd
-export RISCV_OBJCOPY ?= $(CROSS_PREFIX)objcopy -O binary
+export RISCV_OBJDUMP   ?= $(CROSS_PREFIX)objdump -xsd
+export RISCV_OBJDUMP_D ?= $(CROSS_PREFIX)objdump -d
+export RISCV_OBJCOPY   ?= $(CROSS_PREFIX)objcopy -O binary
 
-INCDIR := ./include/
-LDFILE := link.ld
-CFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g -mabi=lp64 -I$(INCDIR)
-LDFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g -mabi=lp64 -T$(LDFILE) -lgcc
+INCDIR  := ./include/
+LDFILE  := link.ld
+CFLAGS  := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g_zifencei_zicsr -mabi=lp64 -I$(INCDIR)
+LDFLAGS := -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -march=rv64g_zifencei_zicsr -mabi=lp64 -T$(LDFILE) -lgcc
 
 
 SRC_C   := $(wildcard *.c)
@@ -30,7 +31,8 @@ build_elf: $(OBJ) | $(LDFILE)
 	$(RISCV_GCC) $^ $(LDFLAGS) -o $(ELF_NAME)
 
 build_log: $(ELF_NAME)
-	$(RISCV_OBJDUMP) $< > $(ELF_NAME).log
+	$(RISCV_OBJDUMP)   $< > $(ELF_NAME).log
+	$(RISCV_OBJDUMP_D) $< | grep ">:" | sed "s/>://g" | sed "s/<//g" > $(ELF_NAME).list
 
 build_hex: $(ELF_NAME)
 	$(RISCV_OBJCOPY) $< -j .text -j .rodata $(ELF_NAME).bin

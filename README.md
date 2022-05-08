@@ -4,7 +4,8 @@
 - Ubuntu 18.04.1 LTS (GNU/Linux 4.15.0-34-generic x86\_64)
 
 ## Prerequisite
-- g++ 7.4.0
+- cpp compiler: g++ 7.4.0
+- device-tree-compiler: dtc 1.4.5
 
 ## Processor extension implementation
 - RV64IMACFD
@@ -40,12 +41,22 @@ $ make
 
 - You also can modify `main/main.cpp` to change those configuration
 ## Usage
-- We provide `prog0`~`prog12` test program that you can check processor is correct or not
+- We provide `prog0`~`prog13` program that you can run processor
 - You can use the following command to simulate
 
 ```=sh
-make sim prog=0
+make sim prog=13
 ```
+
+- prog13 is contain [bbl](https://github.com/riscv-software-src/riscv-pk), [Linux](https://github.com/riscvarchive/riscv-linux) and [busybox](https://busybox.net/)
+
+- Linux login
+  - user name: root
+  - password: root
+![](./figures/linux_login.gif)
+
+- CPU and Linux information
+![](./figures/cpuinfo.png)
 
 
 ## Authors

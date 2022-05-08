@@ -1,5 +1,6 @@
 compile_cfg := compile.cfg
-bin_file    := brom flash
+bin_file    := brom ddr flash
+funct_list  := funct.list
 
 .PHONY: all
 
@@ -11,7 +12,7 @@ comp:
 	done
 
 copy_elf:
-	@rm -rf *.bin;
+	@rm -rf *.bin *.list;
 	@for bin in ${bin_file}; do \
 		echo -n -e \\x00 > $${bin}.bin; \
 	    IFS=''; \
@@ -19,8 +20,11 @@ copy_elf:
 			IFS=' '; read -ra items <<< $${items}; \
 			[[ $$(($${items[1]})) -eq 0 ]] \
 			    && touch $${bin}.align \
-	            || dd if=$${bin}.bin of=$${bin}.align bs=$$(($${items[1]})) conv=sync 2> /dev/null; \
+	            || dd if=$${bin}.bin of=$${bin}.align bs=$$(($${items[1]})) conv=sync count=1 2> /dev/null; \
 	        cat $${bin}.align $${items[0]} > $${bin}.bin || exit 1; \
+            if [ -f $${items[0]%.*}.list ]; then \
+                cat $${items[0]%.*}.list >> ${funct_list}; \
+            fi \
 	    done < $${bin}.cfg; \
 	done
 

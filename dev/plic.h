@@ -8,14 +8,14 @@
 #define INT_REG_NUM ((INT_NUM >> 5) + !!(INT_NUM & 0x1f))
 
 #define DEV_RISING_IRQ()              \
-    {                                 \
+    do {                              \
         plic->set_pending(irq_id, 1); \
-    }
+    } while (0)
 
 #define DEV_FALLING_IRQ()             \
-    {                                 \
+    do {                              \
         plic->set_pending(irq_id, 0); \
-    }
+    } while (0)
 
 class PLIC : public Device, public Slave
 {

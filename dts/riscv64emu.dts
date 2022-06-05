@@ -10,7 +10,7 @@
     rtcclk: rtcclk {
         compatible = "fixed-clock";
         #clock-cells = <1>;
-        clock-frequency = <0x1c2000>;
+        clock-frequency = <0x384000>;
         clock-output-names = "rtcclk";
     };
 
@@ -18,7 +18,7 @@
         linux,phandle = <1>;
         #address-cells = <1>;
         #size-cells = <0>;
-        timebase-frequency = <1000000000>;
+        timebase-frequency = <10000000>;
         cpu0: cpu@0 {
             device_type = "cpu";
             reg = <0x0>;
@@ -28,7 +28,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             linux,boot-cpu;
             cpu0_intc: interrupt-controller {
                 #interrupt-cells = <1>;
@@ -45,7 +44,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu1_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -61,7 +59,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu2_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -77,7 +74,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu3_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -93,7 +89,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu4_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -109,7 +104,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu5_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -125,7 +119,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu6_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -141,7 +134,6 @@
             mmu-type = "riscv,sv48";
             riscv,pmpregions = <16>;
             riscv,pmpgranularity = <4>;
-            clock-frequency = <1000000000>;
             cpu7_intc: interrupt-controller {
                 #interrupt-cells = <1>;
                 interrupt-controller;
@@ -216,18 +208,44 @@
         #address-cells = <1>;
         #size-cells = <1>;
         ranges;
-        
-        finisher@10000000 {
-            compatible = "sifive,test0";
-            reg = <0x10000000 0x1000>;
-        };
 
-        uart0: uart@10001000 {
+        uart0: uart@10000000 {
             interrupts = <0x1>;
             interrupt-parent = <&plic>;
             compatible = "sifive,uart0";
             clocks = <&rtcclk 0>;
+            reg = <0x10000000 0x1000>;
+        };
+
+        spi0: spi@10001000 {
+            interrupts = <0x2>;
+            interrupt-parent = <&plic>;
+            compatible = "riscv,spi0";
             reg = <0x10001000 0x1000>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+            status = "okay";
+
+            spidev@0 {
+                compatible = "rohm,dh2228fv";
+                reg = <0x0>;
+                spi-max-frequency = <20000000>;
+                voltage-ranges = <0xce4 0xce4>;
+                disable-wp;
+            };
+
+            mmc@1 {
+                compatible = "mmc-spi-slot";
+                reg = <0x1>;
+                spi-max-frequency = <20000000>;
+                voltage-ranges = <0xce4 0xce4>;
+                disable-wp;
+            };
+        };
+        
+        finisher@10008000 {
+            compatible = "sifive,test0";
+            reg = <0x10008000 0x1000>;
         };
 
         clint0: clint@10010000 {
@@ -264,7 +282,7 @@
         riscv,kernel-start = <0x0 0x80200000>;
         riscv,kernel-end   = <0x0 0x87000000>;
         bootargs = "root=/dev/srda ro console=ttySIF0";
-        stdout-path = "uart0@10001000";
+        stdout-path = "uart0@10000000";
         linux,platform = <0x00000600>;
     };
 

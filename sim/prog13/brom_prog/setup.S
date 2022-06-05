@@ -87,21 +87,18 @@ _start:
     sw t0, 24(t1);
     sw t0, 28(t1);
 
-    # mv a2, a0;
-    li a2, 0x80000000;
-    j 2f;
+    li a1, DTB_FILE;
+    j brom_finish;
 1:
     li t0, MIP_MSIP;
     csrs mie, t0;
-    /* TM_PRINT="CPU%d: Enter to WFI", a0 */
     fence;
     fence.i;
     wfi;
     csrc mip, t0;
     csrc mie, t0;
+brom_finish:
+    /* TM_PRINT="CPU%d: Leave ROM code", a0 */
     li a2, 0x80000000;
-2:
-    csrr a0, mhartid;
-    li a1, DTB_FILE;
     jr a2;
 

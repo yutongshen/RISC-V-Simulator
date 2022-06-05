@@ -3,10 +3,12 @@
 
 export PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
+echo "rcS check point 1"
 mount -t tmpfs  tmpfs  /tmp -o noexec,nosuid,nodev
 mount -t sysfs  sysfs  /sys
 mount -t proc   proc   /proc
 
+echo "rcS check point 1-2"
 mkdir /dev/pts
 mount -t devpts devpts /dev/pts
 
@@ -23,6 +25,7 @@ mkdir /var/tmp
 mkdir /var/www
 mkdir /var/cache
 
+echo "rcS check point 2"
 hostname UCanLinux
 
 syslogd 
@@ -36,5 +39,6 @@ telnetd -f /etc/issue
 # ifup -a
 
 dmesg -n 1
+echo "rcS check point 3"
 # mount -t nfs -o nolock 192.168.1.17:/opt/riscv/src/sample /mnt/nfs
 

@@ -225,6 +225,10 @@ void CPU::run()
         //     pcs.pop();
         //     ras.pop();
         // }
+        // if (load_store == LS_STORE && mem_addr == 0xffffffe000000000) {
+        //     printf("[CPU%d] verbose start!\r\n", csr->mhartid);
+        //     verbose = 1;
+        // }
 
         if (verbose) {
             cpu_trace << remark << std::endl;

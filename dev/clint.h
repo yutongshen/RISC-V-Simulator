@@ -11,6 +11,7 @@ class CLINT : public Device, public Slave
     uint64_t *ip[CORE_NUM];
     uint64_t timecmp[CORE_NUM];
     uint64_t time;
+    uint8_t  cnt;
 
 public:
     CLINT();

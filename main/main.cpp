@@ -9,6 +9,7 @@
 #include "dev/plic.h"
 #include "dev/tmdl.h"
 #include "dev/uart.h"
+#include "dev/spi.h"
 #include "fesvr/htif.h"
 #include "mem/flash.h"
 #include "mem/ram.h"
@@ -224,7 +225,12 @@ int main(int argc, char **argv)
     Uart uart_0(UART_IRQ_ID, &plic_0);
 
     // ==========================================================
-    //                     Define UART
+    //                     Define SPI
+    // ==========================================================
+    SPI spi_0(SPI_IRQ_ID, &plic_0);
+
+    // ==========================================================
+    //                     Define FINISHER
     // ==========================================================
     Finisher finisher;
 
@@ -282,8 +288,9 @@ int main(int argc, char **argv)
 
     Bus peribus_0;
     bridge_0.bus_connect(&peribus_0);
-    peribus_0.s_connect(FINISHER_BASE - BRIDGE_0_BASE, &finisher);
     peribus_0.s_connect(UART_BASE - BRIDGE_0_BASE, &uart_0);
+    peribus_0.s_connect(SPI_BASE - BRIDGE_0_BASE, &spi_0);
+    peribus_0.s_connect(FINISHER_BASE - BRIDGE_0_BASE, &finisher);
     peribus_0.s_connect(HTIF_BASE - BRIDGE_0_BASE, &htif_0);
     peribus_0.s_connect(CLINT_BASE - BRIDGE_0_BASE, &clint_0);
     peribus_0.s_connect(PLIC_BASE - BRIDGE_0_BASE, &plic_0);
@@ -294,6 +301,7 @@ int main(int argc, char **argv)
     sys_0.add(&plic_0);
     sys_0.add(&clint_0);
     sys_0.add(&uart_0);
+    sys_0.add(&spi_0);
 
     htif_0.bus_connect(&bus_0);
 

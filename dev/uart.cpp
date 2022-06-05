@@ -6,10 +6,13 @@
 #include "util/util.h"
 
 extern uint64_t __exit;
+extern bool     verbose;
 int8_t stdin_buff[STDIN_BUFF_SIZE];
 int32_t stdin_wptr = 0;
 int32_t stdin_rptr = 0;
 int8_t stdin_mon_end = 0;
+
+int8_t tmp;
 
 void getch()
 {
@@ -17,12 +20,19 @@ void getch()
     system("stty raw -echo");
     while (!stdin_mon_end) {
         if (!FIFO_FULL(stdin, STDIN_BUFF_SIZE)) {
-            exit_key = exit_key << 8 | (stdin_buff[stdin_wptr++] = getchar());
-            // printf("[DEBUG] exit_key = %08x\n", exit_key);
-            stdin_wptr %= STDIN_BUFF_SIZE;
-            if (exit_key == (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
-                             ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
-                __exit = 1;
+            tmp = getchar();
+            // if (tmp != 'a') {
+                exit_key = exit_key << 8 | (stdin_buff[stdin_wptr++] = tmp);
+                // printf("[DEBUG] exit_key = %08x\n", exit_key);
+                stdin_wptr %= STDIN_BUFF_SIZE;
+                if (exit_key == (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
+                                 ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
+                    __exit = 1;
+            // }
+            // else {
+            //     verbose = !verbose;
+            //     printf("[DBG] verbose = %x\r\n", verbose);
+            // }
         }
     }
     system("stty -raw echo");

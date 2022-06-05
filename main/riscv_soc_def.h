@@ -13,5 +13,6 @@
 #define CPU7 7
 
 #define UART_IRQ_ID 1
+#define SPI_IRQ_ID  2
 
 #endif

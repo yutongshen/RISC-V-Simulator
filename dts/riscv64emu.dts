@@ -18,7 +18,7 @@
         linux,phandle = <1>;
         #address-cells = <1>;
         #size-cells = <0>;
-        timebase-frequency = <10000000>;
+        timebase-frequency = <5000000>;
         cpu0: cpu@0 {
             device_type = "cpu";
             reg = <0x0>;
@@ -216,7 +216,7 @@
             clocks = <&rtcclk 0>;
             reg = <0x10000000 0x1000>;
         };
-
+        
         spi0: spi@10001000 {
             interrupts = <0x2>;
             interrupt-parent = <&plic>;

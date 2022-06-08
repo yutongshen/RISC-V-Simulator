@@ -109,7 +109,7 @@ CPU::~CPU()
 
 void CPU::_init() {}
 
-void CPU::run()
+void CPU::single_step()
 {
     if (!power_sta)
         return;

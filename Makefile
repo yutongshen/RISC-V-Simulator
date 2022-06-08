@@ -65,6 +65,7 @@ sim: all
 	# Move prog
 	@cp ${sim_dir}/common/* ${bld_dir}/prog ${err_ignore};
 	@cp ${sim_dir}/prog${prog}/* ${bld_dir}/prog ${err_ignore};
+	@cp -r ${sim_dir}/prog${prog}/sd_image ${bld_dir}/prog/ ${err_ignore};
 	
 	@for prog_type in $$(cat ${sim_dir}/prog${prog}/${compile_cfg}); do \
 	    mkdir ${bld_dir}/prog/$${prog_type}; \

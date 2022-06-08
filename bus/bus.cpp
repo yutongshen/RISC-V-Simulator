@@ -30,7 +30,7 @@ void Bus::fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound)
     }
 }
 
-Bus::Bus() : slave_cnt(0), mmap(new memmap_entry_t[64]), slaves()
+Bus::Bus() : slave_cnt(0), mmap(new memmap_entry_t[64]), bus_mutex(PTHREAD_MUTEX_INITIALIZER), slaves()
 {
     init_mmap(mmap);
 }
@@ -109,26 +109,30 @@ bool Bus::write(const Addr &addr,
 {
     Addr offset;
     uint8_t n_slave;
+    bool ret = 0;
 
+    pthread_mutex_lock(&bus_mutex);
     if (!find_slave(addr, offset, n_slave))
-        return 0;
-    return slaves[n_slave]->write(offset, data_type, wdata);
+        goto done;
+    ret = slaves[n_slave]->write(offset, data_type, wdata);
+
+done:
+    pthread_mutex_unlock(&bus_mutex);
+    return ret;
 }
 
 bool Bus::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
     Addr offset;
     uint8_t n_slave;
+    bool ret = 0;
 
+    pthread_mutex_lock(&bus_mutex);
     if (!find_slave(addr, offset, n_slave))
-        return 0;
-    // if (addr >= 0x80000000) {
-    //     std::cout << std::hex << "ADDR : " << addr << " SLAVE : " <<
-    //     (int)n_slave << std::endl; return 1;
-    // }
-    // slaves[4]->read(0, DATA_TYPE_DWORD, rdata);
-    // std::cout << std::hex << "MEM[80000000]: " << rdata << std::endl;
-    // std::cout << std::hex << "ADDR : " << addr << " SLAVE : " << (int)n_slave
-    // << std::endl;
-    return slaves[n_slave]->read(offset, data_type, rdata);
+        goto done;
+    ret = slaves[n_slave]->read(offset, data_type, rdata);
+
+done:
+    pthread_mutex_unlock(&bus_mutex);
+    return ret;
 }

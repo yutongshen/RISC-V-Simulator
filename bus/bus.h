@@ -2,6 +2,7 @@
 #define __BUS__
 
 #include <vector>
+#include <pthread.h>
 #include "bus/addr.h"
 #include "bus/datatype.h"
 #include "bus/master.h"
@@ -28,6 +29,7 @@ class Bus
     uint8_t slave_cnt;
     std::vector<pMaster> masters;
     std::vector<pSlave> slaves;
+    pthread_mutex_t bus_mutex;
     bool find_slave(const Addr &addr, Addr &offset, uint8_t &n_slave);
     void fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound);
 

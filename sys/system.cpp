@@ -14,7 +14,16 @@ void System::run()
 {
     int n(devices.size()), i(0);
     while (n--) {
-        devices[i++]->run();
+        // devices[i++]->run();
+        devices[i++]->single_step();
+    }
+}
+
+void System::stop()
+{
+    int n(devices.size()), i(0);
+    while (n--) {
+        devices[i++]->stop();
     }
 }
 

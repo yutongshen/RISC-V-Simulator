@@ -38,6 +38,9 @@ telnetd -f /etc/issue
 
 # ifup -a
 
+# mount /dev/mmcblk0p1 /mnt
+alias ll="ls -al"
+
 dmesg -n 1
 echo "rcS check point 3"
 # mount -t nfs -o nolock 192.168.1.17:/opt/riscv/src/sample /mnt/nfs

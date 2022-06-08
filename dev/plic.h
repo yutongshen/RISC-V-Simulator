@@ -20,6 +20,7 @@
 class PLIC : public Device, public Slave
 {
     virtual void _init();
+    void _update();
     bool csr_connect[TARGET_NUM];
     uint64_t *irqdst[TARGET_NUM];
     uint8_t irqoffset[TARGET_NUM];
@@ -34,6 +35,8 @@ public:
     PLIC();
     ~PLIC();
     virtual void run();
+    virtual void stop();
+    virtual void single_step();
     virtual bool write(const Addr &addr,
                        const DataType &data_type,
                        const uint64_t &wdata);

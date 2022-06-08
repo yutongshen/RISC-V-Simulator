@@ -1,6 +1,7 @@
 #ifndef __DEVICE__
 #define __DEVICE__
 
+#include <thread>
 #include "bus/bus.h"
 
 class Device
@@ -10,12 +11,18 @@ class Device
 
 protected:
     uint8_t d_id;
+    uint8_t wfi;
+    uint8_t enable;
+    std::thread dthread;
     virtual void _init() = 0;
+    virtual void do_loop();
 
 public:
     Device();
     ~Device();
-    virtual void run() = 0;
+    virtual void single_step() = 0;
+    virtual void run();
+    virtual void stop();
 };
 
 #endif

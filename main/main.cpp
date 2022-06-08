@@ -1,4 +1,5 @@
 #include <string.h>
+#include <unistd.h>
 #include <vector>
 #include "bus/bridge.h"
 #include "bus/bus.h"
@@ -7,9 +8,9 @@
 #include "dev/clint.h"
 #include "dev/finisher.h"
 #include "dev/plic.h"
+#include "dev/spi.h"
 #include "dev/tmdl.h"
 #include "dev/uart.h"
-#include "dev/spi.h"
 #include "fesvr/htif.h"
 #include "mem/flash.h"
 #include "mem/ram.h"
@@ -311,9 +312,11 @@ int main(int argc, char **argv)
     // Run
     uint64_t end_code;
     // cycle = argparser.get_int("CYCLE");
-    while (!__exit /* && cycle--*/) {
-        sys_0.run();
-    }
+    // sys_0.run();
+    // while (!__exit) usleep(1000);
+    // sys_0.stop();
+
+    while (!__exit) sys_0.run();
 
     putchar('\r');
     putchar('\n');

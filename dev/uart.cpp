@@ -6,7 +6,7 @@
 #include "util/util.h"
 
 extern uint64_t __exit;
-extern bool     verbose;
+extern bool verbose;
 int8_t stdin_buff[STDIN_BUFF_SIZE];
 int32_t stdin_wptr = 0;
 int32_t stdin_rptr = 0;
@@ -25,11 +25,11 @@ void getch()
                 exit_key = exit_key << 8 | (stdin_buff[stdin_wptr++] = tmp);
                 // printf("[DEBUG] exit_key = %08x\n", exit_key);
                 stdin_wptr %= STDIN_BUFF_SIZE;
-                if (exit_key == (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
-                                 ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
+                if (exit_key ==
+                    (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
+                     ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
                     __exit = 1;
-            // }
-            // else {
+            // } else {
             //     verbose = !verbose;
             //     printf("[DBG] verbose = %x\r\n", verbose);
             // }
@@ -72,7 +72,7 @@ Uart::~Uart()
     t_getch.join();
 }
 
-void Uart::run()
+void Uart::single_step()
 {
     if (txctrl & UART_TXEN) {
         if (!FIFO_EMPT(tx)) {

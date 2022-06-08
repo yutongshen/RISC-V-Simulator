@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "clint.h"
 #include "cpu/csr_config.h"
 #include "mmap/clint_reg.h"
@@ -12,7 +13,7 @@ CLINT::CLINT()
 
 CLINT::~CLINT() {}
 
-void CLINT::run()
+void CLINT::single_step()
 {
     uint8_t i;
     if (!((cnt + 1) % 4)) {
@@ -27,8 +28,8 @@ void CLINT::run()
                 abort();
         }
         cnt = 0;
-    }
-    else ++cnt;
+    } else
+        ++cnt;
 }
 
 bool CLINT::write(const Addr &addr,

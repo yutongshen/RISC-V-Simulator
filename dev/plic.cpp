@@ -5,21 +5,7 @@
 
 void PLIC::_init() {}
 
-PLIC::PLIC()
-    : csr_connect{0},
-      prior{0},
-      pending{0},
-      enable{0},
-      int_id{0},
-      threshold{0},
-      Device(),
-      Slave(0x4000000)
-{
-}
-
-PLIC::~PLIC() {}
-
-void PLIC::run()
+void PLIC::_update()
 {
     uint32_t max_id, int_valid, id;
 
@@ -50,6 +36,24 @@ void PLIC::run()
         }
     }
 }
+
+PLIC::PLIC()
+    : csr_connect{0},
+      prior{0},
+      pending{0},
+      enable{0},
+      int_id{0},
+      threshold{0},
+      Device(),
+      Slave(0x4000000)
+{
+}
+
+PLIC::~PLIC() {}
+
+void PLIC::single_step() {}
+void PLIC::run()  {}
+void PLIC::stop() {}
 
 bool PLIC::write(const Addr &addr,
                  const DataType &data_type,
@@ -112,6 +116,8 @@ bool PLIC::write(const Addr &addr,
         }
     }
     prior[0] = 0;
+    _update();
+
     return 1;
 }
 
@@ -184,6 +190,7 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         abort();
     }
 
+    _update();
 
     return 1;
 }
@@ -211,4 +218,6 @@ void PLIC::set_pending(int32_t irq_id, uint8_t value)
         pending[irq_id >> 5] |= (1 << (irq_id & 0x1f));
     else
         pending[irq_id >> 5] &= ~(1 << (irq_id & 0x1f));
+
+    _update();
 }

@@ -4,17 +4,33 @@
 #include "mmap/cluster_reg.h"
 #include "util/util.h"
 
-void Cluster::_init() {}
-
 Cluster::Cluster() : bus(0), cores{0}, Device(), Slave(0x40000000) {}
 
 Cluster::~Cluster() {}
+
+void Cluster::_init() {}
+
+void Cluster::single_step()
+{
+    for (int i = 0; i < 8; ++i) {
+        if (cores[i])
+            cores[i]->single_step();
+    }
+}
 
 void Cluster::run()
 {
     for (int i = 0; i < 8; ++i) {
         if (cores[i])
             cores[i]->run();
+    }
+}
+
+void Cluster::stop()
+{
+    for (int i = 0; i < 8; ++i) {
+        if (cores[i])
+            cores[i]->stop();
     }
 }
 

@@ -9,11 +9,13 @@ class Cluster : public Device, public Slave
     CPU *cores[8];
     pBus bus;
     virtual void _init();
+    virtual void single_step();
 
 public:
     Cluster();
     ~Cluster();
     virtual void run();
+    virtual void stop();
     virtual bool write(const Addr &addr,
                        const DataType &data_type,
                        const uint64_t &wdata);

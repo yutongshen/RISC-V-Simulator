@@ -14,6 +14,7 @@ public:
     System();
     ~System();
     void run();
+    void stop();
     void add(pDevice dev);
 };
 

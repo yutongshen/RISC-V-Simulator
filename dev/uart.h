@@ -48,7 +48,7 @@ class Uart : public Device, public Slave, public IRQSource
 public:
     Uart(uint32_t irq_id = -1, PLIC *plic = NULL);
     ~Uart();
-    virtual void run();
+    virtual void single_step();
     virtual bool write(const Addr &addr,
                        const DataType &data_type,
                        const uint64_t &wdata);

@@ -36,7 +36,7 @@ class CPU : public Device
 public:
     CPU(uint64_t cpuid = 0, uint64_t pc = 0UL);
     ~CPU();
-    virtual void run();
+    virtual void single_step();
     void set_power_on(bool power_sta);
     bool get_power_sta();
     void bus_connect(pBus bus);

@@ -11,12 +11,12 @@ class CLINT : public Device, public Slave
     uint64_t *ip[CORE_NUM];
     uint64_t timecmp[CORE_NUM];
     uint64_t time;
-    uint8_t  cnt;
+    uint8_t cnt;
 
 public:
     CLINT();
     ~CLINT();
-    virtual void run();
+    virtual void single_step();
     virtual bool write(const Addr &addr,
                        const DataType &data_type,
                        const uint64_t &wdata);

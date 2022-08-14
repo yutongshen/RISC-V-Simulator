@@ -316,7 +316,9 @@ int main(int argc, char **argv)
     // while (!__exit) usleep(1000);
     // sys_0.stop();
 
-    while (!__exit) sys_0.run();
+    while (!__exit) {
+        sys_0.run();
+    }
 
     putchar('\r');
     putchar('\n');

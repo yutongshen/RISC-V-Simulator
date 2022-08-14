@@ -1,11 +1,11 @@
 #include "spi.h"
 #include <assert.h>
 #include <unistd.h>
-#include <iostream>
 #include "mmap/spi_reg.h"
 #include "util/util.h"
 
 #define CRC16_POLY 0x1021
+#define SD_MODE1
 
 static uint16_t crc_tab[256];
 static uint16_t crc = 0;
@@ -75,7 +75,18 @@ SPI::SPI(uint32_t irq_id, PLIC *plic)
       cmd_mask(0),
       app_cmd(0),
       rd_mblk(0),
+      wr_mblk(0),
+      wr_sblk(0),
+      is_wr_blk(0),
+      is_wr_crc(0),
       sector(0),
+      wr_buff{0},
+      wr_idx(0),
+#ifdef SD_MODE1
+      sd_img(fopen("build/prog/sd_image/sd_image", "rb+")),
+#else
+      sd_img(NULL),
+#endif
       Device(),
       Slave(0x1000),
       IRQSource(irq_id, plic)
@@ -93,13 +104,53 @@ void SPI::_cmd_handler(uint64_t data)
 
     data >>= 16;
     cmd_mask = cmd_mask ? cmd_mask - 1 : cmd_mask;
-    if (((data >> 46) & 3) == 1 && (data & 1) == 1 && !cmd_mask) {
+    if (wr_mblk | wr_sblk) {
+        if (!is_wr_blk) {
+            switch (data & 0xff) {
+                case 0xfc:
+                    is_wr_blk = 1;
+                    wr_idx = 0;
+                    is_wr_crc = 0;
+                    break;
+                case 0xfd:
+                    wr_mblk = 0;
+                    for (int i = 0; i < 18; ++i)
+                        RX_FIFO_PUSH(0x00);
+                    break;
+            }
+        }
+        else if (!is_wr_crc) {
+            wr_buff[wr_idx++] = data & 0xff;
+            if (wr_idx == 512) {
+                is_wr_crc = 1;
+            }
+        }
+        else {
+            if (++wr_idx == 514) {
+                is_wr_blk = 0;
+                wr_sblk = 0;
+                _write_block(sector++, wr_buff);
+                RX_FIFO_PUSH(0xe5);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+                RX_FIFO_PUSH(0x00);
+            }
+        }
+    }
+    else if (((data >> 46) & 3) == 1 && (data & 1) == 1 && !cmd_mask) {
         cmd_mask = 6;  // skip 6 iteration
         cmd = (data >> 40) & 0x3f;
         arg = (data >> 8) & 0xffffffff;
         crc = (data >> 0) & 0xff;
-        printf("Recieve %sCMD: %d, ARG: %x, CRC: %x\r\n", app_cmd ? "A" : "",
-               cmd, arg, crc);
+        // printf("Recieve %sCMD: %d, ARG: %x, CRC: %x\r\n", app_cmd ? "A" : "",
+        //        cmd, arg, crc);
         if (rd_mblk) {
             if (cmd == 12) {
                 rd_mblk = 0;
@@ -352,6 +403,11 @@ void SPI::_cmd_handler(uint64_t data)
                 rd_mblk = 1;
                 sector = arg;
                 break;
+            case 25:
+                RX_FIFO_PUSH(0x00);
+                wr_mblk = 1;
+                sector = arg;
+                break;
             case 41:
                 RX_FIFO_PUSH(0x01);
                 break;
@@ -383,20 +439,22 @@ void SPI::_cmd_handler(uint64_t data)
 
 void SPI::_read_block(uint32_t sector)
 {
-    char path[64];
-    FILE *sd_img;
     uint8_t buff[512];
     uint16_t crc;
 
+#ifdef SD_MODE1
+    fseek(sd_img, sector * 512, SEEK_SET);
+#else
+    char path[128];
     sprintf(path, "build/prog/sd_image/sd_image_%08x.bin", sector);
     sd_img = fopen(path, "rb");
-    printf("[SPI] read file: %s\r\n", path);
+#endif
+    // printf("[SPI] read sector: %08x\r\n", sector);
     RX_FIFO_PUSH(0xff);
     RX_FIFO_PUSH(0xff);
     RX_FIFO_PUSH(0xfe);
     if (sd_img != NULL) {
         fread(buff, 512, 1, sd_img);
-        fclose(sd_img);
         reset_crc();
         for (int i = 0; i < 512; ++i) {
             RX_FIFO_PUSH(buff[i]);
@@ -406,7 +464,10 @@ void SPI::_read_block(uint32_t sector)
         crc = cal_crc(0);
         RX_FIFO_PUSH(crc >> 8);
         RX_FIFO_PUSH(crc & 0xff);
-        printf("[SPI] CRC: %04x\r\n", crc);
+        // printf("[SPI] CRC: %04x\r\n", crc);
+#ifndef SD_MODE1
+        fclose(sd_img);
+#endif
     }
     else {
         for (int i = 0; i < 512; ++i) {
@@ -414,6 +475,24 @@ void SPI::_read_block(uint32_t sector)
         }
         RX_FIFO_PUSH(0);
         RX_FIFO_PUSH(0);
+    }
+}
+
+void SPI::_write_block(uint32_t sector, uint8_t *buff)
+{
+#ifdef SD_MODE1
+    fseek(sd_img, sector * 512, SEEK_SET);
+#else
+    char path[128];
+    sprintf(path, "build/prog/sd_image/sd_image_%08x.bin", sector);
+    sd_img = fopen(path, "wb");
+#endif
+    printf("[SPI] write sector: %08x\r\n", sector);
+    if (sd_img != NULL) {
+        fwrite(buff, 512, 1, sd_img);
+#ifndef SD_MODE1
+        fclose(sd_img);
+#endif
     }
 }
 

@@ -1,5 +1,6 @@
 #ifndef __SPI__
 #define __SPI__
+#include <iostream>
 #include "bus/slave.h"
 #include "dev/device.h"
 #include "dev/irqsrc.h"
@@ -30,6 +31,7 @@ class SPI : public Device, public Slave, public IRQSource
     virtual void _init();
     void _update();
     void _read_block(uint32_t sector);
+    void _write_block(uint32_t sector, uint8_t *buff);
     void _cmd_handler(uint64_t cmd);
     uint8_t cr1_cpha;
     uint8_t cr1_cpol;
@@ -57,8 +59,15 @@ class SPI : public Device, public Slave, public IRQSource
     uint8_t cmd_mask;
 
     uint8_t app_cmd;
-    uint8_t rd_mblk;
     uint32_t sector;
+    uint8_t rd_mblk;
+    uint8_t wr_mblk;
+    uint8_t wr_sblk;
+    uint8_t is_wr_blk;
+    uint8_t is_wr_crc;
+    uint8_t wr_buff[512];
+    uint16_t wr_idx;
+    FILE *sd_img;
 
 public:
     SPI(uint32_t irq_id = -1, PLIC *plic = NULL);

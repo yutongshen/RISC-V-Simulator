@@ -3,6 +3,7 @@
 #include "cpu/csr_config.h"
 #include "mmap/cluster_reg.h"
 #include "util/util.h"
+#include "main/riscv_soc_def.h"
 
 Cluster::Cluster() : bus(0), cores{0}, Device(), Slave(0x40000000) {}
 
@@ -12,7 +13,7 @@ void Cluster::_init() {}
 
 void Cluster::single_step()
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < CORE_NUM; ++i) {
         if (cores[i])
             cores[i]->single_step();
     }
@@ -20,7 +21,7 @@ void Cluster::single_step()
 
 void Cluster::run()
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < CORE_NUM; ++i) {
         if (cores[i])
             cores[i]->run();
     }
@@ -28,7 +29,7 @@ void Cluster::run()
 
 void Cluster::stop()
 {
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < CORE_NUM; ++i) {
         if (cores[i])
             cores[i]->stop();
     }
@@ -66,7 +67,7 @@ bool Cluster::write(const Addr &addr,
     i = 0x0;
     switch (addr) {
     case RG_PWR_REQ:
-        for (i = 0; i < 8; ++i, _wdata >>= 1) {
+        for (i = 0; i < CORE_NUM; ++i, _wdata >>= 1) {
             if (cores[i]) {
                 if (!cores[i]->get_power_sta() && (_wdata & 0x1))
                     cores[i]->set_power_on(true);
@@ -89,20 +90,34 @@ bool Cluster::write(const Addr &addr,
                 cores[i]->set_power_on(false);
         }
         break;
+#if (CORE_NUM > 7)
     case RG_CPU7_PC:
         ++i;
+#endif
+#if (CORE_NUM > 6)
     case RG_CPU6_PC:
         ++i;
+#endif
+#if (CORE_NUM > 5)
     case RG_CPU5_PC:
         ++i;
+#endif
+#if (CORE_NUM > 4)
     case RG_CPU4_PC:
         ++i;
+#endif
+#if (CORE_NUM > 3)
     case RG_CPU3_PC:
         ++i;
+#endif
+#if (CORE_NUM > 2)
     case RG_CPU2_PC:
         ++i;
+#endif
+#if (CORE_NUM > 1)
     case RG_CPU1_PC:
         ++i;
+#endif
     case RG_CPU0_PC:
         if (cores[i])
             *(cores[i]->get_pc()) = _wdata;
@@ -118,26 +133,40 @@ bool Cluster::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     rdata = 0L;
     switch (addr) {
     case RG_PWR_REQ:
-        for (i = 0; i < 8; ++i) {
+        for (i = 0; i < CORE_NUM; ++i) {
             if (cores[i]) {
                 rdata |= cores[i]->get_power_sta() << i;
             }
         }
         break;
+#if (CORE_NUM > 7)
     case RG_CPU7_PC:
         ++i;
+#endif
+#if (CORE_NUM > 6)
     case RG_CPU6_PC:
         ++i;
+#endif
+#if (CORE_NUM > 5)
     case RG_CPU5_PC:
         ++i;
+#endif
+#if (CORE_NUM > 4)
     case RG_CPU4_PC:
         ++i;
+#endif
+#if (CORE_NUM > 3)
     case RG_CPU3_PC:
         ++i;
+#endif
+#if (CORE_NUM > 2)
     case RG_CPU2_PC:
         ++i;
+#endif
+#if (CORE_NUM > 1)
     case RG_CPU1_PC:
         ++i;
+#endif
     case RG_CPU0_PC:
         if (cores[i])
             rdata = *(cores[i]->get_pc());
@@ -182,7 +211,7 @@ void Cluster::add(const uint8_t &num, CPU *core)
 void Cluster::bus_connect(pBus bus)
 {
     this->bus = bus;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < CORE_NUM; ++i) {
         if (cores[i])
             cores[i]->bus_connect(bus);
     }

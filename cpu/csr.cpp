@@ -16,15 +16,15 @@ CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
     max_isa |= 1UL << ('I' - 'A');
     max_isa |= 1UL << ('M' - 'A');
     max_isa |= 1UL << ('A' - 'A');
-    max_isa |= 1UL << ('F' - 'A');
-    max_isa |= 1UL << ('D' - 'A');
+    // max_isa |= 1UL << ('F' - 'A');
+    // max_isa |= 1UL << ('D' - 'A');
     max_isa |= 1UL << ('C' - 'A');
     max_isa |= 1UL << ('S' - 'A');
     misa = max_isa;
 
     mstatus = set_field(mstatus, MSTATUS_UXL, 2);
     mstatus = set_field(mstatus, MSTATUS_SXL, 2);
-    mstatus = set_field(mstatus, MSTATUS_FS, 2);
+    mstatus = set_field(mstatus, MSTATUS_FS, 0);
 
     mhartid = cpuid;
     // pmpaddr[0] = -1UL;
@@ -130,7 +130,7 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         _mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE |
                 MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_TW |
                 MSTATUS_TVM | MSTATUS_TSR | MSTATUS_UXL | MSTATUS_SXL |
-                MSTATUS_MPP | MSTATUS_SPP /* | MSTATUS_FS | MSTATUS_XS*/;
+                MSTATUS_MPP | MSTATUS_SPP | MSTATUS_FS /*| MSTATUS_XS*/;
         mstatus = (mstatus & ~_mask) | (value & _mask);
         mstatus = set_field(mstatus, MSTATUS_UXL, 2);
         mstatus = set_field(mstatus, MSTATUS_SXL, 2);

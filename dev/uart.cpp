@@ -21,20 +21,24 @@ void getch()
     while (!stdin_mon_end) {
         if (!FIFO_FULL(stdin, STDIN_BUFF_SIZE)) {
             tmp = getchar();
-            // if (tmp != 'a') {
+            if (tmp != '+') {
                 exit_key = exit_key << 8 | (stdin_buff[stdin_wptr++] = tmp);
-                // printf("[DEBUG] exit_key = %08x\n", exit_key);
+                // printf("(%08x)", tmp);
+                // printf("[DEBUG] exit_key = %08x\r\n", exit_key);
                 stdin_wptr %= STDIN_BUFF_SIZE;
                 if (exit_key ==
                     (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
                      ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
                     __exit = 1;
-            // } else {
-            //     verbose = !verbose;
-            //     printf("[DBG] verbose = %x\r\n", verbose);
-            // }
+            }
+            else {
+                verbose = !verbose;
+                printf("[DBG] verbose = %x\r\n", verbose);
+            }
         }
     }
+
+    printf("[DEBUG] exit = %d\r\n", __exit);
     system("stty -raw echo");
     assert(exit_key != (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
                         ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0));

@@ -11,5 +11,9 @@ if [ `id -u` -eq 0 ]
    PS1="$PS $ "
    fi
 
+if [ -f /etc/bash.bashrc ]; then
+   . /etc/bash.bashrc
+fi
+
 export PS1
 

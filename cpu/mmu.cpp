@@ -342,6 +342,10 @@ uint64_t MMU::amo_operate(const Addr &addr,
         throw TrapStorePageFault(t.get_tval());
     } catch (TrapLoadAccessFault &t) {
         throw TrapStoreAccessFault(t.get_tval());
+    } catch (TrapStorePageFault &t) {
+        throw TrapStorePageFault(t.get_tval());
+    } catch (TrapStoreAccessFault &t) {
+        throw TrapStoreAccessFault(t.get_tval());
     } catch (Trap &t) {
         throw t;
     }

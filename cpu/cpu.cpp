@@ -406,12 +406,11 @@ void CPU::take_interrupt(uint64_t ints)
 void CPU::set_power_on(bool power_sta)
 {
     this->power_sta = power_sta;
-    if (verbose) {
-        uint64_t mtime;
-        mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
-        printf("%6ld ns: ** CORE%ld POWER %s!! **\r\n", mtime, csr->mhartid,
-               power_sta ? "ON" : "OFF");
-    }
+    uint64_t mtime = 0;
+    mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
+    printf("%6ld ns: ** CORE%ld POWER %s!! **\r\n", mtime, csr->mhartid,
+           power_sta ? "ON" : "OFF");
+    
 }
 
 bool CPU::get_power_sta()

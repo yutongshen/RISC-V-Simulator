@@ -6,6 +6,7 @@
 ## Prerequisite
 - cpp compiler: g++ 7.4.0
 - device-tree-compiler: dtc 1.4.5
+- [riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain)
 
 ## Processor extension implementation
 - RV64IMACFD

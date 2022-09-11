@@ -69,9 +69,24 @@ class SPI : public Device, public Slave, public IRQSource
     uint16_t wr_idx;
     FILE *sd_img;
 
+    /* DMA */
+    uint32_t dma_src;
+    uint32_t dma_dest;
+    uint32_t dma_len;
+    uint32_t dma_busy;
+    uint8_t  dma_con_dest_size;
+    uint8_t  dma_con_src_size;
+    uint8_t  dma_con_dest_type;
+    uint8_t  dma_con_src_type;
+    uint8_t  dma_con_bypass;
+    uint8_t  dma_con_en;
+    Bus *bus;
+    void _do_dma(void);
+
 public:
     SPI(uint32_t irq_id = -1, PLIC *plic = NULL);
     ~SPI();
+    void bus_connect(Bus *_bus);
     virtual void single_step();
     virtual void run();
     virtual void stop();

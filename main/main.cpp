@@ -278,6 +278,7 @@ int main(int argc, char **argv)
     // ==========================================================
     Bus bus_0;
     cluster_0.bus_connect(&bus_0);
+    spi_0.bus_connect(&bus_0);
     bus_0.s_connect(CLST_0_BASE, &cluster_0);
     bus_0.s_connect(BRIDGE_0_BASE, &bridge_0);
     bus_0.s_connect(BROM_BASE, &boot_rom);

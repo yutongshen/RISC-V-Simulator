@@ -111,13 +111,13 @@ bool Bus::write(const Addr &addr,
     uint8_t n_slave;
     bool ret = 0;
 
-    pthread_mutex_lock(&bus_mutex);
+    // pthread_mutex_lock(&bus_mutex);
     if (!find_slave(addr, offset, n_slave))
         goto done;
     ret = slaves[n_slave]->write(offset, data_type, wdata);
 
 done:
-    pthread_mutex_unlock(&bus_mutex);
+    // pthread_mutex_unlock(&bus_mutex);
     return ret;
 }
 
@@ -127,12 +127,12 @@ bool Bus::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     uint8_t n_slave;
     bool ret = 0;
 
-    pthread_mutex_lock(&bus_mutex);
+    // pthread_mutex_lock(&bus_mutex);
     if (!find_slave(addr, offset, n_slave))
         goto done;
     ret = slaves[n_slave]->read(offset, data_type, rdata);
 
 done:
-    pthread_mutex_unlock(&bus_mutex);
+    // pthread_mutex_unlock(&bus_mutex);
     return ret;
 }

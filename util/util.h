@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <map>
+#include <string>
 #include <vector>
 #define zext(x, len) ((uint64_t)(x) << 64 - (len) >> 64 - (len))
 #define sext(x, len) ((int64_t)(x) << 64 - (len) >> 64 - (len))

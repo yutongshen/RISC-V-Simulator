@@ -6,19 +6,19 @@ void RAM::_init_data(const char *init_file)
 {
     std::ifstream data_stream(init_file, std::ios::binary | std::ios::in);
     if (!data_stream)
-        abort();
+        return;
     data_stream.read((char *) data, size);
 }
 
 RAM::RAM(uint64_t size) : Slave(size), data(new uint64_t[size >> 3]) {}
 
 RAM::RAM(const char *str_size)
-    : Slave(str_size), data(new uint64_t[this->size >> 3])
+    : Slave(str_size), data(new uint64_t[this->size >> 3]{0})
 {
 }
 
 RAM::RAM(const char *init_file, const char *str_size)
-    : Slave(str_size), data(new uint64_t[this->size >> 3])
+    : Slave(str_size), data(new uint64_t[this->size >> 3]{0})
 {
     _init_data(init_file);
 }

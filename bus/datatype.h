@@ -1,6 +1,8 @@
 #ifndef __DATATYPE__
 #define __DATATYPE__
 
+#include <cstdint>
+
 typedef uint8_t DataType;
 
 #define DATA_TYPE_BYTE 0b00010

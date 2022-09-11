@@ -1,3 +1,4 @@
+SHELL       := /bin/bash
 compile_cfg := compile.cfg
 bin_file    := brom ddr flash
 funct_list  := funct.list

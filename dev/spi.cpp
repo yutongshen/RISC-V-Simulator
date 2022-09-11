@@ -7,6 +7,15 @@
 #define CRC16_POLY 0x1021
 #define SD_MODE1
 
+#define TYPE_FIXED 0x0
+#define TYPE_INCR  0x1
+#define TYPE_CONST 0x2
+#define SIZE_BYTE  0x0
+#define SIZE_HWORD 0x1
+#define SIZE_WORD  0x2
+#define SIZE_DWORD 0x3
+
+
 static uint16_t crc_tab[256];
 static uint16_t crc = 0;
 
@@ -60,7 +69,7 @@ SPI::SPI(uint32_t irq_id, PLIC *plic)
       cr2_txdmaen(0),
       cr2_ssoe(1),
       ie(0),
-      ip(1 << 2),  // {sr_txe, sr_rxne, sr_error}
+      ip(1 << 2),  // {dma_done, sr_txe, sr_rxne, sr_error}
       sr_chside(0),
       sr_udr(0),
       sr_crcerr(0),
@@ -87,6 +96,17 @@ SPI::SPI(uint32_t irq_id, PLIC *plic)
 #else
       sd_img(NULL),
 #endif
+      dma_src(0),
+      dma_dest(0),
+      dma_len(0),
+      dma_busy(0),
+      dma_con_dest_size(0),
+      dma_con_src_size(0),
+      dma_con_dest_type(0),
+      dma_con_src_type(0),
+      dma_con_bypass(0),
+      dma_con_en(0),
+      bus(NULL),
       Device(),
       Slave(0x1000),
       IRQSource(irq_id, plic)
@@ -496,15 +516,24 @@ void SPI::_write_block(uint32_t sector, uint8_t *buff)
     }
 }
 
-void SPI::single_step() {}
+void SPI::single_step() {
+    if (dma_busy == 1) {
+        ip |= 1 << 3;
+        _update();
+    }
+    dma_busy = dma_busy ? dma_busy - 1 : 0;
+}
 void SPI::run()  {}
 void SPI::stop() {}
-
+void SPI::bus_connect(Bus *_bus) {
+    bus = _bus;
+}
 bool SPI::write(const Addr &addr,
                 const DataType &data_type,
                 const uint64_t &wdata)
 {
     uint64_t mask, _wdata;
+    bool dma_con_err;
 
     switch (data_type) {
     case DATA_TYPE_DWORD:
@@ -529,7 +558,7 @@ bool SPI::write(const Addr &addr,
     _wdata = wdata & mask;
 
     switch (addr) {
-    case RG_CR1:
+    case RG_SPI_CR1:
         cr1_cpha = (_wdata >> 0) & 1;
         cr1_cpol = (_wdata >> 1) & 1;
         if (!cr1_spe) {
@@ -539,15 +568,15 @@ bool SPI::write(const Addr &addr,
         }
         cr1_spe = (_wdata >> 6) & 1;
         break;
-    case RG_CR2:
+    case RG_SPI_CR2:
         cr2_rxdmaen = (_wdata >> 0) & 1;
         cr2_txdmaen = (_wdata >> 1) & 1;
         cr2_ssoe = (_wdata >> 2) & 1;
         ie = (_wdata >> 5) & 7;
         break;
-    case RG_SR:
+    case RG_SPI_SR:
         break;
-    case RG_DR:
+    case RG_SPI_DR:
         if (cr1_spe) {
             if (cr2_ssoe) {
                 _cmd_handler(tx_buff);
@@ -560,6 +589,53 @@ bool SPI::write(const Addr &addr,
                           (_wdata & ((1 << (8 << cr1_dff)) - 1));
         }
         break;
+    case RG_DMA_SRC:
+        dma_src = _wdata;
+        break;
+    case RG_DMA_DEST:
+        dma_dest = _wdata;
+        break;
+    case RG_DMA_LEN:
+        dma_len = _wdata;
+        break;
+    case RG_DMA_CON:
+        if (!dma_busy) {
+            dma_con_en        = (_wdata >> 0) & 0x1;
+            dma_con_bypass    = (_wdata >> 1) & 0x1;
+            dma_con_src_type  = (_wdata >> 4) & 0x3;
+            dma_con_dest_type = (_wdata >> 6) & 0x3;
+            dma_con_src_size  = (_wdata >> 8) & 0x3;
+            dma_con_dest_size = (_wdata >> 10) & 0x3;
+            dma_busy          = dma_len;
+        }
+        break;
+    case RG_DMA_IE:
+        if (_wdata & 1) ie |=  (1 << 3);
+        else            ie &= ~(1 << 3);
+        break;
+    case RG_DMA_IP:
+    case RG_DMA_IC:
+        if (_wdata & 1) ip &= ~(1 << 3);
+    }
+
+    if (dma_con_en) {
+        dma_con_err =  dma_len == 0 || dma_con_src_size > SIZE_WORD || dma_con_dest_size > SIZE_WORD ||
+                      // dma_con_dest_type == TYPE_CONST ||
+                      (dma_con_src_type  == TYPE_FIXED && dma_con_src_size  >= SIZE_HWORD && (dma_src  & 1)) ||
+                      (dma_con_src_type  == TYPE_FIXED && dma_con_src_size  >= SIZE_WORD  && (dma_src  & 2)) ||
+                      (dma_con_dest_type == TYPE_FIXED && dma_con_dest_size >= SIZE_HWORD && (dma_dest & 1)) ||
+                      (dma_con_dest_type == TYPE_FIXED && dma_con_dest_size >= SIZE_WORD  && (dma_dest & 2));
+                      // (dma_con_src_type  == TYPE_SPI   && dma_con_dest_type == TYPE_SPI)   ||
+                      // (dma_con_src_type  == TYPE_SPI   && dma_con_src_size  >  SIZE_HWORD) ||
+                      // (dma_con_dest_type == TYPE_SPI   && dma_con_dest_size >  SIZE_HWORD);
+        if (!bus || dma_con_err) {
+            dma_con_en = 0;
+            dma_busy = 0;
+        }
+        else {
+            dma_con_en = 0;
+            _do_dma();
+        }
     }
 
     // printf("Write SPI[%x]: %lx\r\n", addr, _wdata);
@@ -572,22 +648,48 @@ bool SPI::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 {
     rdata = 0L;
     switch (addr) {
-    case RG_CR1:
+    case RG_SPI_CR1:
         rdata = cr1_dff << 11 | cr1_lsbfirst << 7 | cr1_spe << 6 | cr1_br << 3 |
                 cr1_mstr << 2 | cr1_cpol << 1 | cr1_cpha << 0;
         break;
-    case RG_CR2:
+    case RG_SPI_CR2:
         rdata = ie << 5 | cr2_ssoe << 2 | cr2_txdmaen << 1 | cr2_rxdmaen << 0;
         break;
-    case RG_SR:
+    case RG_SPI_SR:
         rdata = sr_bsy << 7 | sr_ovr << 6 | sr_modf << 5 | sr_crcerr << 4 |
                 sr_udr << 3 | sr_chside << 2 | ((ip >> 1) & 1) << 1 |
                 ((ip >> 2) & 1) << 0;
         break;
-    case RG_DR:
+    case RG_SPI_DR:
         rdata = rx_buff & ((1 << (8 << cr1_dff)) - 1);
         ip &= ~(1 << 1);  // clear rxne;
         // printf("Read SPI[%lx]: %lx, rptr: %d, wptr: %d\r\n", addr, rdata, rx_fifo_rptr, rx_fifo_wptr);
+        break;
+    case RG_DMA_SRC:
+        rdata = dma_src;
+        break;
+    case RG_DMA_DEST:
+        rdata = dma_dest;
+        break;
+    case RG_DMA_LEN:
+        rdata = dma_len;
+        break;
+    case RG_DMA_CON:
+        dma_con_en &= !!dma_busy;
+        rdata = !!dma_busy << 31 | 
+                (dma_con_dest_size & 3) << 10 |
+                (dma_con_src_size  & 3) <<  8 |
+                (dma_con_dest_type & 3) <<  6 |
+                (dma_con_src_type  & 3) <<  4 |
+                (dma_con_bypass    & 1) <<  1 |
+                (dma_con_en & 1);
+        break;
+    case RG_DMA_IE:
+        rdata = (ie >> 3) & 1;
+        break;
+    case RG_DMA_IP:
+    case RG_DMA_IC:
+        rdata = (ip >> 3) & 1;
         break;
     }
 
@@ -620,4 +722,223 @@ bool SPI::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
 
     // printf("Read SPI[%x]: %lx\r\n", addr, rdata);
     return 1;
+}
+
+void SPI::_do_dma(void)
+{
+    // printf("[DBG] DMA start\r\n");
+    // printf("[DBG] SRC:           %x\r\n", dma_src);
+    // printf("[DBG] DEST:          %x\r\n", dma_dest);
+    // printf("[DBG] LEN:           %x\r\n", dma_len);
+    // printf("[DBG] CON_SRC_TYPE:  %x\r\n", dma_con_src_type);
+    // printf("[DBG] CON_DEST_TYPE: %x\r\n", dma_con_dest_type);
+    // printf("[DBG] CON_SRC_SIZE:  %x\r\n", dma_con_src_size);
+    // printf("[DBG] CON_DEST_TYPE: %x\r\n", dma_con_dest_size);
+    // printf("[DBG] CON_EN:        %x\r\n", dma_con_en);
+    uint8_t *buff = new uint8_t[dma_len];
+    Addr src(dma_src);
+    Addr dest(dma_dest);
+    
+    switch (dma_con_src_size) {
+    case SIZE_BYTE: {
+            uint8_t *ptr(buff);
+            switch (dma_con_src_type) {
+            case TYPE_FIXED: {
+                    uint64_t tmp;
+                    while (ptr < buff + dma_len)
+                        bus->read(dma_src, DATA_TYPE_BYTE, tmp);
+                        *ptr++ = tmp;
+                }
+                break;
+            case TYPE_INCR: {
+                    uint64_t tmp;
+                    while (ptr < buff + dma_len) {
+                        bus->read(src++, DATA_TYPE_BYTE, tmp);
+                        *ptr++ = tmp;
+                    }
+                }
+                break;
+            case TYPE_CONST:
+                while (ptr < buff + dma_len)
+                    *ptr++ = dma_src;
+                break;
+            }
+        }
+        break;
+    case SIZE_HWORD: {
+            uint16_t *ptr((uint16_t *) buff);
+            switch (dma_con_src_type) {
+            case TYPE_FIXED: {
+                    uint64_t tmp;
+                    while ((uint8_t *) ptr < buff + dma_len)
+                        bus->read(dma_src, DATA_TYPE_HWORD, tmp);
+                        *ptr++ = tmp;
+                }
+                break;
+            case TYPE_INCR: {
+                    uint64_t tmp;
+                    if (src & 1) {
+                        bus->read(src++, DATA_TYPE_BYTE, tmp);
+                        *(uint8_t *) ptr = tmp;
+                        ptr = (uint16_t *) (buff + 1);
+                    }
+                    while ((uint8_t *) ptr < buff + dma_len - 1) {
+                        bus->read(src, DATA_TYPE_HWORD, tmp);
+                        src += 2;
+                        *ptr++ = tmp;
+                    }
+                    if ((uint8_t *) ptr < buff + dma_len) {
+                        bus->read(src++, DATA_TYPE_BYTE, tmp);
+                        *(uint8_t *) ptr = tmp;
+                    }
+                }
+                break;
+            case TYPE_CONST:
+                while ((uint8_t *) ptr < buff + dma_len)
+                    *ptr++ = dma_src;
+                break;
+            }
+        }
+        break;
+    case SIZE_WORD: {
+            uint32_t *ptr((uint32_t *) buff);
+            switch (dma_con_src_type) {
+            case TYPE_FIXED: {
+                    uint64_t tmp;
+                    while ((uint8_t *) ptr < buff + dma_len)
+                        bus->read(dma_src, DATA_TYPE_WORD, tmp);
+                        *ptr++ = tmp;
+                }
+                break;
+            case TYPE_INCR: {
+                    uint64_t tmp;
+                    if (src & 1) {
+                        bus->read(src++, DATA_TYPE_BYTE, tmp);
+                        *(uint8_t *) ptr = tmp;
+                        ptr = (uint32_t *) (buff + 1);
+                    }
+                    if ((src & 2) && (uint8_t *) ptr < buff + dma_len - 1) {
+                        bus->read(src, DATA_TYPE_HWORD, tmp);
+                        src += 2;
+                        *(uint16_t *) ptr = tmp;
+                        ptr = (uint32_t *) ((uint64_t) ptr + 2);
+                    }
+                    while ((uint8_t *) ptr < buff + dma_len - 3) {
+                        bus->read(src, DATA_TYPE_WORD, tmp);
+                        src += 4;
+                        *ptr++ = tmp;
+                    }
+                    if ((uint8_t *) ptr < buff + dma_len - 1) {
+                        bus->read(src, DATA_TYPE_HWORD, tmp);
+                        src += 2;
+                        *(uint16_t *) ptr = tmp;
+                        ptr = (uint32_t *) ((uint64_t) ptr + 2);
+                    }
+                    if ((uint8_t *) ptr < buff + dma_len) {
+                        bus->read(src, DATA_TYPE_BYTE, tmp);
+                        *(uint8_t *) ptr = tmp;
+                    }
+                }
+                break;
+            case TYPE_CONST:
+                while ((uint8_t *) ptr < buff + dma_len)
+                    *ptr++ = dma_src;
+                break;
+            }
+        }
+        break;
+    }
+
+    if (!dma_con_bypass) {
+        uint8_t *ptr(buff);
+        while (ptr < buff + dma_len) {
+            if (cr1_spe) {
+                if (cr2_ssoe) {
+                    _cmd_handler(tx_buff);
+                    tx_buff = tx_buff << (8 << cr1_dff) |
+                              (*ptr & ((1 << (8 << cr1_dff)) - 1));
+                    RX_FIFO_POP(rx_buff);
+                    *ptr = rx_buff;
+                } else
+                    rx_buff = -1;
+            }
+            ++ptr;
+        }
+    }
+
+    switch (dma_con_dest_size) {
+    case SIZE_BYTE: {
+            uint8_t *ptr(buff);
+            switch (dma_con_dest_type) {
+            case TYPE_FIXED:
+                while (ptr < buff + dma_len)
+                    bus->write(dest, DATA_TYPE_BYTE, *ptr++);
+                break;
+            case TYPE_INCR:
+                while (ptr < buff + dma_len) {
+                    bus->write(dest++, DATA_TYPE_BYTE, *ptr++);
+                }
+                break;
+            }
+        }
+        break;
+    case SIZE_HWORD: {
+            uint16_t *ptr((uint16_t *) buff);
+            switch (dma_con_dest_type) {
+            case TYPE_FIXED:
+                while ((uint8_t *) ptr < buff + dma_len)
+                    bus->write(dest, DATA_TYPE_HWORD, *ptr++);
+                break;
+            case TYPE_INCR:
+                if (dest & 1) {
+                    bus->write(dest++, DATA_TYPE_BYTE, *(uint8_t *) ptr);
+                    ptr = (uint16_t *) (buff + 1);
+                }
+                while ((uint8_t *) ptr < buff + dma_len - 1) {
+                    bus->write(dest, DATA_TYPE_HWORD, *ptr++);
+                    dest += 2;
+                }
+                if ((uint8_t *) ptr < buff + dma_len) {
+                    bus->write(dest++, DATA_TYPE_BYTE, *(uint8_t *) ptr);
+                }
+                break;
+            }
+        }
+        break;
+    case SIZE_WORD: {
+            uint32_t *ptr((uint32_t *) buff);
+            switch (dma_con_dest_type) {
+            case TYPE_FIXED:
+                while ((uint8_t *) ptr < buff + dma_len)
+                    bus->write(dest, DATA_TYPE_WORD, *ptr++);
+                break;
+            case TYPE_INCR:
+                if (dest & 1) {
+                    bus->write(dest++, DATA_TYPE_BYTE, *(uint8_t *) ptr);
+                    ptr = (uint32_t *) (buff + 1);
+                }
+                if ((dest & 2) && (uint8_t *) ptr < buff + dma_len - 1) {
+                    bus->write(dest, DATA_TYPE_HWORD, *(uint16_t *) ptr);
+                    dest += 2;
+                    ptr = (uint32_t *) ((uint64_t) ptr + 2);
+                }
+                while ((uint8_t *) ptr < buff + dma_len - 3) {
+                    bus->write(dest, DATA_TYPE_WORD, *ptr++);
+                    dest += 4;
+                }
+                if ((uint8_t *) ptr < buff + dma_len - 1) {
+                    bus->write(dest, DATA_TYPE_HWORD, *(uint16_t *) ptr);
+                    dest += 2;
+                    ptr = (uint32_t *) ((uint64_t) ptr + 2);
+                }
+                if ((uint8_t *) ptr < buff + dma_len) {
+                    bus->write(dest, DATA_TYPE_BYTE, *(uint8_t *) ptr);
+                }
+                break;
+            }
+            break;
+        }
+        break;
+    }
+    delete buff;
 }

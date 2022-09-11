@@ -201,6 +201,9 @@ handle_reset:
     csrw mtvec, t0;
     csrr t0, mtvec;
 
+    # M-mode DMA test
+    jal dma_test;
+
     # Initialize virtual memory
     j vm_boot;
 

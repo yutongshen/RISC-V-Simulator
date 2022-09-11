@@ -16,8 +16,8 @@ CSR::CSR(uint64_t cpuid, uint64_t *pc_ptr) : prv(PRV_M), pc_ptr(pc_ptr)
     max_isa |= 1UL << ('I' - 'A');
     max_isa |= 1UL << ('M' - 'A');
     max_isa |= 1UL << ('A' - 'A');
-    // max_isa |= 1UL << ('F' - 'A');
-    // max_isa |= 1UL << ('D' - 'A');
+    max_isa |= 1UL << ('F' - 'A');
+    max_isa |= 1UL << ('D' - 'A');
     max_isa |= 1UL << ('C' - 'A');
     max_isa |= 1UL << ('S' - 'A');
     misa = max_isa;
@@ -146,8 +146,8 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         _mask = 0;
         _mask |= 1UL << ('M' - 'A');
         _mask |= 1UL << ('A' - 'A');
-        // _mask |= 1UL << ('F' - 'A');
-        // _mask |= 1UL << ('D' - 'A');
+        _mask |= 1UL << ('F' - 'A');
+        _mask |= 1UL << ('D' - 'A');
         _mask |= 1UL << ('C' - 'A');
         _mask &= max_isa;
         misa = (misa & ~_mask) | (value & _mask);

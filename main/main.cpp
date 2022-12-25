@@ -9,6 +9,7 @@
 #include "dev/finisher.h"
 #include "dev/plic.h"
 #include "dev/spi.h"
+#include "dev/eth.h"
 #include "dev/tmdl.h"
 #include "dev/uart.h"
 #include "fesvr/htif.h"
@@ -21,7 +22,7 @@
 #include "util/util.h"
 using namespace std;
 
-bool verbose(0);
+bool verbose(1);
 bool __exit(0);
 // uint64_t cycle;
 
@@ -231,6 +232,11 @@ int main(int argc, char **argv)
     SPI spi_0(SPI_IRQ_ID, &plic_0);
 
     // ==========================================================
+    //                     Define SPI
+    // ==========================================================
+    Eth eth_0(ETH_IRQ_ID, &plic_0);
+
+    // ==========================================================
     //                     Define FINISHER
     // ==========================================================
     Finisher finisher;
@@ -292,6 +298,7 @@ int main(int argc, char **argv)
     bridge_0.bus_connect(&peribus_0);
     peribus_0.s_connect(UART_BASE - BRIDGE_0_BASE, &uart_0);
     peribus_0.s_connect(SPI_BASE - BRIDGE_0_BASE, &spi_0);
+    peribus_0.s_connect(ETH_BASE - BRIDGE_0_BASE, &eth_0);
     peribus_0.s_connect(FINISHER_BASE - BRIDGE_0_BASE, &finisher);
     peribus_0.s_connect(HTIF_BASE - BRIDGE_0_BASE, &htif_0);
     peribus_0.s_connect(CLINT_BASE - BRIDGE_0_BASE, &clint_0);
@@ -304,6 +311,7 @@ int main(int argc, char **argv)
     sys_0.add(&clint_0);
     sys_0.add(&uart_0);
     sys_0.add(&spi_0);
+    sys_0.add(&eth_0);
 
     htif_0.bus_connect(&bus_0);
 

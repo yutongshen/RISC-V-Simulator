@@ -86,7 +86,7 @@ int main(int argc, char **argv)
     bool bmp_flag(0);
     bool done;
     sprintf(main_cmd,
-            "%s/main %s/brom.bin %s/ddr.bin %s/flash.bin -dump -mem_addr 0x%08x "
+            "sudo %s/main %s/brom.bin %s/ddr.bin %s/flash.bin -dump -mem_addr 0x%08x "
             "-mem_len 0x1000 -sim_end 0x%08x -sim_end_code 0x%08x "
             "-tmdl_log %s -cycle 0x9fffffff -o %s/%s",
             argv[1], argv[2], argv[2], argv[2], TEST_START, SIM_END, SIM_END_CODE,

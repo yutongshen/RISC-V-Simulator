@@ -14,6 +14,6 @@
 
 #define UART_IRQ_ID 1
 #define SPI_IRQ_ID 2
-#define ETH_IRQ_ID 2
+#define ETH_IRQ_ID 3
 
 #endif

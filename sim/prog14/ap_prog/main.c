@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include "util.h"
+#include "riscv_def.h"
 // #include "util.h"
 #define MTU 1500
 #define ETH_HEADER_SIZE   14
@@ -8,9 +10,14 @@
 #define DHCP_HEADER_SIZE 240
 
 #define UDP_PROTO 17
+#define PERI_PA2KVA(ADDR, TYPE) ((volatile TYPE *)(ADDR - 0x80000000L))
 
 char dst_addrll[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 char src_addrll[] = {0x00, 0x50, 0xca, 0xfe, 0xca, 0xfe};
+
+void *frame_handler(trapframe_t *);
+extern void *copy_from_user(void *_kern, void *_user, uint32_t _len);
+extern void *copy_to_user(void *_kern, void *_user, uint32_t _len);
 
 struct ethframe {
     char h_dest[6];
@@ -68,45 +75,24 @@ uint32_t htonl(uint32_t x) {
     return x;
 }
 
-int main(int argc, char **argv)
-{
-    float pi = 3.1415926;
-    printf("hello world!!\npi = %f\n", pi);
-    printf("MTIP TEST PASS\n", pi);
-    return 0;
-}
-
-void eth_init()
-{
-    *ETH_RG_TXCTRL_32P = 2 << 16 | 1;
-    *ETH_RG_RXCTRL_32P = 2 << 16 | 1;
-}
-
 void sendframe(const char *data, int len, const char *shaddr,
                const char *dhaddr, uint16_t proto)
 {
-    /* TM_PRINT="Send frame" */
+    printf("[U-mode] Send frame\n");
     struct ethframe frame;
     memcpy(frame.h_dest,   dhaddr, 6);
     memcpy(frame.h_source, shaddr, 6);
     frame.h_proto = htons(proto);
     memcpy(frame.data, data, len);
 
-    uint32_t *ptr = (uint32_t *)&frame;
-    while (*ETH_RG_RESET_32P >> 31);
-    *ETH_RG_TXLEN_32P = len + ETH_HEADER_SIZE;
-
-    /* TM_PRINT="ETH_RG_RESET  = %x", *ETH_RG_RESET_32P */
-    /* TM_PRINT="ETH_RG_TXCTRL = %x", *ETH_RG_TXCTRL_32P */
-    /* TM_PRINT="ETH_RG_TXLEN  = %x", *ETH_RG_TXLEN_32P */
-    for (int i = *ETH_RG_TXLEN_32P; i > 0; i -= 4) *ETH_RG_TXFIFO_32P = *ptr++;
+    syscall(0, (void *)frame_handler, 1, (void *)&frame, len + ETH_HEADER_SIZE);
 }
 
 void sendip(const char *data, int len, char proto,
             const char *saddr, const char *daddr,
             const char *shaddr, const char *dhaddr) {
     char buff[MTU];
-    struct iphdr *packet = buff;
+    struct iphdr *packet = (struct iphdr *)buff;
 
     packet->ver      = 4;
     packet->ihl      = 5;
@@ -139,7 +125,7 @@ void sendudp(char *data, uint32_t len,
             uint16_t sport, uint16_t dport,
             uint8_t *shaddr, uint8_t *dhaddr) {
     char buff[MTU - IP_HEADER_SIZE];
-    struct udphdr *packet = buff;
+    struct udphdr *packet = (struct udphdr *)buff;
     packet->source = htons(sport);
     packet->dest   = htons(dport);
     packet->len    = htons(UDP_HEADER_SIZE + len);
@@ -151,7 +137,7 @@ void sendudp(char *data, uint32_t len,
 
 void dhcpdiscover(char *shaddr) {
     char buff[DHCP_HEADER_SIZE + 32];
-    struct dhcphdr *packet = buff;
+    struct dhcphdr *packet = (struct dhcphdr *)buff;
     char *opt = buff + DHCP_HEADER_SIZE;
     char saddr[] = {0x00, 0x00, 0x00, 0x00};
     char daddr[] = {0xff, 0xff, 0xff, 0xff};
@@ -207,43 +193,102 @@ void dhcpdiscover(char *shaddr) {
     sendudp(buff, DHCP_HEADER_SIZE + 32, saddr, daddr, 68, 67, shaddr, dhaddr);
 }
 
-char recvframe(char *buff, uint32_t *len, uint32_t retry)
+void recvframe(char *buff, uint32_t *len, uint32_t retry)
 {
-    /* TM_PRINT="Receive frame" */
-    while (len = *ETH_RG_RXLEN_32P, !len && retry--);
-    if (!len) return;
-    /* TM_PRINT="get a frame len = %d", len */
-    for (int i = 0, *ptr = buff; i < len; i += 4)
-        *ptr++ = *ETH_RG_RXFIFO_32P;
+    printf("[U-mode] Receive frame\n");
+    syscall(0, (void *)frame_handler, 0, buff, len, retry);
+}
 
-    *ETH_RG_RXDIS_32P = 1;
+int main(int argc, char **argv)
+{
+    printf("[U-mode] Enter into main function\n");
+    char buff[1500];
+    uint32_t len;
 
-    char res = 0;
-    /* TM_PRINT="From: %02x:%02x:%02x:%02x:%02x:%02x", buff[6], buff[7], buff[8], buff[9], buff[10], buff[11] */
-    /* TM_PRINT="To:   %02x:%02x:%02x:%02x:%02x:%02x", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5] */
-    if (*(uint32_t *)buff == *(uint32_t *)src_addrll &&
-        *(uint16_t *)(buff + 4) == *(uint16_t *)(src_addrll + 4)) {
-        for (int i = 0, *ptr = buff; i < len; i += 4, ptr++) {
-            /* TM_PRINT="%02x %02x %02x %02x", *ptr & 0xff, (*ptr >> 8) & 0xff, (*ptr >> 16) & 0xff, (*ptr >> 24) & 0xff */
-        }
-        res = 1;
+    dhcpdiscover(src_addrll);
+    do {
+        recvframe(buff, &len, 20000);
+    } while (memcmp(buff, src_addrll, 6));
+    printf("Package size: %d\n", len);
+    for (int i = 0; i < len; ++i) {
+        printf("%02x ", buff[i]);
+        if (i % 16 == 15) puts("");
     }
-    return res;
+    return 0;
+}
+
+void plic_init() {
+    // Set UART and SPI interrupt priority
+    PLIC_RG_PRIOR_32P[1] = 1;
+    PLIC_RG_PRIOR_32P[2] = 1;
+    PLIC_RG_PRIOR_32P[3] = 1;
+
+    // Set interrupt 1~31 enable for S-mode
+    PLIC_RG_ENABLE_32P[0x20] = ~1;
+
+}
+
+void irq_init() {
+    asm volatile ("csrs mstatus, %[rs]"::[rs] "r" (MSTATUS_SPIE));
+    asm volatile ("csrs mideleg, %[rs]"::[rs] "r" (MIP_SEIP));
+    asm volatile ("csrs mie, %[rs]"::[rs] "r" (MIP_SEIP));
+}
+
+void eth_init()
+{
+    *ETH_RG_TXCTRL_32P = 2 << 16 | 1;
+    *ETH_RG_RXCTRL_32P = 2 << 16 | 1;
+    *ETH_RG_IE_32P     = 1 << 1;
 }
 
 void eth_test(void)
 { 
     /* TM_PRINT="Ethernet test begin" */
     eth_init();
-    
+    irq_init();
+    plic_init();
+
     char data[100] = {"Hello World~ RISC-V~"};
     char saddr[] = {0, 0, 0, 0};
     char daddr[] = {255, 255, 255, 255};
     char buff[1500];
     int len;
-    // sendframe(data, strlen(data), src_addrll, dst_addrll, 0x0800);
-    // sendip(data, strlen(data), UDP_PROTO, saddr, daddr, src_addrll, dst_addrll);
-    // sendudp(data, strlen(data), saddr, daddr, 68, 67, src_addrll, dst_addrll);
-    dhcpdiscover(src_addrll);
-    while (!recvframe(buff, &len, 20000)) dhcpdiscover(src_addrll);
+}
+
+void irq_handler() {
+    int irq_id = PERI_PA2KVA(PLIC_RG_INTID, uint32_t)[0x400];
+    printk("[S-mode] Receive external interrupt ID: %d\n", irq_id);
+    *PERI_PA2KVA(ETH_RG_IE, uint32_t) = 0;
+    PERI_PA2KVA(PLIC_RG_INTID, uint32_t)[0x400] = 0;
+}
+
+void *frame_handler(trapframe_t *ft) {
+    char buff[1500];
+    uint32_t *ptr = (uint32_t *)buff;
+    bool is_send = ft->a2;
+    uint32_t len;
+    printk("[S-mode] frame_handler: %s\n", is_send ? "send" : "receive");
+
+    if (is_send) {
+        len = (uint32_t)ft->a4;
+        copy_from_user(buff, (void *)ft->a3, len);
+        while (*PERI_PA2KVA(ETH_RG_RESET, uint32_t) >> 31);
+        *PERI_PA2KVA(ETH_RG_TXLEN, uint32_t) = len;
+
+        for (int i = *PERI_PA2KVA(ETH_RG_TXLEN, uint32_t); i > 0; i -= 4)
+            *PERI_PA2KVA(ETH_RG_TXFIFO, uint32_t) = *ptr++;
+    }
+    else {
+        uint32_t retry = (uint32_t)ft->a5;
+        while (!(len = *PERI_PA2KVA(ETH_RG_RXLEN, uint32_t)) && retry--);
+        copy_to_user((void *)ft->a4, &len, sizeof(uint32_t));
+        if (!len) return ft;
+        for (int i = 0; i < len; i += 4)
+            *ptr++ = *PERI_PA2KVA(ETH_RG_RXFIFO, uint32_t);
+
+        *PERI_PA2KVA(ETH_RG_RXDIS, uint32_t) = 1;
+        copy_to_user((void *)ft->a3, buff, len);
+    }
+
+    return ft;
 }

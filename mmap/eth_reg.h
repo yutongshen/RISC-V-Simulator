@@ -14,5 +14,7 @@
 #define RG_IE 0x24
 #define RG_IP 0x28
 #define RG_IC 0x2C
+#define RG_MAC0 0x30
+#define RG_MAC1 0x34
 
 #endif

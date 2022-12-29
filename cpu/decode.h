@@ -1789,7 +1789,6 @@
     instr_len = 4;                                                       \
     sprintf(remark, "lr.d%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
             regs_name[rs1]);                                             \
-    sprintf(remark, "%s (check)", remark);                               \
     require_extension('A');                                              \
     if (regs[rs1] & 7UL)                                                 \
         throw TrapLoadAccessFault(regs[rs1]);                            \

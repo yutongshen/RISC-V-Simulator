@@ -5,13 +5,6 @@
 #include "mmap_soc.h"
 #include "riscv_def.h"
 
-#define MEGAPAGE (PGSIZE << 9)
-
-volatile uint64_t *tohost =
-    (volatile uint64_t *) (HTIF_RG_TOHOST - BRIDGE_0_BASE - 2 * MEGAPAGE);
-volatile uint64_t *fromhost =
-    (volatile uint64_t *) (HTIF_RG_FROMHOST - BRIDGE_0_BASE - 2 * MEGAPAGE);
-
 size_t strlen(const char *str) {
     size_t res = 0;
     while (*str++) res++;
@@ -58,40 +51,37 @@ void *memcpy(void *restrict ptr, const void *restrict src, size_t len)
     return ptr;
 }
 
-uint64_t write_tohost(trapframe_t *ft)
-{
-    __sync_synchronize();
-
-    *tohost = ft->a0;
-    while (!*fromhost)
-        ;
-    *fromhost = 0;
-
-    __sync_synchronize();
-
-    return (uint64_t) ft;
+int memcmp(const void *a, const void *b, size_t len) {
+    while (len--) {
+        if (*(const char *)a != *(const char *)b)
+            return *(const char *)a - *(const char *)b;
+        ++a, ++b;
+    }
+    return 0;
 }
 
-uint64_t syscall(uint64_t sys_id, uint64_t arg)
+uint64_t syscall(bool tohost, ...)
 {
-    asm volatile(
-        "slli a0, a0, 48; \
-                  or a0, a0, a1; \
-                  ecall;" ::
-            : "a0");
+    if (tohost)
+        asm volatile(
+            "slli a1, a1, 48;"
+            "or a1, a1, a2;"
+            "ecall;" ::: "a0");
+    else
+        asm volatile(
+            "ecall;" ::: "a0");
     return 0;
 }
 
 void abort(void)
 {
-    syscall(SYSCALL_SYS, 3);
-    while (1)
-        ;
+    syscall(1, SYSCALL_SYS, 3);
+    while (1);
 }
 
 int putchar(int ch)
 {
-    syscall(SYSCALL_PUTCHAR, ch);
+    syscall(1, SYSCALL_PUTCHAR, ch);
 
     return 0;
 }
@@ -294,6 +284,12 @@ int printf(const char *format, ...)
                 assert(!(min_len || fill_char));
                 res += _puts(va_arg(va, const char *));
                 break;
+            case 'p': {
+                assert(!(!fill_char ^ !min_len));
+                uint64_t n = va_arg(va, uint64_t);
+                res += _puts("0x");
+                res += _puts(itoa(n, 16, min_len, min_len ? fill_char : '0'));
+            } break;
             case 'x': {
                 assert(!(!fill_char ^ !min_len));
                 uint64_t n = va_arg(va, uint64_t);
@@ -376,3 +372,4 @@ int printf(const char *format, ...)
     }
     return res;
 }
+

@@ -28,8 +28,8 @@
 #define set_field(x, mask, value) \
     ((x) & ~(mask)) | ((value) * ((mask) & ~((mask) << 1)) & (mask))
 
-#define SYSCALL_PUTCHAR 0x0101
-#define SYSCALL_SYS 0x0000
+#define SYSCALL_PUTCHAR 0x0101L
+#define SYSCALL_SYS 0x0000L
 
 #define PRV_U 0x0
 #define PRV_S 0x1

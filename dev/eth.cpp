@@ -6,6 +6,9 @@
 #include "util/util.h"
 #include <assert.h>
 
+#define TXEIE_BIT  0
+#define RXNEIE_BIT 1
+
 bool sim_end = 0;
 bool rx_en = 0;
 uint8_t rx_fifo[ETH_RX_FIFO_SIZE];
@@ -14,6 +17,9 @@ uint16_t rx_wptr = 0;
 uint16_t rx_rptr = 0;
 uint16_t rx_len_wptr = 0;
 uint16_t rx_len_rptr = 0;
+uint8_t mac_addr[] = {0x00, 0x50, 0xca, 0xfe, 0xca, 0xfe};
+uint8_t bc_addr[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+bool promisc = 0;
 
 void recvpacket(uint32_t sock)
 {
@@ -23,10 +29,11 @@ void recvpacket(uint32_t sock)
         len = recvfrom(sock, buff, sizeof(buff), 0, NULL, NULL);
         if (len < 42 || !rx_en ||
             len > (rx_rptr + ETH_RX_FIFO_SIZE - rx_wptr - 1) % ETH_RX_FIFO_SIZE ||
-            (rx_len_rptr + ETH_RX_LEN_FIFO_SIZE - rx_len_wptr) % ETH_RX_LEN_FIFO_SIZE == 1) {
+            (rx_len_rptr + ETH_RX_LEN_FIFO_SIZE - rx_len_wptr) % ETH_RX_LEN_FIFO_SIZE == 1 ||
+            !(promisc || !memcmp(mac_addr, buff, 6) || !memcmp(bc_addr, buff, 6))) {
             continue;
         }
-        printf("[ETH][DEBUG] Recv packet. len: %d\r\n", len);
+        // printf("[ETH][DEBUG] Recv packet. len: %d\r\n", len);
         if (len + rx_wptr > ETH_RX_FIFO_SIZE) {
             memcpy(rx_fifo + rx_wptr, buff, ETH_RX_FIFO_SIZE - rx_wptr);
             memcpy(rx_fifo, buff + ETH_RX_FIFO_SIZE - rx_wptr, len + rx_wptr - ETH_RX_FIFO_SIZE);
@@ -78,6 +85,8 @@ Eth::Eth(uint32_t irq_id, PLIC *plic)
     ioctl(sock, SIOCGIFFLAGS, &ifr);
     ifr.ifr_flags |= IFF_PROMISC;
     ioctl(sock, SIOCSIFFLAGS, &ifr);
+
+    ip |= 1 << TXEIE_BIT;
 }
 
 Eth::~Eth()
@@ -94,6 +103,11 @@ Eth::~Eth()
 void Eth::single_step()
 {
     wbusy = wbusy ? wbusy - 1 : 0;
+    if (rx_len_rptr != rx_len_wptr)
+        ip |=   1 << RXNEIE_BIT;
+    else
+        ip &= ~(1 << RXNEIE_BIT);
+
     if (ie & ip)
         DEV_RISING_IRQ();
     else
@@ -188,6 +202,7 @@ bool Eth::write(const Addr &addr,
     case RG_TXCTRL:
         if (!wbusy && !tx_len) {
             tx_size = (_wdata >> 16) & 0x3;
+            promisc = (_wdata >>  1) & 0x1;
             tx_en   = (_wdata >>  0) & 0x1;
         }
         break;
@@ -219,10 +234,15 @@ bool Eth::write(const Addr &addr,
         }
         break;
     case RG_IE:
+        ie = _wdata & (1 << TXEIE_BIT | 1 << RXNEIE_BIT);
         break;
     case RG_IP:
         break;
     case RG_IC:
+        break;
+    case RG_MAC0:
+        break;
+    case RG_MAC1:
         break;
     }
 
@@ -243,7 +263,7 @@ bool Eth::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         rdata = tx_len ? 0 : -1;
         break;
     case RG_TXCTRL:
-        rdata = tx_size << 16 | tx_en << 0;
+        rdata = tx_size << 16 | promisc << 1 | tx_en << 0;
         break;
     case RG_TXDIS:
         break;
@@ -275,10 +295,19 @@ bool Eth::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     case RG_RXDIS:
         break;
     case RG_IE:
+        rdata = ie;
         break;
     case RG_IP:
+        rdata = ip;
         break;
     case RG_IC:
+        rdata = ip;
+        break;
+    case RG_MAC0:
+        rdata = *(uint32_t *)mac_addr;
+        break;
+    case RG_MAC1:
+        rdata = *(uint16_t *)mac_addr;
         break;
     }
 

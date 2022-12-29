@@ -131,11 +131,13 @@ trap_handle:
     beq t0, t1, store_page_fault;
 
 interrupt_handle:
+    jal irq_handler;
+    j trap_ret;
 misaligned_fetch:
 sbreak:
     j _abort; # no interrupt
 ucall:
-    jal write_tohost;
+    jal ecall_handler;
     csrr t0, sepc;
     addi t0, t0, 4;
     sd t0, 32*8(a0);
@@ -233,6 +235,7 @@ user_space:
     la sp, (STACK_TOP - TRAPFRAM_SIZE);
     jal main;
     li a0, 1;
+    li a1, 1;
     ecall;
 
 

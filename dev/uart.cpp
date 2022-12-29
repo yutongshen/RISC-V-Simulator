@@ -38,7 +38,7 @@ void getch()
         }
     }
 
-    printf("[DEBUG] exit = %d\r\n", __exit);
+    printf("[DEBUG] exit = %ld\r\n", __exit);
     system("stty -raw echo");
     assert(exit_key != (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
                         ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0));

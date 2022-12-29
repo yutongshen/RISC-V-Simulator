@@ -26,8 +26,12 @@ void recvpacket(uint32_t sock)
     char buff[2048];
     int len, i = 0, j;
     while (!sim_end) {
+        if (!rx_en) {
+            usleep(1000);
+            continue;
+        }
         len = recvfrom(sock, buff, sizeof(buff), 0, NULL, NULL);
-        if (len < 42 || !rx_en ||
+        if (len < 42 ||
             len > (rx_rptr + ETH_RX_FIFO_SIZE - rx_wptr - 1) % ETH_RX_FIFO_SIZE ||
             (rx_len_rptr + ETH_RX_LEN_FIFO_SIZE - rx_len_wptr) % ETH_RX_LEN_FIFO_SIZE == 1 ||
             !(promisc || !memcmp(mac_addr, buff, 6) || !memcmp(bc_addr, buff, 6))) {

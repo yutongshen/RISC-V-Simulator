@@ -22,7 +22,7 @@
 #include "util/util.h"
 using namespace std;
 
-bool verbose(1);
+bool verbose(0);
 bool __exit(0);
 // uint64_t cycle;
 

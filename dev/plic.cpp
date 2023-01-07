@@ -164,32 +164,6 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         }
     }
 
-
-    switch (data_type) {
-    case DATA_TYPE_DWORD:
-        break;
-    case DATA_TYPE_WORD:
-        rdata = sext(rdata, 32);
-        break;
-    case DATA_TYPE_WORD_UNSIGNED:
-        rdata = zext(rdata, 32);
-        break;
-    case DATA_TYPE_HWORD:
-        rdata = sext(rdata, 16);
-        break;
-    case DATA_TYPE_HWORD_UNSIGNED:
-        rdata = zext(rdata, 16);
-        break;
-    case DATA_TYPE_BYTE:
-        rdata = sext(rdata, 8);
-        break;
-    case DATA_TYPE_BYTE_UNSIGNED:
-        rdata = zext(rdata, 8);
-        break;
-    default:
-        abort();
-    }
-
     _update();
 
     return 1;

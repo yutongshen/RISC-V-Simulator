@@ -12,8 +12,12 @@
 #define UDP_PROTO 17
 #define PERI_PA2KVA(ADDR, TYPE) ((volatile TYPE *)(ADDR - 0x80000000L))
 
+#define ETH_SEND_FRAME 0
+#define ETH_RECV_FRAME 1
+#define ETH_GET_MAC_ADDR 2
+
 char dst_addrll[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-char src_addrll[] = {0x00, 0x50, 0xca, 0xfe, 0xca, 0xfe};
+char src_addrll[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void *frame_handler(trapframe_t *);
 extern void *copy_from_user(void *_kern, void *_user, uint32_t _len);
@@ -85,7 +89,7 @@ void sendframe(const char *data, int len, const char *shaddr,
     frame.h_proto = htons(proto);
     memcpy(frame.data, data, len);
 
-    syscall(0, (void *)frame_handler, 1, (void *)&frame, len + ETH_HEADER_SIZE);
+    syscall(0, (void *)frame_handler, ETH_SEND_FRAME, (void *)&frame, len + ETH_HEADER_SIZE);
 }
 
 void sendip(const char *data, int len, char proto,
@@ -139,9 +143,9 @@ void dhcpdiscover(char *shaddr) {
     char buff[DHCP_HEADER_SIZE + 32];
     struct dhcphdr *packet = (struct dhcphdr *)buff;
     char *opt = buff + DHCP_HEADER_SIZE;
-    char saddr[] = {0x00, 0x00, 0x00, 0x00};
-    char daddr[] = {0xff, 0xff, 0xff, 0xff};
-    char dhaddr[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    char saddr[4] = {0x00, 0x00, 0x00, 0x00};
+    char daddr[4] = {0xff, 0xff, 0xff, 0xff};
+    char dhaddr[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
     memset(buff, 0, DHCP_HEADER_SIZE + 32);
     packet->op    = 1;
@@ -196,24 +200,42 @@ void dhcpdiscover(char *shaddr) {
 void recvframe(char *buff, uint32_t *len, uint32_t retry)
 {
     printf("[U-mode] Receive frame\n");
-    syscall(0, (void *)frame_handler, 0, buff, len, retry);
+    syscall(0, (void *)frame_handler, ETH_RECV_FRAME, buff, len, retry);
+}
+
+void print_packet(char *buff, size_t len) {
+    int i, j;
+    printf("Package size: %d\n", len);
+    for (i = 0; i < len; ++i) {
+        printf("%02x ", buff[i]);
+        if (i % 16 == 15) {
+            for (j = i - 15, printf("  "); j <= i; ++j)
+                if (buff[j] >= 0x20 && buff[j] <= 0x7e) putchar(buff[j]);
+                else putchar('.');
+            puts("");
+        }
+    }
 }
 
 int main(int argc, char **argv)
 {
     printf("[U-mode] Enter into main function\n");
     char buff[1500];
-    uint32_t len;
+    uint32_t len, cnt = 0;
 
+    syscall(0, (void *)frame_handler, ETH_GET_MAC_ADDR, src_addrll);
+    printf("MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", src_addrll[0], src_addrll[1], src_addrll[2],
+                                                   src_addrll[3], src_addrll[4], src_addrll[5]);
     dhcpdiscover(src_addrll);
     do {
         recvframe(buff, &len, 20000);
+        cnt += 1;
+        if (!(cnt % 4)) {
+            dhcpdiscover(src_addrll);
+            cnt = 0;
+        }
     } while (memcmp(buff, src_addrll, 6));
-    printf("Package size: %d\n", len);
-    for (int i = 0; i < len; ++i) {
-        printf("%02x ", buff[i]);
-        if (i % 16 == 15) puts("");
-    }
+    print_packet(buff, len);
     return 0;
 }
 
@@ -238,7 +260,7 @@ void eth_init()
 {
     *ETH_RG_TXCTRL_32P = 2 << 16 | 1;
     *ETH_RG_RXCTRL_32P = 2 << 16 | 1;
-    *ETH_RG_IE_32P     = 1 << 1;
+    // *ETH_RG_IE_32P     = 1 << 1;
 }
 
 void eth_test(void)
@@ -265,11 +287,11 @@ void irq_handler() {
 void *frame_handler(trapframe_t *ft) {
     char buff[1500];
     uint32_t *ptr = (uint32_t *)buff;
-    bool is_send = ft->a2;
     uint32_t len;
-    printk("[S-mode] frame_handler: %s\n", is_send ? "send" : "receive");
 
-    if (is_send) {
+    switch (ft->a2) {
+    case ETH_SEND_FRAME:
+        printk("[S-mode] frame_handler: send\n");
         len = (uint32_t)ft->a4;
         copy_from_user(buff, (void *)ft->a3, len);
         while (*PERI_PA2KVA(ETH_RG_RESET, uint32_t) >> 31);
@@ -277,10 +299,14 @@ void *frame_handler(trapframe_t *ft) {
 
         for (int i = *PERI_PA2KVA(ETH_RG_TXLEN, uint32_t); i > 0; i -= 4)
             *PERI_PA2KVA(ETH_RG_TXFIFO, uint32_t) = *ptr++;
-    }
-    else {
+        break;
+    case ETH_RECV_FRAME:
+        printk("[S-mode] frame_handler: receive\n");
         uint32_t retry = (uint32_t)ft->a5;
-        while (!(len = *PERI_PA2KVA(ETH_RG_RXLEN, uint32_t)) && retry--);
+        // while (!(len = *PERI_PA2KVA(ETH_RG_RXLEN, uint32_t)) && retry--);
+        *PERI_PA2KVA(ETH_RG_IE, uint32_t) |=  1;
+        asm volatile("wfi");
+        len = *PERI_PA2KVA(ETH_RG_RXLEN, uint32_t);
         copy_to_user((void *)ft->a4, &len, sizeof(uint32_t));
         if (!len) return ft;
         for (int i = 0; i < len; i += 4)
@@ -288,6 +314,11 @@ void *frame_handler(trapframe_t *ft) {
 
         *PERI_PA2KVA(ETH_RG_RXDIS, uint32_t) = 1;
         copy_to_user((void *)ft->a3, buff, len);
+        break;
+    case ETH_GET_MAC_ADDR:
+        printk("[S-mode] frame_handler: get mac addr\n");
+        copy_to_user((void *)ft->a3, PERI_PA2KVA(ETH_RG_MAC0, void), 6);
+        break;
     }
 
     return ft;

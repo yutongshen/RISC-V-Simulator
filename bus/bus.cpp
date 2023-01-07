@@ -112,7 +112,7 @@ bool Bus::write(const Addr &addr,
     bool ret = 0;
 
     // pthread_mutex_lock(&bus_mutex);
-    if (!find_slave(addr, offset, n_slave))
+    if (!find_slave(addr, offset, n_slave) || (addr % GET_SIZE(data_type)))
         goto done;
     ret = slaves[n_slave]->write(offset, data_type, wdata);
 
@@ -128,9 +128,14 @@ bool Bus::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
     bool ret = 0;
 
     // pthread_mutex_lock(&bus_mutex);
-    if (!find_slave(addr, offset, n_slave))
+    if (!find_slave(addr, offset, n_slave) || (addr % GET_SIZE(data_type)))
         goto done;
     ret = slaves[n_slave]->read(offset, data_type, rdata);
+    if (GET_SIGNED(data_type))
+        rdata = (int64_t)rdata << (64 - GET_SIZE(data_type) * 8) >> (64 - GET_SIZE(data_type) * 8);
+    else
+        rdata = (uint64_t)rdata << (64 - GET_SIZE(data_type) * 8) >> (64 - GET_SIZE(data_type) * 8);
+                               
 
 done:
     // pthread_mutex_unlock(&bus_mutex);

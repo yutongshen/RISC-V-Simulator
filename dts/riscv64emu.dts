@@ -245,6 +245,14 @@
                 disable-wp;
             };
         };
+
+        eth0: eth@10002000 {
+            interrupts = <0x3>;
+            interrupt-parent = <&plic>;
+            compatible = "riscv,eth0";
+            reg = <0x10002000 0x1000>;
+        };
+        
         
         finisher@10008000 {
             compatible = "sifive,test0";

@@ -12,6 +12,8 @@ typedef uint8_t DataType;
 #define DATA_TYPE_WORD 0b01000
 #define DATA_TYPE_WORD_UNSIGNED 0b01001
 #define DATA_TYPE_DWORD 0b10000
+#define GET_SIGNED(x) (!(x & 0x1))
+#define GET_SIZE(x) (x >> 1)
 
 #define is_signed(type) (!((type) &1))
 #define data_size(type)                    \

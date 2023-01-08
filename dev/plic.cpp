@@ -44,6 +44,7 @@ PLIC::PLIC()
       enable{0},
       int_id{0},
       threshold{0},
+      mutex(PTHREAD_MUTEX_INITIALIZER),
       Device(),
       Slave(0x4000000)
 {
@@ -51,7 +52,10 @@ PLIC::PLIC()
 
 PLIC::~PLIC() {}
 
-void PLIC::single_step() {}
+void PLIC::single_step()
+{
+    _update();
+}
 void PLIC::run() {}
 void PLIC::stop() {}
 
@@ -133,8 +137,8 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         if (tar_n < TARGET_NUM) {
             if (addr & 0x4) {
                 rdata = int_id[tar_n];
-                pending[(rdata >> 5) % INT_REG_NUM] &=
-                    ~(1U << (rdata & 0x1f));  // Clear pending
+                // pending[(rdata >> 5) % INT_REG_NUM] &=
+                //     ~(1U << (rdata & 0x1f));  // Clear pending
                 dispatch[(rdata >> 5) % INT_REG_NUM] &=
                     ~(1U << (rdata & 0x1f));  // Clear dispatch
             } else {
@@ -192,6 +196,4 @@ void PLIC::set_pending(int32_t irq_id, uint8_t value)
         pending[irq_id >> 5] |= (1 << (irq_id & 0x1f));
     else
         pending[irq_id >> 5] &= ~(1 << (irq_id & 0x1f));
-
-    _update();
 }

@@ -140,8 +140,10 @@ void CSR::set_csr(const uint32_t &addr, uint64_t value)
         // Avoid unalign PC
         if (*pc_ptr & 2UL)
             value |= 1UL << ('C' - 'A');
-        if (!(value & (1UL << ('F' - 'A'))))
-            value &= ~(1UL << ('D' - 'A'));
+        // if (!(value & (1UL << ('F' - 'A'))))
+        //     value &= ~(1UL << ('D' - 'A'));
+        value |= 1UL << ('F' - 'A');
+        value |= 1UL << ('D' - 'A');
 
         _mask = 0;
         _mask |= 1UL << ('M' - 'A');

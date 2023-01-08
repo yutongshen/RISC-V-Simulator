@@ -312,6 +312,7 @@ int main(int argc, char **argv)
     System sys_0;
     sys_0.add(&cluster_0, 10);
     sys_0.add(&clint_0);
+    sys_0.add(&plic_0);
     sys_0.add(&eth_0);
 
     htif_0.bus_connect(&bus_0);

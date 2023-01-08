@@ -242,8 +242,9 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type)
     case DATA_TYPE_WORD_UNSIGNED:
         if (addr & 3UL) {
             rdata |= load(addr, DATA_TYPE_HWORD_UNSIGNED);
-            rdata |= load(addr + 2,
-                          HALF_DATA(DATA_TYPE_WORD_UNSIGNED, GET_SIGNED(data_type))) << 16;
+            rdata |= load(addr + 2, HALF_DATA(DATA_TYPE_WORD_UNSIGNED,
+                                              GET_SIGNED(data_type)))
+                     << 16;
             return rdata;
         }
         paddr = translate(addr, 4, ACCESS_TYPE_LOAD);
@@ -252,8 +253,9 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type)
     case DATA_TYPE_HWORD_UNSIGNED:
         if (addr & 1UL) {
             rdata |= load(addr, DATA_TYPE_BYTE_UNSIGNED);
-            rdata |= load(addr + 1,
-                          HALF_DATA(DATA_TYPE_WORD_UNSIGNED, GET_SIGNED(data_type))) << 8;
+            rdata |= load(addr + 1, HALF_DATA(DATA_TYPE_WORD_UNSIGNED,
+                                              GET_SIGNED(data_type)))
+                     << 8;
             return rdata;
         }
         paddr = translate(addr, 2, ACCESS_TYPE_LOAD);

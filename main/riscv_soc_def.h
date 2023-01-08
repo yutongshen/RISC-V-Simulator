@@ -1,7 +1,7 @@
 #ifndef __RISCV_SOC_DEF__
 #define __RISCV_SOC_DEF__
 
-#define CORE_NUM 8
+#define CORE_NUM 1
 
 #define CPU0 0
 #define CPU1 1

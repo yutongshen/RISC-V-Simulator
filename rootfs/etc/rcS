@@ -33,7 +33,7 @@ httpd -h /var/www
 telnetd -f /etc/issue
 
 ifup -a
-udhcpc
+udhcpc -i eth0 -t 3
 
 dmesg -n 1
 # mount -t nfs -o nolock 192.168.1.17:/opt/riscv/src/sample /mnt/nfs

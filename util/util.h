@@ -5,12 +5,12 @@
 #include <map>
 #include <string>
 #include <vector>
-#define zext(x, len) ((uint64_t)(x) << 64 - (len) >> 64 - (len))
-#define sext(x, len) ((int64_t)(x) << 64 - (len) >> 64 - (len))
+#define zext(x, len) ((uint64_t) (x) << 64 - (len) >> 64 - (len))
+#define sext(x, len) ((int64_t) (x) << 64 - (len) >> 64 - (len))
 #define bits_zext(x, high, low) \
-    ((uint64_t)(x) << 63 - (high) >> 63 - (high) + (low))
+    ((uint64_t) (x) << 63 - (high) >> 63 - (high) + (low))
 #define bits_sext(x, high, low) \
-    ((int64_t)(x) << 63 - (high) >> 63 - (high) + (low))
+    ((int64_t) (x) << 63 - (high) >> 63 - (high) + (low))
 #define get_field(x, mask) (((x) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(x, mask, value) \
     ((x) & ~(mask)) | ((value) * ((mask) & ~((mask) << 1)) & (mask))

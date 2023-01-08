@@ -12,7 +12,7 @@
 #define UART_TXIE (1 << 0)
 #define UART_RXIE (1 << 1)
 
-#define UART_RXFIFO_DEPTH 8
+#define UART_RXFIFO_DEPTH 128
 #define UART_TXFIFO_DEPTH 8
 
 #define STDIN_BUFF_SIZE 128
@@ -20,11 +20,10 @@
 #define FIFO_FULL(x, depth) ((x##_rptr - x##_wptr + depth) % depth == 1)
 #define FIFO_EMPT(x) (x##_rptr == x##_wptr)
 
-void getch();
-
 class Uart : public Device, public Slave, public IRQSource
 {
     virtual void _init();
+    void _update();
 
     uint32_t txctrl;
     uint32_t rxctrl;
@@ -44,6 +43,7 @@ class Uart : public Device, public Slave, public IRQSource
     int8_t rx_wptr;
 
     std::thread t_getch;
+    static void getch(Uart *uart);
 
 public:
     Uart(uint32_t irq_id = -1, PLIC *plic = NULL);

@@ -74,12 +74,12 @@ class SPI : public Device, public Slave, public IRQSource
     uint32_t dma_dest;
     uint32_t dma_len;
     uint32_t dma_busy;
-    uint8_t  dma_con_dest_size;
-    uint8_t  dma_con_src_size;
-    uint8_t  dma_con_dest_type;
-    uint8_t  dma_con_src_type;
-    uint8_t  dma_con_bypass;
-    uint8_t  dma_con_en;
+    uint8_t dma_con_dest_size;
+    uint8_t dma_con_src_size;
+    uint8_t dma_con_dest_type;
+    uint8_t dma_con_src_type;
+    uint8_t dma_con_bypass;
+    uint8_t dma_con_en;
     Bus *bus;
     void _do_dma(void);
 

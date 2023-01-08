@@ -6,10 +6,10 @@
 #include "cpu/cluster.h"
 #include "cpu/cpu.h"
 #include "dev/clint.h"
+#include "dev/eth.h"
 #include "dev/finisher.h"
 #include "dev/plic.h"
 #include "dev/spi.h"
-#include "dev/eth.h"
 #include "dev/tmdl.h"
 #include "dev/uart.h"
 #include "fesvr/htif.h"
@@ -24,6 +24,7 @@ using namespace std;
 
 bool verbose(0);
 bool __exit(0);
+const uint64_t *time_p(NULL);
 // uint64_t cycle;
 
 void print_pt(Bus *bus, const uint64_t &base)
@@ -220,6 +221,7 @@ int main(int argc, char **argv)
 #if (CORE_NUM > 7)
     clint_0.set_ip(CPU7, cpu_7.get_mip_ptr());
 #endif
+    time_p = clint_0.get_time();
 
     // ==========================================================
     //                     Define UART
@@ -234,7 +236,9 @@ int main(int argc, char **argv)
     // ==========================================================
     //                     Define SPI
     // ==========================================================
-    Eth eth_0(ETH_IRQ_ID, &plic_0);
+    uint8_t mac_addr[]{0x00, 0x50, 0xca, 0xfe, 0xca, 0xfe};
+    char ether_if[]{"ens33"};
+    Eth eth_0(ETH_IRQ_ID, &plic_0, ether_if, mac_addr);
 
     // ==========================================================
     //                     Define FINISHER
@@ -306,17 +310,14 @@ int main(int argc, char **argv)
     peribus_0.s_connect(TMDL_BASE - BRIDGE_0_BASE, &tmdl);
 
     System sys_0;
-    sys_0.add(&cluster_0);
-    sys_0.add(&plic_0);
+    sys_0.add(&cluster_0, 10);
     sys_0.add(&clint_0);
-    sys_0.add(&uart_0);
-    sys_0.add(&spi_0);
     sys_0.add(&eth_0);
 
     htif_0.bus_connect(&bus_0);
 
     cpu_0.set_power_on(true);
-    tmdl.set_time(clint_0.get_time());
+    tmdl.set_time(time_p);
 
     // Run
     uint64_t end_code;

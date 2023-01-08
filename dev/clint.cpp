@@ -1,5 +1,5 @@
-#include <unistd.h>
 #include "clint.h"
+#include <unistd.h>
 #include "cpu/csr_config.h"
 #include "mmap/clint_reg.h"
 #include "util/util.h"
@@ -17,7 +17,7 @@ void CLINT::single_step()
 {
     uint8_t i;
     if (!((cnt + 1) % 4)) {
-        time += 3;
+        time += 30;
         for (i = 0; i < CORE_NUM; ++i) {
             if (ip[i]) {
                 if (time >= timecmp[i])

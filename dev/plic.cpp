@@ -52,7 +52,7 @@ PLIC::PLIC()
 PLIC::~PLIC() {}
 
 void PLIC::single_step() {}
-void PLIC::run()  {}
+void PLIC::run() {}
 void PLIC::stop() {}
 
 bool PLIC::write(const Addr &addr,

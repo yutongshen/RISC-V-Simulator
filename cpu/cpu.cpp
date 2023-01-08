@@ -126,65 +126,22 @@ void CPU::single_step()
         // Instruction Execute
         uint64_t paddr;
         bool ras_push(0), ras_pop(0);
-        uint64_t ipc(pc);
-        DataType mem_val_type;
-        uint16_t instr_len(0), write_reg(REG_ZERO), write_csr(-1),
-            load_store(LS_NONE);
         uint64_t mem_addr, mem_val;
+        DataType mem_val_type;
+        uint16_t write_reg(REG_ZERO), write_csr(-1), load_store(LS_NONE);
 
         uint32_t insn(mmu->fetch(pc, pc_alignment_mask));
+        uint64_t insn_len(INSN_LEN(insn));
         insn = (insn & 3) == 3 ? insn : (insn & 0xffff);
-        bool aq(bit(insn, 26)), rl(bit(insn, 25));
-        uint8_t opcode(bits_zext(insn, 6, 0)), c_opcode(bits_zext(insn, 1, 0)),
-            rd(bits_zext(insn, 11, 7)), funct3(bits_zext(insn, 14, 12)),
-            funct5(bits_zext(insn, 31, 27)), funct7(bits_zext(insn, 31, 25)),
-            c_funct3(bits_zext(insn, 15, 13)),
+        uint8_t rd(bits_zext(insn, 11, 7)), c_funct3(bits_zext(insn, 15, 13)),
             c_funct4(bits_zext(insn, 15, 12)),
             c_funct6(bits_zext(insn, 15, 10)), c_funct2(bits_zext(insn, 6, 5)),
             _c_funct2(bits_zext(insn, 11, 10)), rs1(bits_zext(insn, 19, 15)),
             rs2(bits_zext(insn, 24, 20)), rs3(bits_zext(insn, 31, 27)),
             c_rs1(bits_zext(insn, 11, 7)), c_rs2(bits_zext(insn, 6, 2)),
             _c_rs1(bits_zext(insn, 9, 7)), _c_rs2(bits_zext(insn, 4, 2)),
-            _c_rd(bits_zext(insn, 4, 2)), shamt(bits_zext(insn, 24, 20)),
-            shamt64(bits_zext(insn, 25, 20)),
-            c_shamt(bit(insn, 12) << 5 | bits_zext(insn, 6, 2)),
-            pred(bits_zext(insn, 27, 24)), succ(bits_zext(insn, 23, 20));
-        uint16_t funct12(bits_zext(insn, 31, 20)),
-            csr_addr(bits_zext(insn, 31, 20));
-        uint64_t imm_i(bits_sext(insn, 31, 20)),
-            imm_s(bits_sext(insn, 31, 25) << 5 | bits_zext(insn, 11, 7)),
-            imm_b(bit_signed(insn, 31) << 12 | bit(insn, 7) << 11 |
-                  bits_zext(insn, 30, 25) << 5 | bits_zext(insn, 11, 8) << 1),
-            imm_u(bits_sext(insn, 31, 12) << 12),
-            imm_j(bit_signed(insn, 31) << 20 | bits_zext(insn, 19, 12) << 12 |
-                  bit(insn, 20) << 11 | bits_zext(insn, 30, 21) << 1),
-            imm_c_lwsp(bits_zext(insn, 3, 2) << 6 | bit(insn, 12) << 5 |
-                       bits_zext(insn, 6, 4) << 2),
-            imm_c_ldsp(bits_zext(insn, 4, 2) << 6 | bit(insn, 12) << 5 |
-                       bits_zext(insn, 6, 5) << 3),
-            imm_c_swsp(bits_zext(insn, 8, 7) << 6 | bits_zext(insn, 12, 9)
-                                                        << 2),
-            imm_c_sdsp(bits_zext(insn, 9, 7) << 6 | bits_zext(insn, 12, 10)
-                                                        << 3),
-            imm_c_slw(bit(insn, 5) << 6 | bits_zext(insn, 12, 10) << 3 |
-                      bit(insn, 6) << 2),
-            imm_c_sld(bits_zext(insn, 6, 5) << 6 | bits_zext(insn, 12, 10)
-                                                       << 3),
-            imm_c_j(bit_signed(insn, 12) << 11 | bit(insn, 8) << 10 |
-                    bits_zext(insn, 10, 9) << 8 | bit(insn, 6) << 7 |
-                    bit(insn, 7) << 6 | bit(insn, 2) << 5 | bit(insn, 11) << 4 |
-                    bits_zext(insn, 5, 3) << 1),
-            imm_c_b(bit_signed(insn, 12) << 8 | bits_zext(insn, 6, 5) << 6 |
-                    bit(insn, 2) << 5 | bits_zext(insn, 11, 10) << 3 |
-                    bits_zext(insn, 4, 3) << 1),
-            imm_c_lui(bit_signed(insn, 12) << 17 | bits_zext(insn, 6, 2) << 12),
-            imm_c_addi(bit_signed(insn, 12) << 5 | bits_zext(insn, 6, 2)),
-            imm_c_addi16sp(bit_signed(insn, 12) << 9 |
-                           bits_zext(insn, 4, 3) << 7 | bit(insn, 5) << 6 |
-                           bit(insn, 2) << 5 | bit(insn, 6) << 4),
-            imm_c_addi4spn(bits_zext(insn, 10, 7) << 6 |
-                           bits_zext(insn, 12, 11) << 4 | bit(insn, 5) << 3 |
-                           bit(insn, 6) << 2);
+            _c_rd(bits_zext(insn, 4, 2)),
+            c_shamt(bit(insn, 12) << 5 | bits_zext(insn, 6, 2)), x;
 
         _c_rs1 = (_c_rs1 & 0x7) | 0x8;
         _c_rs2 = (_c_rs2 & 0x7) | 0x8;
@@ -217,37 +174,11 @@ void CPU::single_step()
         }
 #include "cpu/exec.h"
 
-        // if (ras_push) {
-        //     pcs.push(ipc);
-        //     ras.push(regs[REG_RA]);
-        // }
-        // else if (ras_pop) {
-        //     pcs.pop();
-        //     ras.pop();
-        // }
-        // if (load_store == LS_STORE && mem_addr == 0xffffffe000000000) {
-        //     printf("[CPU%d] verbose start!\r\n", csr->mhartid);
-        //     verbose = 1;
-        // }
-
         if (verbose) {
             cpu_trace << remark << std::endl;
 
             if (load_store) {
-                uint8_t data_len;
-                data_len =
-                    mem_val_type == DATA_TYPE_BYTE
-                        ? 8
-                        : mem_val_type == DATA_TYPE_HWORD
-                              ? 16
-                              : mem_val_type == DATA_TYPE_HWORD_UNSIGNED
-                                    ? 16
-                                    : mem_val_type == DATA_TYPE_WORD
-                                          ? 32
-                                          : mem_val_type ==
-                                                    DATA_TYPE_WORD_UNSIGNED
-                                                ? 32
-                                                : 64;
+                uint8_t data_len(GET_SIZE(mem_val_type) << 3);
                 mem_val &= data_len == 64 ? -1L : (1L << data_len) - 1L;
 
                 cpu_trace << "  "
@@ -294,7 +225,6 @@ void CPU::single_step()
                           << csr->get_csr(write_csr) << std::endl;
             }
         }
-        // if (!(csr->mstatus & MSTATUS_FS)) __exit = 1;
     } catch (Trap &t) {
         if ((int64_t) t.get_cause() >= 0)
             if (verbose) {
@@ -325,8 +255,6 @@ void CPU::trap_handling(Trap &t, uint64_t epc)
                   << std::setw(16) << epc << ", tval = " << std::hex
                   << std::setfill('0') << std::setw(16) << t.get_tval()
                   << std::endl;
-        // printf("%s, epc = %08lx, tval = %08lx\r\n", t.get_name(), epc,
-        //        t.get_tval());
     }
     if (interrupt) {
         deleg = csr->mideleg;
@@ -365,8 +293,11 @@ void CPU::trap_handling(Trap &t, uint64_t epc)
 
 void CPU::take_interrupt(uint64_t ints)
 {
+    if (!ints)
+        return;
+
     // Set CPU low power disable
-    if (ints && low_power)
+    if (low_power)
         low_power = 0;
 
     // Check M-mode interrupts
@@ -410,7 +341,6 @@ void CPU::set_power_on(bool power_sta)
     mmu->read(CLINT_BASE + RG_TIME, DATA_TYPE_DWORD, mtime);
     printf("%6ld ns: ** CORE%ld POWER %s!! **\r\n", mtime, csr->mhartid,
            power_sta ? "ON" : "OFF");
-    
 }
 
 bool CPU::get_power_sta()

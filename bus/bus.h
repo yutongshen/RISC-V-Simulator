@@ -1,8 +1,8 @@
 #ifndef __BUS__
 #define __BUS__
 
-#include <vector>
 #include <pthread.h>
+#include <vector>
 #include "bus/addr.h"
 #include "bus/datatype.h"
 #include "bus/master.h"

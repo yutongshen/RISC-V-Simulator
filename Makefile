@@ -60,6 +60,11 @@ sim: all
 	@for file in ${mmap_dir}/*_reg.h; do \
 	    ${XTEND_MMAP} ${bld_dir}/mmap_soc.h $${file}; \
 	done
+	@if [[ "$(shell which dtc)" == "" ]]; then \
+	    >&2 echo "No dtc in $(PATH)."; \
+        >&2 echo "consider doing 'sudo apt-get install device-tree-compiler'"; \
+        exit 1; \
+	fi
 	@dtc -I dts -O dtb ${dts_dir}/${dts_file} > ${bld_dir}/prog/riscv64emu.dtb;
 	
 	# Move prog
@@ -122,6 +127,11 @@ link-clang-format:
 	done
 
 auto-format:
+	@if [[ "$(shell which clang-format)" == "" ]]; then \
+	    >&2 echo "No clang-format in $(PATH)."; \
+        >&2 echo "consider doing 'sudo apt-get install clang-format'"; \
+        exit 1; \
+	fi
 	@for dir in ${src_dir}; do \
 	    make -C $${dir} auto-format; \
 	done

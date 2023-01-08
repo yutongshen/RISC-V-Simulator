@@ -9,13 +9,14 @@ typedef Device *pDevice;
 class System
 {
     std::vector<pDevice> devices;
+    std::vector<uint32_t> freqs;
 
 public:
     System();
     ~System();
     void run();
     void stop();
-    void add(pDevice dev);
+    void add(pDevice dev, uint32_t freq = 1);
 };
 
 #endif

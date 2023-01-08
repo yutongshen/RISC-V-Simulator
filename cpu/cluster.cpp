@@ -1,9 +1,9 @@
 #include "cluster.h"
 #include <iostream>
 #include "cpu/csr_config.h"
+#include "main/riscv_soc_def.h"
 #include "mmap/cluster_reg.h"
 #include "util/util.h"
-#include "main/riscv_soc_def.h"
 
 Cluster::Cluster() : bus(0), cores{0}, Device(), Slave(0x40000000) {}
 

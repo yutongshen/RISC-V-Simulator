@@ -344,556 +344,587 @@
         confirm_insn_legal(!(get_field((x), 0xC00) == 3 && write)); \
     } while (0)
 
-#define INSTRUCT_UNKNOWN                    \
-    instr_len = 4;                          \
-    sprintf(remark, "unknown instruction"); \
-    throw TrapIllegalInstruction(insn);     \
-    pc += 4UL;                              \
+#define INSTRUCT_UNKNOWN                        \
+    if (verbose)                                \
+        sprintf(remark, "unknown instruction"); \
+    throw TrapIllegalInstruction(insn);         \
+    pc += 4UL;                                  \
     break;
 
-#define INSTRUCT_LUI                                                       \
-    instr_len = 4;                                                         \
-    sprintf(remark, "lui %s,0x%lx", regs_name[rd], imm_u >> 12 & 0xfffff); \
-    regs[rd] = imm_u;                                                      \
-    write_reg = rd;                                                        \
-    pc += 4UL;                                                             \
+#define INSTRUCT_LUI                                       \
+    {                                                      \
+        uint64_t imm_u(IMM_U(insn));                       \
+        if (verbose)                                       \
+            sprintf(remark, "lui %s,0x%lx", regs_name[rd], \
+                    imm_u >> 12 & 0xfffff);                \
+        regs[rd] = imm_u;                                  \
+        write_reg = rd;                                    \
+        pc += 4UL;                                         \
+    }                                                      \
     break;
 
-#define INSTRUCT_AUIPC                                                       \
-    instr_len = 4;                                                           \
-    sprintf(remark, "auipc %s,0x%lx", regs_name[rd], imm_u >> 12 & 0xfffff); \
-    regs[rd] = imm_u + pc;                                                   \
+#define INSTRUCT_AUIPC                                       \
+    {                                                        \
+        uint64_t imm_u(IMM_U(insn));                         \
+        if (verbose)                                         \
+            sprintf(remark, "auipc %s,0x%lx", regs_name[rd], \
+                    imm_u >> 12 & 0xfffff);                  \
+        regs[rd] = imm_u + pc;                               \
+        write_reg = rd;                                      \
+        pc += 4UL;                                           \
+    }                                                        \
+    break;
+
+#define INSTRUCT_JAL                                                        \
+    {                                                                       \
+        uint64_t imm_j(IMM_J(insn));                                        \
+        if (verbose) {                                                      \
+            if (!rd)                                                        \
+                sprintf(remark, "j %08lx", pc + imm_j);                     \
+            else if (rd == REG_RA)                                          \
+                sprintf(remark, "jal %08lx", pc + imm_j);                   \
+            else                                                            \
+                sprintf(remark, "jal %s,%08lx", regs_name[rd], pc + imm_j); \
+        }                                                                   \
+        ras_push = rd == REG_RA;                                            \
+        regs[rd] = pc + 4UL;                                                \
+        write_reg = rd;                                                     \
+        pc += imm_j;                                                        \
+    }                                                                       \
+    break;
+
+#define INSTRUCT_JALR                                             \
+    {                                                             \
+        uint64_t imm_i(IMM_I(insn));                              \
+        if (verbose) {                                            \
+            if (imm_i || !(rd == REG_ZERO || rd == REG_RA))       \
+                sprintf(remark, "jalr %s,%ld(%s)", regs_name[rd], \
+                        (int64_t) imm_i, regs_name[rs1]);         \
+            else if (rd == REG_RA)                                \
+                sprintf(remark, "jalr %s", regs_name[rs1]);       \
+            else if (rs1 == REG_RA)                               \
+                sprintf(remark, "ret");                           \
+            else                                                  \
+                sprintf(remark, "jr %s", regs_name[rs1]);         \
+        }                                                         \
+        ras_push = rd == REG_RA;                                  \
+        ras_pop = rs1 == REG_RA && !imm_i;                        \
+        uint64_t rs1_data(regs[rs1]);                             \
+        regs[rd] = pc + 4UL;                                      \
+        write_reg = rd;                                           \
+        pc = (imm_i + rs1_data) & ~1UL;                           \
+    }                                                             \
+    break;
+
+#define INSTRUCT_BEQ                                                           \
+    if (verbose) {                                                             \
+        if (rs2)                                                               \
+            sprintf(remark, "beq %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
+                    pc + imm_b);                                               \
+        else                                                                   \
+            sprintf(remark, "beqz %s,%08lx", regs_name[rs1], pc + imm_b);      \
+    }                                                                          \
+    pc += regs[rs1] == regs[rs2] ? imm_b : 4UL;                                \
+    break;
+
+#define INSTRUCT_BNE                                                           \
+    if (verbose) {                                                             \
+        if (rs2)                                                               \
+            sprintf(remark, "bne %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
+                    pc + imm_b);                                               \
+        else                                                                   \
+            sprintf(remark, "bnez %s,%08lx", regs_name[rs1], pc + imm_b);      \
+    }                                                                          \
+    pc += regs[rs1] != regs[rs2] ? imm_b : 4UL;                                \
+    break;
+
+#define INSTRUCT_BLT                                                           \
+    if (verbose) {                                                             \
+        if (!rs1)                                                              \
+            sprintf(remark, "bgtz %s,%08lx", regs_name[rs2], pc + imm_b);      \
+        else if (!rs2)                                                         \
+            sprintf(remark, "bltz %s,%08lx", regs_name[rs1], pc + imm_b);      \
+        else                                                                   \
+            sprintf(remark, "blt %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
+                    pc + imm_b);                                               \
+    }                                                                          \
+    pc += (int64_t) regs[rs1] < (int64_t) regs[rs2] ? imm_b : 4UL;             \
+    break;
+
+#define INSTRUCT_BGE                                                           \
+    if (verbose) {                                                             \
+        if (!rs1)                                                              \
+            sprintf(remark, "blez %s,%08lx", regs_name[rs2], pc + imm_b);      \
+        else if (!rs2)                                                         \
+            sprintf(remark, "bgez %s,%08lx", regs_name[rs1], pc + imm_b);      \
+        else                                                                   \
+            sprintf(remark, "bge %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
+                    pc + imm_b);                                               \
+    }                                                                          \
+    pc += (int64_t) regs[rs1] >= (int64_t) regs[rs2] ? imm_b : 4UL;            \
+    break;
+
+#define INSTRUCT_BLTU                                                       \
+    if (verbose)                                                            \
+        sprintf(remark, "bltu %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
+                pc + imm_b);                                                \
+    pc += regs[rs1] < regs[rs2] ? imm_b : 4UL;                              \
+    break;
+
+#define INSTRUCT_BGEU                                                       \
+    if (verbose)                                                            \
+        sprintf(remark, "bgeu %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
+                pc + imm_b);                                                \
+    pc += regs[rs1] >= regs[rs2] ? imm_b : 4UL;                             \
+    break;
+
+#define INSTRUCT_LB                                                      \
+    if (verbose)                                                         \
+        sprintf(remark, "lb %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                        \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_BYTE);             \
+    load_store = LS_LOAD;                                                \
+    mem_val = regs[rd];                                                  \
+    mem_val_type = DATA_TYPE_BYTE;                                       \
+    write_reg = rd;                                                      \
+    pc += 4UL;                                                           \
+    break;
+
+#define INSTRUCT_LH                                                      \
+    if (verbose)                                                         \
+        sprintf(remark, "lh %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                        \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_HWORD);            \
+    load_store = LS_LOAD;                                                \
+    mem_val = regs[rd];                                                  \
+    mem_val_type = DATA_TYPE_HWORD;                                      \
+    write_reg = rd;                                                      \
+    pc += 4UL;                                                           \
+    break;
+
+#define INSTRUCT_LW                                                      \
+    if (verbose)                                                         \
+        sprintf(remark, "lw %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                        \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);             \
+    load_store = LS_LOAD;                                                \
+    mem_val = regs[rd];                                                  \
+    mem_val_type = DATA_TYPE_WORD;                                       \
+    write_reg = rd;                                                      \
+    pc += 4UL;                                                           \
+    break;
+
+#define INSTRUCT_LBU                                                      \
+    if (verbose)                                                          \
+        sprintf(remark, "lbu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                          \
+    mem_addr = regs[rs1] + imm_i;                                         \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_BYTE_UNSIGNED);     \
+    load_store = LS_LOAD;                                                 \
+    mem_val = regs[rd];                                                   \
+    mem_val_type = DATA_TYPE_BYTE_UNSIGNED;                               \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_LHU                                                      \
+    if (verbose)                                                          \
+        sprintf(remark, "lhu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                          \
+    mem_addr = regs[rs1] + imm_i;                                         \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_HWORD_UNSIGNED);    \
+    load_store = LS_LOAD;                                                 \
+    mem_val = regs[rd];                                                   \
+    mem_val_type = DATA_TYPE_HWORD_UNSIGNED;                              \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_LWU                                                      \
+    if (verbose)                                                          \
+        sprintf(remark, "lwu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                          \
+    mem_addr = regs[rs1] + imm_i;                                         \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD_UNSIGNED);     \
+    load_store = LS_LOAD;                                                 \
+    mem_val = regs[rd];                                                   \
+    mem_val_type = DATA_TYPE_WORD_UNSIGNED;                               \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_LD                                                      \
+    if (verbose)                                                         \
+        sprintf(remark, "ld %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                         \
+    mem_addr = regs[rs1] + imm_i;                                        \
+    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_DWORD);            \
+    load_store = LS_LOAD;                                                \
+    mem_val = regs[rd];                                                  \
+    mem_val_type = DATA_TYPE_DWORD;                                      \
+    write_reg = rd;                                                      \
+    pc += 4UL;                                                           \
+    break;
+
+#define INSTRUCT_SB                                                       \
+    if (verbose)                                                          \
+        sprintf(remark, "sb %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
+                regs_name[rs1]);                                          \
+    mmu->store(regs[rs1] + imm_s, DATA_TYPE_BYTE, regs[rs2]);             \
+    load_store = LS_STORE;                                                \
+    mem_addr = regs[rs1] + imm_s;                                         \
+    mem_val = regs[rs2];                                                  \
+    mem_val_type = DATA_TYPE_BYTE;                                        \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_SH                                                       \
+    if (verbose)                                                          \
+        sprintf(remark, "sh %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
+                regs_name[rs1]);                                          \
+    mmu->store(regs[rs1] + imm_s, DATA_TYPE_HWORD, regs[rs2]);            \
+    load_store = LS_STORE;                                                \
+    mem_addr = regs[rs1] + imm_s;                                         \
+    mem_val = regs[rs2];                                                  \
+    mem_val_type = DATA_TYPE_HWORD;                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_SW                                                       \
+    if (verbose)                                                          \
+        sprintf(remark, "sw %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
+                regs_name[rs1]);                                          \
+    mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, regs[rs2]);             \
+    load_store = LS_STORE;                                                \
+    mem_addr = regs[rs1] + imm_s;                                         \
+    mem_val = regs[rs2];                                                  \
+    mem_val_type = DATA_TYPE_WORD;                                        \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_SD                                                       \
+    if (verbose)                                                          \
+        sprintf(remark, "sd %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
+                regs_name[rs1]);                                          \
+    mmu->store(regs[rs1] + imm_s, DATA_TYPE_DWORD, regs[rs2]);            \
+    load_store = LS_STORE;                                                \
+    mem_addr = regs[rs1] + imm_s;                                         \
+    mem_val = regs[rs2];                                                  \
+    mem_val_type = DATA_TYPE_DWORD;                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_ADDI                                                        \
+    if (verbose) {                                                           \
+        if (!rd && !rs1 && !imm_i)                                           \
+            sprintf(remark, "nop");                                          \
+        else if (!rs1)                                                       \
+            sprintf(remark, "li %s,%ld", regs_name[rd], (int64_t) imm_i);    \
+        else if (!imm_i)                                                     \
+            sprintf(remark, "mv %s,%s", regs_name[rd], regs_name[rs1]);      \
+        else                                                                 \
+            sprintf(remark, "addi %s,%s,%ld", regs_name[rd], regs_name[rs1], \
+                    (int64_t) imm_i);                                        \
+    }                                                                        \
+    regs[rd] = regs[rs1] + imm_i;                                            \
     write_reg = rd;                                                          \
     pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_JAL                                                \
-    instr_len = 4;                                                  \
-    if (!rd)                                                        \
-        sprintf(remark, "j %08lx", pc + imm_j);                     \
-    else if (rd == REG_RA)                                          \
-        sprintf(remark, "jal %08lx", pc + imm_j);                   \
-    else                                                            \
-        sprintf(remark, "jal %s,%08lx", regs_name[rd], pc + imm_j); \
-    ras_push = rd == REG_RA;                                        \
-    regs[rd] = pc + 4UL;                                            \
-    write_reg = rd;                                                 \
-    pc += imm_j;                                                    \
+#define INSTRUCT_SLTI                                                    \
+    if (verbose)                                                         \
+        sprintf(remark, "slti %s,%s,%ld", regs_name[rd], regs_name[rs1], \
+                (int64_t) imm_i);                                        \
+    regs[rd] = (int64_t) regs[rs1] < (int64_t) imm_i;                    \
+    write_reg = rd;                                                      \
+    pc += 4UL;                                                           \
     break;
 
-#define INSTRUCT_JALR                                                          \
-    {                                                                          \
-        instr_len = 4;                                                         \
-        if (imm_i || !(rd == REG_ZERO || rd == REG_RA))                        \
-            sprintf(remark, "jalr %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-                    regs_name[rs1]);                                           \
-        else if (rd == REG_RA)                                                 \
-            sprintf(remark, "jalr %s", regs_name[rs1]);                        \
-        else if (rs1 == REG_RA)                                                \
-            sprintf(remark, "ret");                                            \
-        else                                                                   \
-            sprintf(remark, "jr %s", regs_name[rs1]);                          \
-        ras_push = rd == REG_RA;                                               \
-        ras_pop = rs1 == REG_RA && !imm_i;                                     \
-        uint64_t rs1_data(regs[rs1]);                                          \
-        regs[rd] = pc + 4UL;                                                   \
-        write_reg = rd;                                                        \
-        pc = (imm_i + rs1_data) & ~1UL;                                        \
-    }                                                                          \
+#define INSTRUCT_SLTIU                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "sltiu %s,%s,%ld", regs_name[rd], regs_name[rs1], \
+                (int64_t) imm_i);                                         \
+    regs[rd] = regs[rs1] < imm_i;                                         \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
     break;
 
-#define INSTRUCT_BEQ                                                       \
-    instr_len = 4;                                                         \
-    if (rs2)                                                               \
-        sprintf(remark, "beq %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b);                                               \
-    else                                                                   \
-        sprintf(remark, "beqz %s,%08lx", regs_name[rs1], pc + imm_b);      \
-    pc += regs[rs1] == regs[rs2] ? imm_b : 4UL;                            \
+#define INSTRUCT_XORI                                                        \
+    if (verbose) {                                                           \
+        if (imm_i == -1U)                                                    \
+            sprintf(remark, "not %s,%s", regs_name[rd], regs_name[rs1]);     \
+        else                                                                 \
+            sprintf(remark, "xori %s,%s,%ld", regs_name[rd], regs_name[rs1], \
+                    (int64_t) imm_i);                                        \
+    }                                                                        \
+    regs[rd] = regs[rs1] ^ imm_i;                                            \
+    write_reg = rd;                                                          \
+    pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_BNE                                                       \
-    instr_len = 4;                                                         \
-    if (rs2)                                                               \
-        sprintf(remark, "bne %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b);                                               \
-    else                                                                   \
-        sprintf(remark, "bnez %s,%08lx", regs_name[rs1], pc + imm_b);      \
-    pc += regs[rs1] != regs[rs2] ? imm_b : 4UL;                            \
+#define INSTRUCT_ORI                                                    \
+    if (verbose)                                                        \
+        sprintf(remark, "ori %s,%s,%ld", regs_name[rd], regs_name[rs1], \
+                (int64_t) imm_i);                                       \
+    regs[rd] = regs[rs1] | imm_i;                                       \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
     break;
 
-#define INSTRUCT_BLT                                                       \
-    instr_len = 4;                                                         \
-    if (!rs1)                                                              \
-        sprintf(remark, "bgtz %s,%08lx", regs_name[rs2], pc + imm_b);      \
-    else if (!rs2)                                                         \
-        sprintf(remark, "bltz %s,%08lx", regs_name[rs1], pc + imm_b);      \
-    else                                                                   \
-        sprintf(remark, "blt %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b);                                               \
-    pc += (int64_t) regs[rs1] < (int64_t) regs[rs2] ? imm_b : 4UL;         \
+#define INSTRUCT_ANDI                                                    \
+    if (verbose)                                                         \
+        sprintf(remark, "andi %s,%s,%ld", regs_name[rd], regs_name[rs1], \
+                (int64_t) imm_i);                                        \
+    regs[rd] = regs[rs1] & imm_i;                                        \
+    write_reg = rd;                                                      \
+    pc += 4UL;                                                           \
     break;
 
-#define INSTRUCT_BGE                                                       \
-    instr_len = 4;                                                         \
-    if (!rs1)                                                              \
-        sprintf(remark, "blez %s,%08lx", regs_name[rs2], pc + imm_b);      \
-    else if (!rs2)                                                         \
-        sprintf(remark, "bgez %s,%08lx", regs_name[rs1], pc + imm_b);      \
-    else                                                                   \
-        sprintf(remark, "bge %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-                pc + imm_b);                                               \
-    pc += (int64_t) regs[rs1] >= (int64_t) regs[rs2] ? imm_b : 4UL;        \
+#define INSTRUCT_SLLI                                                         \
+    {                                                                         \
+        uint32_t shamt64(SHAMT64(insn));                                      \
+        if (verbose)                                                          \
+            sprintf(remark, "slli %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
+                    shamt64);                                                 \
+        regs[rd] = regs[rs1] << shamt64;                                      \
+        write_reg = rd;                                                       \
+        pc += 4UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_BLTU                                                   \
-    instr_len = 4;                                                      \
-    sprintf(remark, "bltu %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-            pc + imm_b);                                                \
-    pc += regs[rs1] < regs[rs2] ? imm_b : 4UL;                          \
+#define INSTRUCT_SRLI                                                         \
+    {                                                                         \
+        uint32_t shamt64(SHAMT64(insn));                                      \
+        if (verbose)                                                          \
+            sprintf(remark, "srli %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
+                    shamt64);                                                 \
+        regs[rd] = regs[rs1] >> shamt64;                                      \
+        write_reg = rd;                                                       \
+        pc += 4UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_BGEU                                                   \
-    instr_len = 4;                                                      \
-    sprintf(remark, "bgeu %s,%s,%08lx", regs_name[rs1], regs_name[rs2], \
-            pc + imm_b);                                                \
-    pc += regs[rs1] >= regs[rs2] ? imm_b : 4UL;                         \
+#define INSTRUCT_SRAI                                                         \
+    {                                                                         \
+        uint32_t shamt64(SHAMT64(insn));                                      \
+        if (verbose)                                                          \
+            sprintf(remark, "srai %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
+                    shamt64);                                                 \
+        regs[rd] = (int64_t) regs[rs1] >> shamt64;                            \
+        write_reg = rd;                                                       \
+        pc += 4UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_LB                                                  \
-    instr_len = 4;                                                   \
-    sprintf(remark, "lb %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                         \
-    mem_addr = regs[rs1] + imm_i;                                    \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_BYTE);         \
-    load_store = LS_LOAD;                                            \
-    mem_val = regs[rd];                                              \
-    mem_val_type = DATA_TYPE_BYTE;                                   \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
-    break;
-
-#define INSTRUCT_LH                                                  \
-    instr_len = 4;                                                   \
-    sprintf(remark, "lh %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                         \
-    mem_addr = regs[rs1] + imm_i;                                    \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_HWORD);        \
-    load_store = LS_LOAD;                                            \
-    mem_val = regs[rd];                                              \
-    mem_val_type = DATA_TYPE_HWORD;                                  \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
-    break;
-
-#define INSTRUCT_LW                                                  \
-    instr_len = 4;                                                   \
-    sprintf(remark, "lw %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                         \
-    mem_addr = regs[rs1] + imm_i;                                    \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);         \
-    load_store = LS_LOAD;                                            \
-    mem_val = regs[rd];                                              \
-    mem_val_type = DATA_TYPE_WORD;                                   \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
-    break;
-
-#define INSTRUCT_LBU                                                  \
-    instr_len = 4;                                                    \
-    sprintf(remark, "lbu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                          \
-    mem_addr = regs[rs1] + imm_i;                                     \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_BYTE_UNSIGNED); \
-    load_store = LS_LOAD;                                             \
-    mem_val = regs[rd];                                               \
-    mem_val_type = DATA_TYPE_BYTE_UNSIGNED;                           \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_LHU                                                   \
-    instr_len = 4;                                                     \
-    sprintf(remark, "lhu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i,  \
-            regs_name[rs1]);                                           \
-    mem_addr = regs[rs1] + imm_i;                                      \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_HWORD_UNSIGNED); \
-    load_store = LS_LOAD;                                              \
-    mem_val = regs[rd];                                                \
-    mem_val_type = DATA_TYPE_HWORD_UNSIGNED;                           \
+#define INSTRUCT_ADD                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "add %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = regs[rs1] + regs[rs2];                                  \
     write_reg = rd;                                                    \
     pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_LWU                                                  \
-    instr_len = 4;                                                    \
-    sprintf(remark, "lwu %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                          \
-    mem_addr = regs[rs1] + imm_i;                                     \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD_UNSIGNED); \
-    load_store = LS_LOAD;                                             \
-    mem_val = regs[rd];                                               \
-    mem_val_type = DATA_TYPE_WORD_UNSIGNED;                           \
+#define INSTRUCT_SLL                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "sll %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = regs[rs1] << (regs[rs2] & 0x3F);                        \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
+    break;
+
+#define INSTRUCT_SLT                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "slt %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = (int64_t) regs[rs1] < (int64_t) regs[rs2];              \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
+    break;
+
+#define INSTRUCT_SLTU                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "sltu %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    regs[rd] = regs[rs1] < regs[rs2];                                   \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
+    break;
+
+#define INSTRUCT_XOR                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "xor %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = regs[rs1] ^ regs[rs2];                                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
+    break;
+
+#define INSTRUCT_SRL                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "srl %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = regs[rs1] >> (regs[rs2] & 0x3F);                        \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
+    break;
+
+#define INSTRUCT_OR                                                   \
+    if (verbose)                                                      \
+        sprintf(remark, "or %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                      \
+    regs[rd] = regs[rs1] | regs[rs2];                                 \
     write_reg = rd;                                                   \
     pc += 4UL;                                                        \
     break;
 
-#define INSTRUCT_LD                                                  \
-    instr_len = 4;                                                   \
-    sprintf(remark, "ld %s,%ld(%s)", regs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                         \
-    mem_addr = regs[rs1] + imm_i;                                    \
-    regs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_DWORD);        \
-    load_store = LS_LOAD;                                            \
-    mem_val = regs[rd];                                              \
-    mem_val_type = DATA_TYPE_DWORD;                                  \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
+#define INSTRUCT_AND                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "and %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = regs[rs1] & regs[rs2];                                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_SB                                                   \
-    instr_len = 4;                                                    \
-    sprintf(remark, "sb %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
-            regs_name[rs1]);                                          \
-    mmu->store(regs[rs1] + imm_s, DATA_TYPE_BYTE, regs[rs2]);         \
-    load_store = LS_STORE;                                            \
-    mem_addr = regs[rs1] + imm_s;                                     \
-    mem_val = regs[rs2];                                              \
-    mem_val_type = DATA_TYPE_BYTE;                                    \
-    pc += 4UL;                                                        \
+#define INSTRUCT_SUB                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "sub %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = regs[rs1] - regs[rs2];                                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_SH                                                   \
-    instr_len = 4;                                                    \
-    sprintf(remark, "sh %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
-            regs_name[rs1]);                                          \
-    mmu->store(regs[rs1] + imm_s, DATA_TYPE_HWORD, regs[rs2]);        \
-    load_store = LS_STORE;                                            \
-    mem_addr = regs[rs1] + imm_s;                                     \
-    mem_val = regs[rs2];                                              \
-    mem_val_type = DATA_TYPE_HWORD;                                   \
-    pc += 4UL;                                                        \
+#define INSTRUCT_SRA                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "sra %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    regs[rd] = (int64_t) regs[rs1] >> (regs[rs2] & 0x3F);              \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_SW                                                   \
-    instr_len = 4;                                                    \
-    sprintf(remark, "sw %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
-            regs_name[rs1]);                                          \
-    mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, regs[rs2]);         \
-    load_store = LS_STORE;                                            \
-    mem_addr = regs[rs1] + imm_s;                                     \
-    mem_val = regs[rs2];                                              \
-    mem_val_type = DATA_TYPE_WORD;                                    \
-    pc += 4UL;                                                        \
+#define INSTRUCT_MUL                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "mul %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    require_extension('M');                                            \
+    regs[rd] = regs[rs1] * regs[rs2];                                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_SD                                                   \
-    instr_len = 4;                                                    \
-    sprintf(remark, "sd %s,%ld(%s)", regs_name[rs2], (int64_t) imm_s, \
-            regs_name[rs1]);                                          \
-    mmu->store(regs[rs1] + imm_s, DATA_TYPE_DWORD, regs[rs2]);        \
-    load_store = LS_STORE;                                            \
-    mem_addr = regs[rs1] + imm_s;                                     \
-    mem_val = regs[rs2];                                              \
-    mem_val_type = DATA_TYPE_DWORD;                                   \
-    pc += 4UL;                                                        \
+#define INSTRUCT_MULH                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "mulh %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    require_extension('M');                                             \
+    regs[rd] = mulh(regs[rs1], regs[rs2]);                              \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
     break;
 
-#define INSTRUCT_ADDI                                                    \
-    instr_len = 4;                                                       \
-    if (!rd && !rs1 && !imm_i)                                           \
-        sprintf(remark, "nop");                                          \
-    else if (!rs1)                                                       \
-        sprintf(remark, "li %s,%ld", regs_name[rd], (int64_t) imm_i);    \
-    else if (!imm_i)                                                     \
-        sprintf(remark, "mv %s,%s", regs_name[rd], regs_name[rs1]);      \
-    else                                                                 \
-        sprintf(remark, "addi %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-                (int64_t) imm_i);                                        \
-    regs[rd] = regs[rs1] + imm_i;                                        \
+#define INSTRUCT_MULHSU                                                   \
+    if (verbose)                                                          \
+        sprintf(remark, "mulhsu %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                          \
+    require_extension('M');                                               \
+    regs[rd] = mulhsu(regs[rs1], regs[rs2]);                              \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_MULHU                                                   \
+    if (verbose)                                                         \
+        sprintf(remark, "mulhu %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                         \
+    require_extension('M');                                              \
+    regs[rd] = mulhu(regs[rs1], regs[rs2]);                              \
     write_reg = rd;                                                      \
     pc += 4UL;                                                           \
     break;
 
-#define INSTRUCT_SLTI                                                \
-    instr_len = 4;                                                   \
-    sprintf(remark, "slti %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-            (int64_t) imm_i);                                        \
-    regs[rd] = (int64_t) regs[rs1] < (int64_t) imm_i;                \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
+#define INSTRUCT_DIV                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "div %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    require_extension('M');                                            \
+    if (!regs[rs2])                                                    \
+        regs[rd] = -1UL;                                               \
+    else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL)              \
+        regs[rd] = regs[rs1];                                          \
+    else                                                               \
+        regs[rd] = (int64_t) regs[rs1] / (int64_t) regs[rs2];          \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_SLTIU                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "sltiu %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-            (int64_t) imm_i);                                         \
-    regs[rd] = regs[rs1] < imm_i;                                     \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
+#define INSTRUCT_DIVU                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "divu %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    require_extension('M');                                             \
+    if (!regs[rs2])                                                     \
+        regs[rd] = -1UL;                                                \
+    else                                                                \
+        regs[rd] = regs[rs1] / regs[rs2];                               \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
     break;
 
-#define INSTRUCT_XORI                                                    \
-    instr_len = 4;                                                       \
-    if (imm_i == -1U)                                                    \
-        sprintf(remark, "not %s,%s", regs_name[rd], regs_name[rs1]);     \
-    else                                                                 \
-        sprintf(remark, "xori %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-                (int64_t) imm_i);                                        \
-    regs[rd] = regs[rs1] ^ imm_i;                                        \
-    write_reg = rd;                                                      \
-    pc += 4UL;                                                           \
+#define INSTRUCT_REM                                                   \
+    if (verbose)                                                       \
+        sprintf(remark, "rem %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                       \
+    require_extension('M');                                            \
+    if (!regs[rs2])                                                    \
+        regs[rd] = regs[rs1];                                          \
+    else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL)            \
+        regs[rd] = 0;                                                  \
+    else                                                               \
+        regs[rd] = (int64_t) regs[rs1] % (int64_t) regs[rs2];          \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_ORI                                                \
-    instr_len = 4;                                                  \
-    sprintf(remark, "ori %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-            (int64_t) imm_i);                                       \
-    regs[rd] = regs[rs1] | imm_i;                                   \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
+#define INSTRUCT_REMU                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "remu %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    require_extension('M');                                             \
+    if (!regs[rs2])                                                     \
+        regs[rd] = regs[rs1];                                           \
+    else                                                                \
+        regs[rd] = regs[rs1] % regs[rs2];                               \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
     break;
 
-#define INSTRUCT_ANDI                                                \
-    instr_len = 4;                                                   \
-    sprintf(remark, "andi %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-            (int64_t) imm_i);                                        \
-    regs[rd] = regs[rs1] & imm_i;                                    \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
-    break;
-
-#define INSTRUCT_SLLI                                                 \
-    instr_len = 4;                                                    \
-    sprintf(remark, "slli %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
-            shamt64);                                                 \
-    regs[rd] = regs[rs1] << shamt64;                                  \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_SRLI                                                 \
-    instr_len = 4;                                                    \
-    sprintf(remark, "srli %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
-            shamt64);                                                 \
-    regs[rd] = regs[rs1] >> shamt64;                                  \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_SRAI                                                 \
-    instr_len = 4;                                                    \
-    sprintf(remark, "srai %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
-            shamt64);                                                 \
-    regs[rd] = (int64_t) regs[rs1] >> shamt64;                        \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_ADD                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "add %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = regs[rs1] + regs[rs2];                              \
-    write_reg = rd;                                                \
+#define INSTRUCT_FENCE                                             \
+    if (verbose) {                                                 \
+        if (PRED(insn) != 0xf | SUCC(insn) != 0xf)                 \
+            sprintf(remark, "fence %s,%s", fence_flag(PRED(insn)), \
+                    fence_flag(SUCC(insn)));                       \
+        else                                                       \
+            sprintf(remark, "fence");                              \
+    }                                                              \
     pc += 4UL;                                                     \
     break;
 
-#define INSTRUCT_SLL                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "sll %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = regs[rs1] << (regs[rs2] & 0x3F);                    \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_SLT                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "slt %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = (int64_t) regs[rs1] < (int64_t) regs[rs2];          \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_SLTU                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "sltu %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    regs[rd] = regs[rs1] < regs[rs2];                               \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_XOR                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "xor %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = regs[rs1] ^ regs[rs2];                              \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_SRL                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "srl %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = regs[rs1] >> (regs[rs2] & 0x3F);                    \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_OR                                               \
-    instr_len = 4;                                                \
-    sprintf(remark, "or %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                      \
-    regs[rd] = regs[rs1] | regs[rs2];                             \
-    write_reg = rd;                                               \
-    pc += 4UL;                                                    \
-    break;
-
-#define INSTRUCT_AND                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "and %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = regs[rs1] & regs[rs2];                              \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_SUB                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "sub %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = regs[rs1] - regs[rs2];                              \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_SRA                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "sra %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    regs[rd] = (int64_t) regs[rs1] >> (regs[rs2] & 0x3F);          \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_MUL                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "mul %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    require_extension('M');                                        \
-    regs[rd] = regs[rs1] * regs[rs2];                              \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_MULH                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "mulh %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    require_extension('M');                                         \
-    regs[rd] = mulh(regs[rs1], regs[rs2]);                          \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_MULHSU                                               \
-    instr_len = 4;                                                    \
-    sprintf(remark, "mulhsu %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                          \
-    require_extension('M');                                           \
-    regs[rd] = mulhsu(regs[rs1], regs[rs2]);                          \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_MULHU                                               \
-    instr_len = 4;                                                   \
-    sprintf(remark, "mulhu %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                         \
-    require_extension('M');                                          \
-    regs[rd] = mulhu(regs[rs1], regs[rs2]);                          \
-    write_reg = rd;                                                  \
-    pc += 4UL;                                                       \
-    break;
-
-#define INSTRUCT_DIV                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "div %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    require_extension('M');                                        \
-    if (!regs[rs2])                                                \
-        regs[rd] = -1UL;                                           \
-    else if (regs[rs1] == 1UL << 63 && regs[rs2] == -1UL)          \
-        regs[rd] = regs[rs1];                                      \
-    else                                                           \
-        regs[rd] = (int64_t) regs[rs1] / (int64_t) regs[rs2];      \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_DIVU                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "divu %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    require_extension('M');                                         \
-    if (!regs[rs2])                                                 \
-        regs[rd] = -1UL;                                            \
-    else                                                            \
-        regs[rd] = regs[rs1] / regs[rs2];                           \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_REM                                               \
-    instr_len = 4;                                                 \
-    sprintf(remark, "rem %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                       \
-    require_extension('M');                                        \
-    if (!regs[rs2])                                                \
-        regs[rd] = regs[rs1];                                      \
-    else if (regs[rs1] == (1UL << 63) && regs[rs2] == -1UL)        \
-        regs[rd] = 0;                                              \
-    else                                                           \
-        regs[rd] = (int64_t) regs[rs1] % (int64_t) regs[rs2];      \
-    write_reg = rd;                                                \
-    pc += 4UL;                                                     \
-    break;
-
-#define INSTRUCT_REMU                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "remu %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    require_extension('M');                                         \
-    if (!regs[rs2])                                                 \
-        regs[rd] = regs[rs1];                                       \
-    else                                                            \
-        regs[rd] = regs[rs1] % regs[rs2];                           \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_FENCE                                                      \
-    instr_len = 4;                                                          \
-    if (pred != 0xf | succ != 0xf)                                          \
-        sprintf(remark, "fence %s,%s", fence_flag(pred), fence_flag(succ)); \
-    else                                                                    \
-        sprintf(remark, "fence");                                           \
-    pc += 4UL;                                                              \
-    break;
-
-#define INSTRUCT_FENCE_I        \
-    instr_len = 4;              \
-    sprintf(remark, "fence.i"); \
-    pc += 4UL;                  \
+#define INSTRUCT_FENCE_I            \
+    if (verbose)                    \
+        sprintf(remark, "fence.i"); \
+    pc += 4UL;                      \
     break;
 
 #define INSTRUCT_ECALL               \
-    instr_len = 4;                   \
-    sprintf(remark, "ecall");        \
+    if (verbose)                     \
+        sprintf(remark, "ecall");    \
     switch (csr->prv) {              \
     case PRV_U:                      \
         throw TrapUserEcall();       \
@@ -912,23 +943,23 @@
     }                                \
     break;
 
-#define INSTRUCT_EBREAK        \
-    instr_len = 4;             \
-    sprintf(remark, "ebreak"); \
-    throw TrapBreakpoint(pc);  \
+#define INSTRUCT_EBREAK            \
+    if (verbose)                   \
+        sprintf(remark, "ebreak"); \
+    throw TrapBreakpoint(pc);      \
     break;
 
 #define INSTRUCT_WFI                                                \
-    instr_len = 4;                                                  \
-    sprintf(remark, "wfi");                                         \
+    if (verbose)                                                    \
+        sprintf(remark, "wfi");                                     \
     require_privilege((csr->mstatus & MSTATUS_TW) ? PRV_M : PRV_S); \
     throw WaitForInterrupt();                                       \
     break;
 
 #define INSTRUCT_SRET                                                        \
     {                                                                        \
-        instr_len = 4;                                                       \
-        sprintf(remark, "sret");                                             \
+        if (verbose)                                                         \
+            sprintf(remark, "sret");                                         \
         require_privilege((csr->mstatus & MSTATUS_TSR) ? PRV_M : PRV_S);     \
         pc = csr->sepc & pc_alignment_mask;                                  \
         uint64_t status(csr->mstatus);                                       \
@@ -943,8 +974,8 @@
 
 #define INSTRUCT_MRET                                                        \
     {                                                                        \
-        instr_len = 4;                                                       \
-        sprintf(remark, "mret");                                             \
+        if (verbose)                                                         \
+            sprintf(remark, "mret");                                         \
         require_privilege(PRV_M);                                            \
         pc = csr->mepc & pc_alignment_mask;                                  \
         uint64_t status(csr->mstatus);                                       \
@@ -958,749 +989,843 @@
     break;
 
 #define INSTRUCT_SFENCE_VMA                                                  \
-    instr_len = 4;                                                           \
-    sprintf(remark, "sfence.vma %s,%s", regs_name[rs1], regs_name[rs2]);     \
-    require_privilege((csr->mstatus & MSTATUS_TVM) ? PRV_M                   \
-                                                   : PRV_S); /* TLB flush */ \
+    if (verbose)                                                             \
+        sprintf(remark, "sfence.vma %s,%s", regs_name[rs1], regs_name[rs2]); \
+    require_privilege((csr->mstatus & MSTATUS_TVM) ? PRV_M : PRV_S);         \
     pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_CSRRW                                             \
-    {                                                              \
-        instr_len = 4;                                             \
-        if (rd)                                                    \
-            sprintf(remark, "csrrw %s,%s,%s", regs_name[rd],       \
-                    csr->csr_name(csr_addr), regs_name[rs1]);      \
-        else                                                       \
-            sprintf(remark, "csrw %s,%s", csr->csr_name(csr_addr), \
-                    regs_name[rs1]);                               \
-        confirm_csr_legal(csr_addr, 1);                            \
-        uint64_t tmp(csr->get_csr(csr_addr));                      \
-        csr->set_csr(csr_addr, regs[rs1]);                         \
-        regs[rd] = tmp;                                            \
-        write_reg = rd;                                            \
-        write_csr = csr_addr;                                      \
-        pc += 4UL;                                                 \
-    }                                                              \
+#define INSTRUCT_CSRRW                                                 \
+    {                                                                  \
+        uint32_t csr_addr(CSR_ADDR(insn));                             \
+        if (verbose) {                                                 \
+            if (rd)                                                    \
+                sprintf(remark, "csrrw %s,%s,%s", regs_name[rd],       \
+                        csr->csr_name(csr_addr), regs_name[rs1]);      \
+            else                                                       \
+                sprintf(remark, "csrw %s,%s", csr->csr_name(csr_addr), \
+                        regs_name[rs1]);                               \
+        }                                                              \
+        confirm_csr_legal(csr_addr, 1);                                \
+        uint64_t tmp(csr->get_csr(csr_addr));                          \
+        csr->set_csr(csr_addr, regs[rs1]);                             \
+        regs[rd] = tmp;                                                \
+        write_reg = rd;                                                \
+        write_csr = csr_addr;                                          \
+        pc += 4UL;                                                     \
+    }                                                                  \
     break;
 
-#define INSTRUCT_CSRRS                                             \
-    {                                                              \
-        instr_len = 4;                                             \
-        if (!rs1)                                                  \
-            sprintf(remark, "csrr %s,%s", regs_name[rd],           \
-                    csr->csr_name(csr_addr));                      \
-        else if (!rd)                                              \
-            sprintf(remark, "csrs %s,%s", csr->csr_name(csr_addr), \
-                    regs_name[rs1]);                               \
-        else                                                       \
-            sprintf(remark, "csrrs %s,%s,%s", regs_name[rd],       \
-                    csr->csr_name(csr_addr), regs_name[rs1]);      \
-        confirm_csr_legal(csr_addr, rs1);                          \
-        uint64_t tmp(csr->get_csr(csr_addr));                      \
-        csr->set_csr(csr_addr, tmp | regs[rs1]);                   \
-        regs[rd] = tmp;                                            \
-        write_reg = rd;                                            \
-        write_csr = csr_addr;                                      \
-        pc += 4UL;                                                 \
-    }                                                              \
+#define INSTRUCT_CSRRS                                                 \
+    {                                                                  \
+        uint32_t csr_addr(CSR_ADDR(insn));                             \
+        if (verbose) {                                                 \
+            if (!rs1)                                                  \
+                sprintf(remark, "csrr %s,%s", regs_name[rd],           \
+                        csr->csr_name(csr_addr));                      \
+            else if (!rd)                                              \
+                sprintf(remark, "csrs %s,%s", csr->csr_name(csr_addr), \
+                        regs_name[rs1]);                               \
+            else                                                       \
+                sprintf(remark, "csrrs %s,%s,%s", regs_name[rd],       \
+                        csr->csr_name(csr_addr), regs_name[rs1]);      \
+        }                                                              \
+        confirm_csr_legal(csr_addr, rs1);                              \
+        uint64_t tmp(csr->get_csr(csr_addr));                          \
+        csr->set_csr(csr_addr, tmp | regs[rs1]);                       \
+        regs[rd] = tmp;                                                \
+        write_reg = rd;                                                \
+        write_csr = csr_addr;                                          \
+        pc += 4UL;                                                     \
+    }                                                                  \
     break;
 
-#define INSTRUCT_CSRRC                                             \
-    {                                                              \
-        instr_len = 4;                                             \
-        if (rd)                                                    \
-            sprintf(remark, "csrrc %s,%s,%s", regs_name[rd],       \
-                    csr->csr_name(csr_addr), regs_name[rs1]);      \
-        else                                                       \
-            sprintf(remark, "csrc %s,%s", csr->csr_name(csr_addr), \
-                    regs_name[rs1]);                               \
-        confirm_csr_legal(csr_addr, rs1);                          \
-        uint64_t tmp(csr->get_csr(csr_addr));                      \
-        csr->set_csr(csr_addr, tmp & ~regs[rs1]);                  \
-        regs[rd] = tmp;                                            \
-        write_reg = rd;                                            \
-        write_csr = csr_addr;                                      \
-        pc += 4UL;                                                 \
-    }                                                              \
+#define INSTRUCT_CSRRC                                                 \
+    {                                                                  \
+        uint32_t csr_addr(CSR_ADDR(insn));                             \
+        if (verbose) {                                                 \
+            if (rd)                                                    \
+                sprintf(remark, "csrrc %s,%s,%s", regs_name[rd],       \
+                        csr->csr_name(csr_addr), regs_name[rs1]);      \
+            else                                                       \
+                sprintf(remark, "csrc %s,%s", csr->csr_name(csr_addr), \
+                        regs_name[rs1]);                               \
+        }                                                              \
+        confirm_csr_legal(csr_addr, rs1);                              \
+        uint64_t tmp(csr->get_csr(csr_addr));                          \
+        csr->set_csr(csr_addr, tmp & ~regs[rs1]);                      \
+        regs[rd] = tmp;                                                \
+        write_reg = rd;                                                \
+        write_csr = csr_addr;                                          \
+        pc += 4UL;                                                     \
+    }                                                                  \
     break;
 
-#define INSTRUCT_CSRRWI                                               \
-    instr_len = 4;                                                    \
-    if (rd)                                                           \
-        sprintf(remark, "csrrwi %s,%s,%d", regs_name[rd],             \
-                csr->csr_name(csr_addr), rs1);                        \
-    else                                                              \
-        sprintf(remark, "csrwi %s,%d", csr->csr_name(csr_addr), rs1); \
-    confirm_csr_legal(csr_addr, 1);                                   \
-    regs[rd] = csr->get_csr(csr_addr);                                \
-    csr->set_csr(csr_addr, zext(rs1, 5));                             \
-    write_reg = rd;                                                   \
-    write_csr = csr_addr;                                             \
-    pc += 4UL;                                                        \
+#define INSTRUCT_CSRRWI                                                       \
+    {                                                                         \
+        uint32_t csr_addr(CSR_ADDR(insn));                                    \
+        if (verbose) {                                                        \
+            if (rd)                                                           \
+                sprintf(remark, "csrrwi %s,%s,%d", regs_name[rd],             \
+                        csr->csr_name(csr_addr), rs1);                        \
+            else                                                              \
+                sprintf(remark, "csrwi %s,%d", csr->csr_name(csr_addr), rs1); \
+        }                                                                     \
+        confirm_csr_legal(csr_addr, 1);                                       \
+        regs[rd] = csr->get_csr(csr_addr);                                    \
+        csr->set_csr(csr_addr, zext(rs1, 5));                                 \
+        write_reg = rd;                                                       \
+        write_csr = csr_addr;                                                 \
+        pc += 4UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_CSRRSI                                                   \
-    {                                                                     \
-        instr_len = 4;                                                    \
-        if (rd)                                                           \
-            sprintf(remark, "csrrsi %s,%s,%d", regs_name[rd],             \
-                    csr->csr_name(csr_addr), rs1);                        \
-        else                                                              \
-            sprintf(remark, "csrsi %s,%d", csr->csr_name(csr_addr), rs1); \
-        confirm_csr_legal(csr_addr, rs1);                                 \
-        uint64_t tmp(csr->get_csr(csr_addr));                             \
-        csr->set_csr(csr_addr, tmp | zext(rs1, 5));                       \
-        regs[rd] = tmp;                                                   \
-        write_reg = rd;                                                   \
-        write_csr = csr_addr;                                             \
-        pc += 4UL;                                                        \
-    }                                                                     \
+#define INSTRUCT_CSRRSI                                                       \
+    {                                                                         \
+        uint32_t csr_addr(CSR_ADDR(insn));                                    \
+        if (verbose) {                                                        \
+            if (rd)                                                           \
+                sprintf(remark, "csrrsi %s,%s,%d", regs_name[rd],             \
+                        csr->csr_name(csr_addr), rs1);                        \
+            else                                                              \
+                sprintf(remark, "csrsi %s,%d", csr->csr_name(csr_addr), rs1); \
+        }                                                                     \
+        confirm_csr_legal(csr_addr, rs1);                                     \
+        uint64_t tmp(csr->get_csr(csr_addr));                                 \
+        csr->set_csr(csr_addr, tmp | zext(rs1, 5));                           \
+        regs[rd] = tmp;                                                       \
+        write_reg = rd;                                                       \
+        write_csr = csr_addr;                                                 \
+        pc += 4UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_CSRRCI                                                   \
-    {                                                                     \
-        instr_len = 4;                                                    \
-        if (rd)                                                           \
-            sprintf(remark, "csrrci %s,%s,%d", regs_name[rd],             \
-                    csr->csr_name(csr_addr), rs1);                        \
-        else                                                              \
-            sprintf(remark, "csrci %s,%d", csr->csr_name(csr_addr), rs1); \
-        confirm_csr_legal(csr_addr, rs1);                                 \
-        uint64_t tmp(csr->get_csr(csr_addr));                             \
-        csr->set_csr(csr_addr, tmp &(~zext(rs1, 5)));                     \
-        regs[rd] = tmp;                                                   \
-        write_reg = rd;                                                   \
-        write_csr = csr_addr;                                             \
-        pc += 4UL;                                                        \
-    }                                                                     \
+#define INSTRUCT_CSRRCI                                                       \
+    {                                                                         \
+        uint32_t csr_addr(CSR_ADDR(insn));                                    \
+        if (verbose) {                                                        \
+            if (rd)                                                           \
+                sprintf(remark, "csrrci %s,%s,%d", regs_name[rd],             \
+                        csr->csr_name(csr_addr), rs1);                        \
+            else                                                              \
+                sprintf(remark, "csrci %s,%d", csr->csr_name(csr_addr), rs1); \
+        }                                                                     \
+        confirm_csr_legal(csr_addr, rs1);                                     \
+        uint64_t tmp(csr->get_csr(csr_addr));                                 \
+        csr->set_csr(csr_addr, tmp &(~zext(rs1, 5)));                         \
+        regs[rd] = tmp;                                                       \
+        write_reg = rd;                                                       \
+        write_csr = csr_addr;                                                 \
+        pc += 4UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_ADDIW                                                    \
-    instr_len = 4;                                                        \
-    if (imm_i)                                                            \
-        sprintf(remark, "addiw %s,%s,%ld", regs_name[rd], regs_name[rs1], \
-                (int64_t) imm_i);                                         \
-    else                                                                  \
-        sprintf(remark, "sext.w %s,%s", regs_name[rd], regs_name[rs1]);   \
-    regs[rd] = (int32_t) regs[rs1] + (int32_t) imm_i;                     \
-    write_reg = rd;                                                       \
-    pc += 4UL;                                                            \
+#define INSTRUCT_ADDIW                                            \
+    {                                                             \
+        uint64_t imm_i(IMM_I(insn));                              \
+        if (verbose) {                                            \
+            if (imm_i)                                            \
+                sprintf(remark, "addiw %s,%s,%ld", regs_name[rd], \
+                        regs_name[rs1], (int64_t) imm_i);         \
+            else                                                  \
+                sprintf(remark, "sext.w %s,%s", regs_name[rd],    \
+                        regs_name[rs1]);                          \
+        }                                                         \
+        regs[rd] = (int32_t) regs[rs1] + (int32_t) imm_i;         \
+        write_reg = rd;                                           \
+        pc += 4UL;                                                \
+    }                                                             \
     break;
 
-#define INSTRUCT_SLLIW                                                         \
-    instr_len = 4;                                                             \
-    sprintf(remark, "slliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], shamt); \
-    regs[rd] = (int32_t) regs[rs1] << shamt;                                   \
-    write_reg = rd;                                                            \
-    pc += 4UL;                                                                 \
-    break;
-
-#define INSTRUCT_SRLIW                                                         \
-    instr_len = 4;                                                             \
-    sprintf(remark, "srliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], shamt); \
-    regs[rd] = (int32_t)((uint32_t) regs[rs1] >> shamt);                       \
-    write_reg = rd;                                                            \
-    pc += 4UL;                                                                 \
-    break;
-
-#define INSTRUCT_SRAIW                                                 \
-    instr_len = 4;                                                     \
-    sprintf(remark, "sraiw %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
-            shamt64);                                                  \
-    regs[rd] = ((int32_t) regs[rs1] >> shamt);                         \
-    write_reg = rd;                                                    \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_ADDW                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "addw %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    regs[rd] = (int32_t) regs[rs1] + (int32_t) regs[rs2];           \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_SUBW                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "subw %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    regs[rd] = (int32_t) regs[rs1] - (int32_t) regs[rs2];           \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_MULW                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "mulw %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    require_extension('M');                                         \
-    regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;                 \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_SLLW                                               \
-    instr_len = 4;                                                  \
-    sprintf(remark, "sllw %s,%s,%s", regs_name[rd], regs_name[rs1], \
-            regs_name[rs2]);                                        \
-    regs[rd] = (int32_t) regs[rs1] << (regs[rs2] & 0x1F);           \
-    write_reg = rd;                                                 \
-    pc += 4UL;                                                      \
-    break;
-
-#define INSTRUCT_DIVW                                                      \
-    instr_len = 4;                                                         \
-    sprintf(remark, "divw %s,%s,%s", regs_name[rd], regs_name[rs1],        \
-            regs_name[rs2]);                                               \
-    require_extension('M');                                                \
-    if (!(int32_t) regs[rs2])                                              \
-        regs[rd] = -1UL;                                                   \
-    else                                                                   \
-        regs[rd] =                                                         \
-            (int32_t)((int64_t)(int32_t) regs[rs1] / (int32_t) regs[rs2]); \
+#define INSTRUCT_SLLIW                                                     \
+    if (verbose)                                                           \
+        sprintf(remark, "slliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
+                shamt);                                                    \
+    regs[rd] = (int32_t) regs[rs1] << shamt;                               \
     write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_SRLW                                                    \
-    instr_len = 4;                                                       \
-    sprintf(remark, "srlw %s,%s,%s", regs_name[rd], regs_name[rs1],      \
-            regs_name[rs2]);                                             \
-    regs[rd] =                                                           \
-        (int32_t)((uint32_t) regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F)); \
-    write_reg = rd;                                                      \
-    pc += 4UL;                                                           \
-    break;
-
-#define INSTRUCT_SRAW                                                 \
-    instr_len = 4;                                                    \
-    sprintf(remark, "sraw %s,%s,%s", regs_name[rd], regs_name[rs1],   \
-            regs_name[rs2]);                                          \
-    regs[rd] = ((int32_t) regs[rs1] >> (uint32_t)(regs[rs2] & 0x1F)); \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_DIVUW                                                     \
-    instr_len = 4;                                                         \
-    sprintf(remark, "divuw %s,%s,%s", regs_name[rd], regs_name[rs1],       \
-            regs_name[rs2]);                                               \
-    require_extension('M');                                                \
-    if (!(uint32_t) regs[rs2])                                             \
-        regs[rd] = -1UL;                                                   \
-    else                                                                   \
-        regs[rd] = (int32_t)((uint32_t) regs[rs1] / (uint32_t) regs[rs2]); \
+#define INSTRUCT_SRLIW                                                     \
+    if (verbose)                                                           \
+        sprintf(remark, "srliw %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
+                shamt);                                                    \
+    regs[rd] = (int32_t) ((uint32_t) regs[rs1] >> shamt);                  \
     write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_REMW                                                      \
-    instr_len = 4;                                                         \
-    sprintf(remark, "remw %s,%s,%s", regs_name[rd], regs_name[rs1],        \
-            regs_name[rs2]);                                               \
-    require_extension('M');                                                \
-    if (!(int32_t) regs[rs2])                                              \
-        regs[rd] = (int32_t) regs[rs1];                                    \
-    else                                                                   \
-        regs[rd] =                                                         \
-            (int32_t)((int64_t)(int32_t) regs[rs1] % (int32_t) regs[rs2]); \
+#define INSTRUCT_SRAIW                                                     \
+    if (verbose)                                                           \
+        sprintf(remark, "sraiw %s,%s,0x%x", regs_name[rd], regs_name[rs1], \
+                shamt);                                                    \
+    regs[rd] = ((int32_t) regs[rs1] >> shamt);                             \
     write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_REMUW                                                     \
-    instr_len = 4;                                                         \
-    sprintf(remark, "remuw %s,%s,%s", regs_name[rd], regs_name[rs1],       \
-            regs_name[rs2]);                                               \
-    require_extension('M');                                                \
-    if (!(uint32_t) regs[rs2])                                             \
-        regs[rd] = (int32_t) regs[rs1];                                    \
-    else                                                                   \
-        regs[rd] = (int32_t)((uint32_t) regs[rs1] % (uint32_t) regs[rs2]); \
+#define INSTRUCT_ADDW                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "addw %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    regs[rd] = (int32_t) regs[rs1] + (int32_t) regs[rs2];               \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
+    break;
+
+#define INSTRUCT_SUBW                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "subw %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    regs[rd] = (int32_t) regs[rs1] - (int32_t) regs[rs2];               \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
+    break;
+
+#define INSTRUCT_MULW                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "mulw %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    require_extension('M');                                             \
+    regs[rd] = (regs[rs1] * regs[rs2]) << 32 >> 32;                     \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
+    break;
+
+#define INSTRUCT_SLLW                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "sllw %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    regs[rd] = (int32_t) regs[rs1] << (regs[rs2] & 0x1F);               \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
+    break;
+
+#define INSTRUCT_DIVW                                                        \
+    if (verbose)                                                             \
+        sprintf(remark, "divw %s,%s,%s", regs_name[rd], regs_name[rs1],      \
+                regs_name[rs2]);                                             \
+    require_extension('M');                                                  \
+    if (!(int32_t) regs[rs2])                                                \
+        regs[rd] = -1UL;                                                     \
+    else                                                                     \
+        regs[rd] =                                                           \
+            (int32_t) ((int64_t) (int32_t) regs[rs1] / (int32_t) regs[rs2]); \
+    write_reg = rd;                                                          \
+    pc += 4UL;                                                               \
+    break;
+
+#define INSTRUCT_SRLW                                                      \
+    if (verbose)                                                           \
+        sprintf(remark, "srlw %s,%s,%s", regs_name[rd], regs_name[rs1],    \
+                regs_name[rs2]);                                           \
+    regs[rd] =                                                             \
+        (int32_t) ((uint32_t) regs[rs1] >> (uint32_t) (regs[rs2] & 0x1F)); \
     write_reg = rd;                                                        \
     pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_C_ADDI4SPN                                   \
-    instr_len = 2;                                            \
-    sprintf(remark, "c.addi4spn %s,%s,%ld", regs_name[_c_rd], \
-            regs_name[REG_SP], imm_c_addi4spn);               \
-    require_extension('C');                                   \
-    confirm_insn_legal(imm_c_addi4spn);                       \
-    regs[_c_rd] = regs[REG_SP] + imm_c_addi4spn;              \
-    write_reg = _c_rd;                                        \
-    pc += 2UL;                                                \
+#define INSTRUCT_SRAW                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "sraw %s,%s,%s", regs_name[rd], regs_name[rs1], \
+                regs_name[rs2]);                                        \
+    regs[rd] = ((int32_t) regs[rs1] >> (uint32_t) (regs[rs2] & 0x1F));  \
+    write_reg = rd;                                                     \
+    pc += 4UL;                                                          \
     break;
 
-#define INSTRUCT_C_LW                                                  \
-    instr_len = 2;                                                     \
-    sprintf(remark, "c.lw %s,%ld(%s)", regs_name[_c_rd], imm_c_slw,    \
-            regs_name[_c_rs1]);                                        \
-    require_extension('C');                                            \
-    mem_addr = regs[_c_rs1] + imm_c_slw;                               \
-    regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD); \
-    load_store = LS_LOAD;                                              \
-    mem_val = regs[_c_rd];                                             \
-    mem_val_type = DATA_TYPE_WORD;                                     \
-    write_reg = _c_rd;                                                 \
-    pc += 2UL;                                                         \
-    break;
-
-#define INSTRUCT_C_LD                                                   \
-    instr_len = 2;                                                      \
-    sprintf(remark, "c.ld %s,%ld(%s)", regs_name[_c_rd], imm_c_sld,     \
-            regs_name[_c_rs1]);                                         \
-    require_extension('C');                                             \
-    mem_addr = regs[_c_rs1] + imm_c_sld;                                \
-    regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD); \
-    load_store = LS_LOAD;                                               \
-    mem_val = regs[_c_rd];                                              \
-    mem_val_type = DATA_TYPE_DWORD;                                     \
-    write_reg = _c_rd;                                                  \
-    pc += 2UL;                                                          \
-    break;
-
-#define INSTRUCT_C_FLD                                                   \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.fld %s,%ld(%s)", fregs_name[_c_rd], imm_c_sld,    \
-            regs_name[_c_rs1]);                                          \
-    require_extension('C');                                              \
-    require_extension('D');                                              \
-    require_fp;                                                          \
-    mem_addr = regs[_c_rs1] + imm_c_sld;                                 \
-    fregs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD); \
-    set_sd_fs_dirty;                                                     \
-    load_store = LS_LOAD;                                                \
-    mem_val = fregs[_c_rd];                                              \
-    mem_val_type = DATA_TYPE_DWORD;                                      \
-    write_reg = _c_rd | 0x20;                                            \
-    pc += 2UL;                                                           \
-    break;
-
-#define INSTRUCT_C_SW                                                   \
-    instr_len = 2;                                                      \
-    sprintf(remark, "c.sw %s,%ld(%s)", regs_name[_c_rs2], imm_c_slw,    \
-            regs_name[_c_rs1]);                                         \
-    require_extension('C');                                             \
-    mmu->store(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD, regs[_c_rs2]); \
-    load_store = LS_STORE;                                              \
-    mem_addr = regs[_c_rs1] + imm_c_slw;                                \
-    mem_val = regs[_c_rs2];                                             \
-    mem_val_type = DATA_TYPE_WORD;                                      \
-    pc += 2UL;                                                          \
-    break;
-
-#define INSTRUCT_C_SD                                                    \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.sd %s,%ld(%s)", regs_name[_c_rs2], imm_c_sld,     \
-            regs_name[_c_rs1]);                                          \
-    require_extension('C');                                              \
-    mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, regs[_c_rs2]); \
-    load_store = LS_STORE;                                               \
-    mem_addr = regs[_c_rs1] + imm_c_sld;                                 \
-    mem_val = regs[_c_rs2];                                              \
-    mem_val_type = DATA_TYPE_DWORD;                                      \
-    pc += 2UL;                                                           \
-    break;
-
-#define INSTRUCT_C_FSD                                                    \
-    instr_len = 2;                                                        \
-    sprintf(remark, "c.fsd %s,%ld(%s)", fregs_name[_c_rs2], imm_c_sld,    \
-            regs_name[_c_rs1]);                                           \
-    require_extension('C');                                               \
-    require_extension('D');                                               \
-    require_fp;                                                           \
-    mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, fregs[_c_rs2]); \
-    load_store = LS_STORE;                                                \
-    mem_addr = regs[_c_rs1] + imm_c_sld;                                  \
-    mem_val = fregs[_c_rs2];                                              \
-    mem_val_type = DATA_TYPE_DWORD;                                       \
-    pc += 2UL;                                                            \
-    break;
-
-#define INSTRUCT_C_ADDI                                                        \
-    instr_len = 2;                                                             \
-    if (!rd && !imm_c_addi) {                                                  \
-        sprintf(remark, "c.nop");                                              \
-        require_extension('C');                                                \
-    } else {                                                                   \
-        sprintf(remark, "c.addi %s,%ld", regs_name[rd], (int64_t) imm_c_addi); \
-        require_extension('C');                                                \
-        confirm_insn_legal(rd &&imm_c_addi);                                   \
-    }                                                                          \
-    regs[rd] = regs[rd] + imm_c_addi;                                          \
-    write_reg = rd;                                                            \
-    pc += 2UL;                                                                 \
-    break;
-
-#define INSTRUCT_C_ADDIW                                                    \
-    instr_len = 2;                                                          \
-    sprintf(remark, "c.addiw %s,%ld", regs_name[rd], (int64_t) imm_c_addi); \
-    require_extension('C');                                                 \
-    confirm_insn_legal(rd);                                                 \
-    regs[rd] = (int32_t) regs[rd] + (int32_t) imm_c_addi;                   \
+#define INSTRUCT_DIVUW                                                      \
+    if (verbose)                                                            \
+        sprintf(remark, "divuw %s,%s,%s", regs_name[rd], regs_name[rs1],    \
+                regs_name[rs2]);                                            \
+    require_extension('M');                                                 \
+    if (!(uint32_t) regs[rs2])                                              \
+        regs[rd] = -1UL;                                                    \
+    else                                                                    \
+        regs[rd] = (int32_t) ((uint32_t) regs[rs1] / (uint32_t) regs[rs2]); \
     write_reg = rd;                                                         \
-    pc += 2UL;                                                              \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_C_JAL                                   \
-    instr_len = 2;                                       \
-    sprintf(remark, "c.jal %08lx", pc + imm_c_j);        \
-    sprintf(remark, "%s (check)", remark);               \
-    require_extension('C');                              \
-    throw TrapIllegalInstruction(insn); /* RV32C only */ \
-    ras_push = 1;                                        \
-    regs[REG_RA] = pc + 2UL;                             \
-    write_reg = REG_RA;                                  \
-    ` pc += imm_c_j;                                     \
+#define INSTRUCT_REMW                                                        \
+    if (verbose)                                                             \
+        sprintf(remark, "remw %s,%s,%s", regs_name[rd], regs_name[rs1],      \
+                regs_name[rs2]);                                             \
+    require_extension('M');                                                  \
+    if (!(int32_t) regs[rs2])                                                \
+        regs[rd] = (int32_t) regs[rs1];                                      \
+    else                                                                     \
+        regs[rd] =                                                           \
+            (int32_t) ((int64_t) (int32_t) regs[rs1] % (int32_t) regs[rs2]); \
+    write_reg = rd;                                                          \
+    pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_C_LI                                                    \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.li %s,%ld", regs_name[rd], (int64_t) imm_c_addi); \
-    require_extension('C');                                              \
-    confirm_insn_legal(rd);                                              \
-    regs[rd] = imm_c_addi;                                               \
-    write_reg = rd;                                                      \
-    pc += 2UL;                                                           \
+#define INSTRUCT_REMUW                                                      \
+    if (verbose)                                                            \
+        sprintf(remark, "remuw %s,%s,%s", regs_name[rd], regs_name[rs1],    \
+                regs_name[rs2]);                                            \
+    require_extension('M');                                                 \
+    if (!(uint32_t) regs[rs2])                                              \
+        regs[rd] = (int32_t) regs[rs1];                                     \
+    else                                                                    \
+        regs[rd] = (int32_t) ((uint32_t) regs[rs1] % (uint32_t) regs[rs2]); \
+    write_reg = rd;                                                         \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_C_ADDI16SP                                 \
-    instr_len = 2;                                          \
-    sprintf(remark, "c.addi16sp %s,%ld", regs_name[REG_SP], \
-            (int64_t) imm_c_addi16sp);                      \
-    require_extension('C');                                 \
-    confirm_insn_legal(imm_c_addi16sp &&rd == REG_SP);      \
-    regs[REG_SP] = regs[REG_SP] + imm_c_addi16sp;           \
-    write_reg = REG_SP;                                     \
-    pc += 2UL;                                              \
+#define INSTRUCT_C_ADDI4SPN                                           \
+    {                                                                 \
+        uint64_t imm_c_addi4spn(IMM_C_ADDI4SPN(insn));                \
+        if (verbose)                                                  \
+            sprintf(remark, "c.addi4spn %s,%s,%ld", regs_name[_c_rd], \
+                    regs_name[REG_SP], imm_c_addi4spn);               \
+        require_extension('C');                                       \
+        confirm_insn_legal(imm_c_addi4spn);                           \
+        regs[_c_rd] = regs[REG_SP] + imm_c_addi4spn;                  \
+        write_reg = _c_rd;                                            \
+        pc += 2UL;                                                    \
+    }                                                                 \
     break;
 
-#define INSTRUCT_C_LUI                                 \
-    instr_len = 2;                                     \
-    sprintf(remark, "c.lui %s,0x%lx", regs_name[rd],   \
-            imm_c_lui >> 12 & 0xfffff);                \
-    require_extension('C');                            \
-    confirm_insn_legal(rd &&imm_c_lui &&rd != REG_SP); \
-    regs[rd] = imm_c_lui;                              \
-    write_reg = rd;                                    \
-    pc += 2UL;                                         \
+#define INSTRUCT_C_LW                                                       \
+    {                                                                       \
+        uint64_t imm_c_slw(IMM_C_SLW(insn));                                \
+        if (verbose)                                                        \
+            sprintf(remark, "c.lw %s,%ld(%s)", regs_name[_c_rd], imm_c_slw, \
+                    regs_name[_c_rs1]);                                     \
+        require_extension('C');                                             \
+        mem_addr = regs[_c_rs1] + imm_c_slw;                                \
+        regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD);  \
+        load_store = LS_LOAD;                                               \
+        mem_val = regs[_c_rd];                                              \
+        mem_val_type = DATA_TYPE_WORD;                                      \
+        write_reg = _c_rd;                                                  \
+        pc += 2UL;                                                          \
+    }                                                                       \
     break;
 
-#define INSTRUCT_C_SUB                                                    \
-    instr_len = 2;                                                        \
-    sprintf(remark, "c.sub %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
-    require_extension('C');                                               \
-    regs[_c_rs1] = regs[_c_rs1] - regs[_c_rs2];                           \
-    write_reg = _c_rs1;                                                   \
-    pc += 2UL;                                                            \
+#define INSTRUCT_C_LD                                                       \
+    {                                                                       \
+        uint64_t imm_c_sld(IMM_C_SLD(insn));                                \
+        if (verbose)                                                        \
+            sprintf(remark, "c.ld %s,%ld(%s)", regs_name[_c_rd], imm_c_sld, \
+                    regs_name[_c_rs1]);                                     \
+        require_extension('C');                                             \
+        mem_addr = regs[_c_rs1] + imm_c_sld;                                \
+        regs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD); \
+        load_store = LS_LOAD;                                               \
+        mem_val = regs[_c_rd];                                              \
+        mem_val_type = DATA_TYPE_DWORD;                                     \
+        write_reg = _c_rd;                                                  \
+        pc += 2UL;                                                          \
+    }                                                                       \
     break;
 
-#define INSTRUCT_C_XOR                                                    \
-    instr_len = 2;                                                        \
-    sprintf(remark, "c.xor %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
-    require_extension('C');                                               \
-    regs[_c_rs1] = regs[_c_rs1] ^ regs[_c_rs2];                           \
-    write_reg = _c_rs1;                                                   \
-    pc += 2UL;                                                            \
+#define INSTRUCT_C_FLD                                                        \
+    {                                                                         \
+        uint64_t imm_c_sld(IMM_C_SLD(insn));                                  \
+        if (verbose)                                                          \
+            sprintf(remark, "c.fld %s,%ld(%s)", fregs_name[_c_rd], imm_c_sld, \
+                    regs_name[_c_rs1]);                                       \
+        require_extension('C');                                               \
+        require_extension('D');                                               \
+        require_fp;                                                           \
+        mem_addr = regs[_c_rs1] + imm_c_sld;                                  \
+        fregs[_c_rd] = mmu->load(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD);  \
+        set_sd_fs_dirty;                                                      \
+        load_store = LS_LOAD;                                                 \
+        mem_val = fregs[_c_rd];                                               \
+        mem_val_type = DATA_TYPE_DWORD;                                       \
+        write_reg = _c_rd | 0x20;                                             \
+        pc += 2UL;                                                            \
+    }                                                                         \
     break;
 
-#define INSTRUCT_C_OR                                                    \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.or %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
-    require_extension('C');                                              \
-    regs[_c_rs1] = regs[_c_rs1] | regs[_c_rs2];                          \
-    write_reg = _c_rs1;                                                  \
-    pc += 2UL;                                                           \
+#define INSTRUCT_C_SW                                                        \
+    {                                                                        \
+        uint64_t imm_c_slw(IMM_C_SLW(insn));                                 \
+        if (verbose)                                                         \
+            sprintf(remark, "c.sw %s,%ld(%s)", regs_name[_c_rs2], imm_c_slw, \
+                    regs_name[_c_rs1]);                                      \
+        require_extension('C');                                              \
+        mmu->store(regs[_c_rs1] + imm_c_slw, DATA_TYPE_WORD, regs[_c_rs2]);  \
+        load_store = LS_STORE;                                               \
+        mem_addr = regs[_c_rs1] + imm_c_slw;                                 \
+        mem_val = regs[_c_rs2];                                              \
+        mem_val_type = DATA_TYPE_WORD;                                       \
+        pc += 2UL;                                                           \
+    }                                                                        \
     break;
 
-#define INSTRUCT_C_AND                                                    \
-    instr_len = 2;                                                        \
-    sprintf(remark, "c.and %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
-    require_extension('C');                                               \
-    regs[_c_rs1] = regs[_c_rs1] & regs[_c_rs2];                           \
-    write_reg = _c_rs1;                                                   \
-    pc += 2UL;                                                            \
+#define INSTRUCT_C_SD                                                        \
+    {                                                                        \
+        uint64_t imm_c_sld(IMM_C_SLD(insn));                                 \
+        if (verbose)                                                         \
+            sprintf(remark, "c.sd %s,%ld(%s)", regs_name[_c_rs2], imm_c_sld, \
+                    regs_name[_c_rs1]);                                      \
+        require_extension('C');                                              \
+        mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, regs[_c_rs2]); \
+        load_store = LS_STORE;                                               \
+        mem_addr = regs[_c_rs1] + imm_c_sld;                                 \
+        mem_val = regs[_c_rs2];                                              \
+        mem_val_type = DATA_TYPE_DWORD;                                      \
+        pc += 2UL;                                                           \
+    }                                                                        \
     break;
 
-#define INSTRUCT_C_SUBW                                                    \
-    instr_len = 2;                                                         \
-    sprintf(remark, "c.subw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
-    require_extension('C');                                                \
-    regs[_c_rs1] = (int32_t) regs[_c_rs1] - (int32_t) regs[_c_rs2];        \
-    write_reg = _c_rs1;                                                    \
-    pc += 2UL;                                                             \
+#define INSTRUCT_C_FSD                                                         \
+    {                                                                          \
+        uint64_t imm_c_sld(IMM_C_SLD(insn));                                   \
+        if (verbose)                                                           \
+            sprintf(remark, "c.fsd %s,%ld(%s)", fregs_name[_c_rs2], imm_c_sld, \
+                    regs_name[_c_rs1]);                                        \
+        require_extension('C');                                                \
+        require_extension('D');                                                \
+        require_fp;                                                            \
+        mmu->store(regs[_c_rs1] + imm_c_sld, DATA_TYPE_DWORD, fregs[_c_rs2]);  \
+        load_store = LS_STORE;                                                 \
+        mem_addr = regs[_c_rs1] + imm_c_sld;                                   \
+        mem_val = fregs[_c_rs2];                                               \
+        mem_val_type = DATA_TYPE_DWORD;                                        \
+        pc += 2UL;                                                             \
+    }                                                                          \
     break;
 
-#define INSTRUCT_C_ADDW                                                    \
-    instr_len = 2;                                                         \
-    sprintf(remark, "c.addw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
-    require_extension('C');                                                \
-    regs[_c_rs1] = (int32_t) regs[_c_rs1] + (int32_t) regs[_c_rs2];        \
-    write_reg = _c_rs1;                                                    \
-    pc += 2UL;                                                             \
+#define INSTRUCT_C_ADDI                                                 \
+    {                                                                   \
+        uint64_t imm_c_addi(IMM_C_ADDI(insn));                          \
+        if (verbose) {                                                  \
+            if (!rd && !imm_c_addi) {                                   \
+                sprintf(remark, "c.nop");                               \
+            } else {                                                    \
+                sprintf(remark, "c.addi %s,%ld", regs_name[rd],         \
+                        (int64_t) imm_c_addi);                          \
+            }                                                           \
+        }                                                               \
+        require_extension('C');                                         \
+        confirm_insn_legal((rd && imm_c_addi) || (!rd && !imm_c_addi)); \
+        regs[rd] = regs[rd] + imm_c_addi;                               \
+        write_reg = rd;                                                 \
+        pc += 2UL;                                                      \
+    }                                                                   \
     break;
 
-#define INSTRUCT_C_SRLI                                            \
-    instr_len = 2;                                                 \
-    sprintf(remark, "c.srli %s,0x%x", regs_name[_c_rs1], c_shamt); \
-    require_extension('C');                                        \
-    confirm_insn_legal(c_shamt);                                   \
-    regs[_c_rs1] = regs[_c_rs1] >> c_shamt;                        \
-    write_reg = _c_rs1;                                            \
-    pc += 2UL;                                                     \
+#define INSTRUCT_C_ADDIW                                      \
+    {                                                         \
+        uint64_t imm_c_addi(IMM_C_ADDI(insn));                \
+        if (verbose)                                          \
+            sprintf(remark, "c.addiw %s,%ld", regs_name[rd],  \
+                    (int64_t) imm_c_addi);                    \
+        require_extension('C');                               \
+        confirm_insn_legal(rd);                               \
+        regs[rd] = (int32_t) regs[rd] + (int32_t) imm_c_addi; \
+        write_reg = rd;                                       \
+        pc += 2UL;                                            \
+    }                                                         \
     break;
 
-#define INSTRUCT_C_SRAI                                            \
-    instr_len = 2;                                                 \
-    sprintf(remark, "c.srai %s,0x%x", regs_name[_c_rs1], c_shamt); \
-    require_extension('C');                                        \
-    confirm_insn_legal(c_shamt);                                   \
-    regs[_c_rs1] = (int64_t) regs[_c_rs1] >> c_shamt;              \
-    write_reg = _c_rs1;                                            \
-    pc += 2UL;                                                     \
+#define INSTRUCT_C_JAL                                       \
+    {                                                        \
+        uint64_t imm_c_j(IMM_C_J(insn));                     \
+        if (verbose)                                         \
+            sprintf(remark, "c.jal %08lx", pc + imm_c_j);    \
+        require_extension('C');                              \
+        throw TrapIllegalInstruction(insn); /* RV32C only */ \
+        ras_push = 1;                                        \
+        regs[REG_RA] = pc + 2UL;                             \
+        write_reg = REG_RA;                                  \
+        pc += imm_c_j;                                       \
+    }                                                        \
     break;
 
-#define INSTRUCT_C_ANDI                                                        \
-    instr_len = 2;                                                             \
-    sprintf(remark, "c.andi %s,%ld", regs_name[_c_rs1], (int64_t) imm_c_addi); \
+#define INSTRUCT_C_LI                                     \
+    {                                                     \
+        uint64_t imm_c_addi(IMM_C_ADDI(insn));            \
+        if (verbose)                                      \
+            sprintf(remark, "c.li %s,%ld", regs_name[rd], \
+                    (int64_t) imm_c_addi);                \
+        require_extension('C');                           \
+        confirm_insn_legal(rd);                           \
+        regs[rd] = imm_c_addi;                            \
+        write_reg = rd;                                   \
+        pc += 2UL;                                        \
+    }                                                     \
+    break;
+
+#define INSTRUCT_C_ADDI16SP                                         \
+    {                                                               \
+        uint64_t imm_c_addi16sp(IMM_C_ADDI16SP(insn));              \
+        if (verbose)                                                \
+            sprintf(remark, "c.addi16sp %s,%ld", regs_name[REG_SP], \
+                    (int64_t) imm_c_addi16sp);                      \
+        require_extension('C');                                     \
+        confirm_insn_legal(imm_c_addi16sp &&rd == REG_SP);          \
+        regs[REG_SP] = regs[REG_SP] + imm_c_addi16sp;               \
+        write_reg = REG_SP;                                         \
+        pc += 2UL;                                                  \
+    }                                                               \
+    break;
+
+#define INSTRUCT_C_LUI                                       \
+    {                                                        \
+        uint64_t imm_c_lui(IMM_C_LUI(insn));                 \
+        if (verbose)                                         \
+            sprintf(remark, "c.lui %s,0x%lx", regs_name[rd], \
+                    imm_c_lui >> 12 & 0xfffff);              \
+        require_extension('C');                              \
+        confirm_insn_legal(rd &&imm_c_lui &&rd != REG_SP);   \
+        regs[rd] = imm_c_lui;                                \
+        write_reg = rd;                                      \
+        pc += 2UL;                                           \
+    }                                                        \
+    break;
+
+#define INSTRUCT_C_SUB                                                        \
+    if (verbose)                                                              \
+        sprintf(remark, "c.sub %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
+    require_extension('C');                                                   \
+    regs[_c_rs1] = regs[_c_rs1] - regs[_c_rs2];                               \
+    write_reg = _c_rs1;                                                       \
+    pc += 2UL;                                                                \
+    break;
+
+#define INSTRUCT_C_XOR                                                        \
+    if (verbose)                                                              \
+        sprintf(remark, "c.xor %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
+    require_extension('C');                                                   \
+    regs[_c_rs1] = regs[_c_rs1] ^ regs[_c_rs2];                               \
+    write_reg = _c_rs1;                                                       \
+    pc += 2UL;                                                                \
+    break;
+
+#define INSTRUCT_C_OR                                                        \
+    if (verbose)                                                             \
+        sprintf(remark, "c.or %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
+    require_extension('C');                                                  \
+    regs[_c_rs1] = regs[_c_rs1] | regs[_c_rs2];                              \
+    write_reg = _c_rs1;                                                      \
+    pc += 2UL;                                                               \
+    break;
+
+#define INSTRUCT_C_AND                                                        \
+    if (verbose)                                                              \
+        sprintf(remark, "c.and %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
+    require_extension('C');                                                   \
+    regs[_c_rs1] = regs[_c_rs1] & regs[_c_rs2];                               \
+    write_reg = _c_rs1;                                                       \
+    pc += 2UL;                                                                \
+    break;
+
+#define INSTRUCT_C_SUBW                                                        \
+    if (verbose)                                                               \
+        sprintf(remark, "c.subw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
     require_extension('C');                                                    \
-    regs[_c_rs1] = regs[_c_rs1] & imm_c_addi;                                  \
+    regs[_c_rs1] = (int32_t) regs[_c_rs1] - (int32_t) regs[_c_rs2];            \
     write_reg = _c_rs1;                                                        \
     pc += 2UL;                                                                 \
     break;
 
-#define INSTRUCT_C_J                            \
-    instr_len = 2;                              \
-    sprintf(remark, "c.j %08lx", pc + imm_c_j); \
-    require_extension('C');                     \
-    pc += imm_c_j;                              \
+#define INSTRUCT_C_ADDW                                                        \
+    if (verbose)                                                               \
+        sprintf(remark, "c.addw %s,%s", regs_name[_c_rs1], regs_name[_c_rs2]); \
+    require_extension('C');                                                    \
+    regs[_c_rs1] = (int32_t) regs[_c_rs1] + (int32_t) regs[_c_rs2];            \
+    write_reg = _c_rs1;                                                        \
+    pc += 2UL;                                                                 \
     break;
 
-#define INSTRUCT_C_BEQZ                                                  \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.beqz %s,%08lx", regs_name[_c_rs1], pc + imm_c_b); \
-    require_extension('C');                                              \
-    pc += !regs[_c_rs1] ? imm_c_b : 2UL;                                 \
-    break;
-
-#define INSTRUCT_C_BNEZ                                                  \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.bnez %s,%08lx", regs_name[_c_rs1], pc + imm_c_b); \
-    require_extension('C');                                              \
-    pc += regs[_c_rs1] ? imm_c_b : 2UL;                                  \
-    break;
-
-#define INSTRUCT_C_SLLI                                        \
-    instr_len = 2;                                             \
-    sprintf(remark, "c.slli %s,0x%x", regs_name[rd], c_shamt); \
-    require_extension('C');                                    \
-    confirm_insn_legal(rd &&c_shamt);                          \
-    regs[rd] = regs[rd] << c_shamt;                            \
-    write_reg = rd;                                            \
-    pc += 2UL;                                                 \
-    break;
-
-#define INSTRUCT_C_LWSP                                              \
-    instr_len = 2;                                                   \
-    sprintf(remark, "c.lwsp %s,%ld(%s)", regs_name[rd], imm_c_lwsp,  \
-            regs_name[REG_SP]);                                      \
-    require_extension('C');                                          \
-    confirm_insn_legal(rd);                                          \
-    mem_addr = regs[REG_SP] + imm_c_lwsp;                            \
-    regs[rd] = mmu->load(regs[REG_SP] + imm_c_lwsp, DATA_TYPE_WORD); \
-    load_store = LS_LOAD;                                            \
-    mem_val = regs[rd];                                              \
-    mem_val_type = DATA_TYPE_WORD;                                   \
-    write_reg = rd;                                                  \
-    pc += 2UL;                                                       \
-    break;
-
-#define INSTRUCT_C_LDSP                                               \
-    instr_len = 2;                                                    \
-    sprintf(remark, "c.ldsp %s,%ld(%s)", regs_name[rd], imm_c_ldsp,   \
-            regs_name[REG_SP]);                                       \
-    require_extension('C');                                           \
-    confirm_insn_legal(rd);                                           \
-    mem_addr = regs[REG_SP] + imm_c_ldsp;                             \
-    regs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD); \
-    load_store = LS_LOAD;                                             \
-    mem_val = regs[rd];                                               \
-    mem_val_type = DATA_TYPE_DWORD;                                   \
-    write_reg = rd;                                                   \
-    pc += 2UL;                                                        \
-    break;
-
-#define INSTRUCT_C_FLDSP                                               \
-    instr_len = 2;                                                     \
-    sprintf(remark, "c.fldsp %s,%ld(%s)", fregs_name[rd], imm_c_ldsp,  \
-            regs_name[REG_SP]);                                        \
+#define INSTRUCT_C_SRLI                                                \
+    if (verbose)                                                       \
+        sprintf(remark, "c.srli %s,0x%x", regs_name[_c_rs1], c_shamt); \
     require_extension('C');                                            \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    mem_addr = regs[REG_SP] + imm_c_ldsp;                              \
-    fregs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD); \
-    set_sd_fs_dirty;                                                   \
-    load_store = LS_LOAD;                                              \
-    mem_val = fregs[rd];                                               \
-    mem_val_type = DATA_TYPE_DWORD;                                    \
-    write_reg = rd | 0x20;                                             \
+    confirm_insn_legal(c_shamt);                                       \
+    regs[_c_rs1] = regs[_c_rs1] >> c_shamt;                            \
+    write_reg = _c_rs1;                                                \
     pc += 2UL;                                                         \
     break;
 
-#define INSTRUCT_C_JR                                 \
-    {                                                 \
-        instr_len = 2;                                \
-        sprintf(remark, "c.jr %s", regs_name[c_rs1]); \
-        require_extension('C');                       \
-        confirm_insn_legal(c_rs1);                    \
-        ras_pop = c_rs1 == REG_RA;                    \
-        pc = (regs[c_rs1]) & ~1UL;                    \
-    }                                                 \
+#define INSTRUCT_C_SRAI                                                \
+    if (verbose)                                                       \
+        sprintf(remark, "c.srai %s,0x%x", regs_name[_c_rs1], c_shamt); \
+    require_extension('C');                                            \
+    confirm_insn_legal(c_shamt);                                       \
+    regs[_c_rs1] = (int64_t) regs[_c_rs1] >> c_shamt;                  \
+    write_reg = _c_rs1;                                                \
+    pc += 2UL;                                                         \
     break;
 
-#define INSTRUCT_C_MV                                               \
-    instr_len = 2;                                                  \
-    sprintf(remark, "c.mv %s,%s", regs_name[rd], regs_name[c_rs2]); \
-    require_extension('C');                                         \
-    confirm_insn_legal(rd &&c_rs2);                                 \
-    regs[rd] = regs[c_rs2];                                         \
-    write_reg = rd;                                                 \
-    pc += 2UL;                                                      \
+#define INSTRUCT_C_ANDI                                         \
+    {                                                           \
+        uint64_t imm_c_addi(IMM_C_ADDI(insn));                  \
+        if (verbose)                                            \
+            sprintf(remark, "c.andi %s,%ld", regs_name[_c_rs1], \
+                    (int64_t) imm_c_addi);                      \
+        require_extension('C');                                 \
+        regs[_c_rs1] = regs[_c_rs1] & imm_c_addi;               \
+        write_reg = _c_rs1;                                     \
+        pc += 2UL;                                              \
+    }                                                           \
     break;
 
-#define INSTRUCT_C_EBREAK        \
-    instr_len = 2;               \
-    sprintf(remark, "c.ebreak"); \
-    require_extension('C');      \
-    throw TrapBreakpoint(pc);    \
-    break;
-
-#define INSTRUCT_C_JALR                                 \
+#define INSTRUCT_C_J                                    \
     {                                                   \
-        instr_len = 2;                                  \
-        sprintf(remark, "c.jalr %s", regs_name[c_rs1]); \
+        uint64_t imm_c_j(IMM_C_J(insn));                \
+        if (verbose)                                    \
+            sprintf(remark, "c.j %08lx", pc + imm_c_j); \
         require_extension('C');                         \
-        confirm_insn_legal(c_rs1);                      \
-        uint64_t rs1_data(regs[c_rs1]);                 \
-        ras_push = 1;                                   \
-        regs[REG_RA] = pc + 2UL;                        \
-        write_reg = REG_RA;                             \
-        pc = (rs1_data) & ~1UL;                         \
+        pc += imm_c_j;                                  \
     }                                                   \
     break;
 
-#define INSTRUCT_C_ADD                                               \
-    instr_len = 2;                                                   \
-    sprintf(remark, "c.add %s,%s", regs_name[rd], regs_name[c_rs2]); \
-    require_extension('C');                                          \
-    confirm_insn_legal(rd &&c_rs2);                                  \
-    regs[rd] = regs[rd] + regs[c_rs2];                               \
-    write_reg = rd;                                                  \
-    pc += 2UL;                                                       \
+#define INSTRUCT_C_BEQZ                                           \
+    {                                                             \
+        uint64_t imm_c_b(IMM_C_B(insn));                          \
+        if (verbose)                                              \
+            sprintf(remark, "c.beqz %s,%08lx", regs_name[_c_rs1], \
+                    pc + imm_c_b);                                \
+        require_extension('C');                                   \
+        pc += !regs[_c_rs1] ? imm_c_b : 2UL;                      \
+    }                                                             \
     break;
 
-#define INSTRUCT_C_SWSP                                                 \
-    instr_len = 2;                                                      \
-    sprintf(remark, "c.swsp %s,%ld(%s)", regs_name[c_rs2], imm_c_swsp,  \
-            regs_name[REG_SP]);                                         \
+#define INSTRUCT_C_BNEZ                                           \
+    {                                                             \
+        uint64_t imm_c_b(IMM_C_B(insn));                          \
+        if (verbose)                                              \
+            sprintf(remark, "c.bnez %s,%08lx", regs_name[_c_rs1], \
+                    pc + imm_c_b);                                \
+        require_extension('C');                                   \
+        pc += regs[_c_rs1] ? imm_c_b : 2UL;                       \
+    }                                                             \
+    break;
+
+#define INSTRUCT_C_SLLI                                            \
+    if (verbose)                                                   \
+        sprintf(remark, "c.slli %s,0x%x", regs_name[rd], c_shamt); \
+    require_extension('C');                                        \
+    confirm_insn_legal(rd &&c_shamt);                              \
+    regs[rd] = regs[rd] << c_shamt;                                \
+    write_reg = rd;                                                \
+    pc += 2UL;                                                     \
+    break;
+
+#define INSTRUCT_C_LWSP                                                     \
+    {                                                                       \
+        uint64_t imm_c_lwsp(IMM_C_LWSP(insn));                              \
+        if (verbose)                                                        \
+            sprintf(remark, "c.lwsp %s,%ld(%s)", regs_name[rd], imm_c_lwsp, \
+                    regs_name[REG_SP]);                                     \
+        require_extension('C');                                             \
+        confirm_insn_legal(rd);                                             \
+        mem_addr = regs[REG_SP] + imm_c_lwsp;                               \
+        regs[rd] = mmu->load(regs[REG_SP] + imm_c_lwsp, DATA_TYPE_WORD);    \
+        load_store = LS_LOAD;                                               \
+        mem_val = regs[rd];                                                 \
+        mem_val_type = DATA_TYPE_WORD;                                      \
+        write_reg = rd;                                                     \
+        pc += 2UL;                                                          \
+    }                                                                       \
+    break;
+
+#define INSTRUCT_C_LDSP                                                     \
+    {                                                                       \
+        uint64_t imm_c_ldsp(IMM_C_LDSP(insn));                              \
+        if (verbose)                                                        \
+            sprintf(remark, "c.ldsp %s,%ld(%s)", regs_name[rd], imm_c_ldsp, \
+                    regs_name[REG_SP]);                                     \
+        require_extension('C');                                             \
+        confirm_insn_legal(rd);                                             \
+        mem_addr = regs[REG_SP] + imm_c_ldsp;                               \
+        regs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD);   \
+        load_store = LS_LOAD;                                               \
+        mem_val = regs[rd];                                                 \
+        mem_val_type = DATA_TYPE_DWORD;                                     \
+        write_reg = rd;                                                     \
+        pc += 2UL;                                                          \
+    }                                                                       \
+    break;
+
+#define INSTRUCT_C_FLDSP                                                      \
+    {                                                                         \
+        uint64_t imm_c_ldsp(IMM_C_LDSP(insn));                                \
+        if (verbose)                                                          \
+            sprintf(remark, "c.fldsp %s,%ld(%s)", fregs_name[rd], imm_c_ldsp, \
+                    regs_name[REG_SP]);                                       \
+        require_extension('C');                                               \
+        require_extension('D');                                               \
+        require_fp;                                                           \
+        mem_addr = regs[REG_SP] + imm_c_ldsp;                                 \
+        fregs[rd] = mmu->load(regs[REG_SP] + imm_c_ldsp, DATA_TYPE_DWORD);    \
+        set_sd_fs_dirty;                                                      \
+        load_store = LS_LOAD;                                                 \
+        mem_val = fregs[rd];                                                  \
+        mem_val_type = DATA_TYPE_DWORD;                                       \
+        write_reg = rd | 0x20;                                                \
+        pc += 2UL;                                                            \
+    }                                                                         \
+    break;
+
+#define INSTRUCT_C_JR                                     \
+    {                                                     \
+        if (verbose)                                      \
+            sprintf(remark, "c.jr %s", regs_name[c_rs1]); \
+        require_extension('C');                           \
+        confirm_insn_legal(c_rs1);                        \
+        ras_pop = c_rs1 == REG_RA;                        \
+        pc = (regs[c_rs1]) & ~1UL;                        \
+    }                                                     \
+    break;
+
+#define INSTRUCT_C_MV                                                   \
+    if (verbose)                                                        \
+        sprintf(remark, "c.mv %s,%s", regs_name[rd], regs_name[c_rs2]); \
     require_extension('C');                                             \
-    mmu->store(regs[REG_SP] + imm_c_swsp, DATA_TYPE_WORD, regs[c_rs2]); \
-    load_store = LS_STORE;                                              \
-    mem_addr = regs[REG_SP] + imm_c_swsp;                               \
-    mem_val = regs[c_rs2];                                              \
-    mem_val_type = DATA_TYPE_WORD;                                      \
+    confirm_insn_legal(rd &&c_rs2);                                     \
+    regs[rd] = regs[c_rs2];                                             \
+    write_reg = rd;                                                     \
     pc += 2UL;                                                          \
     break;
 
-#define INSTRUCT_C_SDSP                                                  \
-    instr_len = 2;                                                       \
-    sprintf(remark, "c.sdsp %s,%ld(%s)", regs_name[c_rs2], imm_c_sdsp,   \
-            regs_name[REG_SP]);                                          \
+#define INSTRUCT_C_EBREAK            \
+    if (verbose)                     \
+        sprintf(remark, "c.ebreak"); \
+    require_extension('C');          \
+    throw TrapBreakpoint(pc);        \
+    break;
+
+#define INSTRUCT_C_JALR                                     \
+    {                                                       \
+        if (verbose)                                        \
+            sprintf(remark, "c.jalr %s", regs_name[c_rs1]); \
+        require_extension('C');                             \
+        confirm_insn_legal(c_rs1);                          \
+        uint64_t rs1_data(regs[c_rs1]);                     \
+        ras_push = 1;                                       \
+        regs[REG_RA] = pc + 2UL;                            \
+        write_reg = REG_RA;                                 \
+        pc = (rs1_data) & ~1UL;                             \
+    }                                                       \
+    break;
+
+#define INSTRUCT_C_ADD                                                   \
+    if (verbose)                                                         \
+        sprintf(remark, "c.add %s,%s", regs_name[rd], regs_name[c_rs2]); \
     require_extension('C');                                              \
-    mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]); \
-    load_store = LS_STORE;                                               \
-    mem_addr = regs[REG_SP] + imm_c_sdsp;                                \
-    mem_val = regs[c_rs2];                                               \
-    mem_val_type = DATA_TYPE_DWORD;                                      \
+    confirm_insn_legal(rd &&c_rs2);                                      \
+    regs[rd] = regs[rd] + regs[c_rs2];                                   \
+    write_reg = rd;                                                      \
     pc += 2UL;                                                           \
     break;
 
-#define INSTRUCT_C_FSDSP                                                  \
-    instr_len = 2;                                                        \
-    sprintf(remark, "c.fsdsp %s,%ld(%s)", fregs_name[c_rs2], imm_c_sdsp,  \
-            regs_name[REG_SP]);                                           \
-    require_extension('C');                                               \
-    require_extension('D');                                               \
-    require_fp;                                                           \
-    mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, fregs[c_rs2]); \
-    load_store = LS_STORE;                                                \
-    mem_addr = regs[REG_SP] + imm_c_sdsp;                                 \
-    mem_val = fregs[c_rs2];                                               \
-    mem_val_type = DATA_TYPE_DWORD;                                       \
-    pc += 2UL;                                                            \
+#define INSTRUCT_C_SWSP                                                        \
+    {                                                                          \
+        uint64_t imm_c_swsp(IMM_C_SWSP(insn));                                 \
+        if (verbose)                                                           \
+            sprintf(remark, "c.swsp %s,%ld(%s)", regs_name[c_rs2], imm_c_swsp, \
+                    regs_name[REG_SP]);                                        \
+        require_extension('C');                                                \
+        mmu->store(regs[REG_SP] + imm_c_swsp, DATA_TYPE_WORD, regs[c_rs2]);    \
+        load_store = LS_STORE;                                                 \
+        mem_addr = regs[REG_SP] + imm_c_swsp;                                  \
+        mem_val = regs[c_rs2];                                                 \
+        mem_val_type = DATA_TYPE_WORD;                                         \
+        pc += 2UL;                                                             \
+    }                                                                          \
+    break;
+
+#define INSTRUCT_C_SDSP                                                        \
+    {                                                                          \
+        uint64_t imm_c_sdsp(IMM_C_SDSP(insn));                                 \
+        if (verbose)                                                           \
+            sprintf(remark, "c.sdsp %s,%ld(%s)", regs_name[c_rs2], imm_c_sdsp, \
+                    regs_name[REG_SP]);                                        \
+        require_extension('C');                                                \
+        mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, regs[c_rs2]);   \
+        load_store = LS_STORE;                                                 \
+        mem_addr = regs[REG_SP] + imm_c_sdsp;                                  \
+        mem_val = regs[c_rs2];                                                 \
+        mem_val_type = DATA_TYPE_DWORD;                                        \
+        pc += 2UL;                                                             \
+    }                                                                          \
+    break;
+
+#define INSTRUCT_C_FSDSP                                                      \
+    {                                                                         \
+        uint64_t imm_c_sdsp(IMM_C_SDSP(insn));                                \
+        if (verbose)                                                          \
+            sprintf(remark, "c.fsdsp %s,%ld(%s)", fregs_name[c_rs2],          \
+                    imm_c_sdsp, regs_name[REG_SP]);                           \
+        require_extension('C');                                               \
+        require_extension('D');                                               \
+        require_fp;                                                           \
+        mmu->store(regs[REG_SP] + imm_c_sdsp, DATA_TYPE_DWORD, fregs[c_rs2]); \
+        load_store = LS_STORE;                                                \
+        mem_addr = regs[REG_SP] + imm_c_sdsp;                                 \
+        mem_val = fregs[c_rs2];                                               \
+        mem_val_type = DATA_TYPE_DWORD;                                       \
+        pc += 2UL;                                                            \
+    }                                                                         \
     break;
 
 #define STR_AQ_RL(_aq, _rl) \
     (_aq) && (_rl) ? ".aq.rl" : (_aq) ? ".aq" : (_rl) ? ".rl" : ""
 
-#define INSTRUCT_LR_W                                                    \
-    instr_len = 4;                                                       \
-    sprintf(remark, "lr.w%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
-            regs_name[rs1]);                                             \
-    require_extension('A');                                              \
-    if (regs[rs1] & 3UL)                                                 \
-        throw TrapLoadAccessFault(regs[rs1]);                            \
-    mmu->acquire_load_reservation(regs[rs1]);                            \
-    mem_addr = regs[rs1];                                                \
-    regs[rd] = mmu->load(regs[rs1], DATA_TYPE_WORD);                     \
-    load_store = LS_LOAD;                                                \
-    mem_val = regs[rd];                                                  \
-    mem_val_type = DATA_TYPE_WORD;                                       \
-    write_reg = rd;                                                      \
-    pc += 4UL;                                                           \
+#define INSTRUCT_LR_W                                                        \
+    if (verbose)                                                             \
+        sprintf(remark, "lr.w%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+                regs_name[rs1]);                                             \
+    require_extension('A');                                                  \
+    if (regs[rs1] & 3UL)                                                     \
+        throw TrapLoadAccessFault(regs[rs1]);                                \
+    mmu->acquire_load_reservation(regs[rs1]);                                \
+    mem_addr = regs[rs1];                                                    \
+    regs[rd] = mmu->load(regs[rs1], DATA_TYPE_WORD);                         \
+    load_store = LS_LOAD;                                                    \
+    mem_val = regs[rd];                                                      \
+    mem_val_type = DATA_TYPE_WORD;                                           \
+    write_reg = rd;                                                          \
+    pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_SC_W                                             \
-    {                                                             \
-        instr_len = 4;                                            \
-        sprintf(remark, "sc.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
-                regs_name[rd], regs_name[rs2], regs_name[rs1]);   \
-        require_extension('A');                                   \
-        if (regs[rs1] & 3UL)                                      \
-            throw TrapLoadAccessFault(regs[rs1]);                 \
-        bool is_reserv(mmu->check_load_reservation(regs[rs1]));   \
-        if (is_reserv) {                                          \
-            mmu->store(regs[rs1], DATA_TYPE_WORD, regs[rs2]);     \
-            load_store = LS_STORE;                                \
-            mem_addr = regs[rs1];                                 \
-            mem_val = regs[rs2];                                  \
-            mem_val_type = DATA_TYPE_WORD;                        \
-        }                                                         \
-        regs[rd] = !is_reserv;                                    \
-        write_reg = rd;                                           \
-        mmu->release_load_reservation();                          \
-        pc += 4UL;                                                \
-    }                                                             \
+#define INSTRUCT_SC_W                                                 \
+    {                                                                 \
+        if (verbose)                                                  \
+            sprintf(remark, "sc.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                    regs_name[rd], regs_name[rs2], regs_name[rs1]);   \
+        require_extension('A');                                       \
+        if (regs[rs1] & 3UL)                                          \
+            throw TrapLoadAccessFault(regs[rs1]);                     \
+        bool is_reserv(mmu->check_load_reservation(regs[rs1]));       \
+        if (is_reserv) {                                              \
+            mmu->store(regs[rs1], DATA_TYPE_WORD, regs[rs2]);         \
+            load_store = LS_STORE;                                    \
+            mem_addr = regs[rs1];                                     \
+            mem_val = regs[rs2];                                      \
+            mem_val_type = DATA_TYPE_WORD;                            \
+        }                                                             \
+        regs[rd] = !is_reserv;                                        \
+        write_reg = rd;                                               \
+        mmu->release_load_reservation();                              \
+        pc += 4UL;                                                    \
+    }                                                                 \
     break;
 
-#define INSTRUCT_AMOSWAP_W                                            \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),    \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
-    require_extension('A');                                           \
-    regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
-                                &amo_amoswap_w_func);                 \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
+#define INSTRUCT_AMOSWAP_W                                             \
+    if (verbose)                                                       \
+        sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
+    require_extension('A');                                            \
+    regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],  \
+                                &amo_amoswap_w_func);                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
 #define INSTRUCT_AMOADD_W                                             \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amoadd.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
+    if (verbose)                                                      \
+        sprintf(remark, "amoadd.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);       \
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoadd_w_func);                  \
@@ -1709,9 +1834,9 @@
     break;
 
 #define INSTRUCT_AMOXOR_W                                             \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amoxor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
+    if (verbose)                                                      \
+        sprintf(remark, "amoxor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);       \
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoxor_w_func);                  \
@@ -1720,9 +1845,9 @@
     break;
 
 #define INSTRUCT_AMOAND_W                                             \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amoand.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
+    if (verbose)                                                      \
+        sprintf(remark, "amoand.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);       \
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoand_w_func);                  \
@@ -1731,9 +1856,9 @@
     break;
 
 #define INSTRUCT_AMOOR_W                                              \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amoor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),      \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
+    if (verbose)                                                      \
+        sprintf(remark, "amoor.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),  \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);       \
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amoor_w_func);                   \
@@ -1742,9 +1867,9 @@
     break;
 
 #define INSTRUCT_AMOMIN_W                                             \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amomin.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
+    if (verbose)                                                      \
+        sprintf(remark, "amomin.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);       \
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amomin_w_func);                  \
@@ -1753,9 +1878,9 @@
     break;
 
 #define INSTRUCT_AMOMAX_W                                             \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amomax.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
+    if (verbose)                                                      \
+        sprintf(remark, "amomax.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);       \
     require_extension('A');                                           \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
                                 &amo_amomax_w_func);                  \
@@ -1763,72 +1888,72 @@
     pc += 4UL;                                                        \
     break;
 
-#define INSTRUCT_AMOMINU_W                                            \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amominu.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),    \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
-    require_extension('A');                                           \
-    regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
-                                &amo_amominu_w_func);                 \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
+#define INSTRUCT_AMOMINU_W                                             \
+    if (verbose)                                                       \
+        sprintf(remark, "amominu.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
+    require_extension('A');                                            \
+    regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],  \
+                                &amo_amominu_w_func);                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_AMOMAXU_W                                            \
-    instr_len = 4;                                                    \
-    sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl),    \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);           \
-    require_extension('A');                                           \
-    regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2], \
-                                &amo_amomaxu_w_func);                 \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
+#define INSTRUCT_AMOMAXU_W                                             \
+    if (verbose)                                                       \
+        sprintf(remark, "amoswap.w%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
+    require_extension('A');                                            \
+    regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_WORD, regs[rs2],  \
+                                &amo_amomaxu_w_func);                  \
+    write_reg = rd;                                                    \
+    pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_LR_D                                                    \
-    instr_len = 4;                                                       \
-    sprintf(remark, "lr.d%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
-            regs_name[rs1]);                                             \
-    require_extension('A');                                              \
-    if (regs[rs1] & 7UL)                                                 \
-        throw TrapLoadAccessFault(regs[rs1]);                            \
-    mmu->acquire_load_reservation(regs[rs1]);                            \
-    mem_addr = regs[rs1];                                                \
-    regs[rd] = mmu->load(regs[rs1], DATA_TYPE_DWORD);                    \
-    load_store = LS_LOAD;                                                \
-    mem_val = regs[rd];                                                  \
-    mem_val_type = DATA_TYPE_DWORD;                                      \
-    write_reg = rd;                                                      \
-    pc += 4UL;                                                           \
+#define INSTRUCT_LR_D                                                        \
+    if (verbose)                                                             \
+        sprintf(remark, "lr.d%s %s, (%s)", STR_AQ_RL(aq, rl), regs_name[rd], \
+                regs_name[rs1]);                                             \
+    require_extension('A');                                                  \
+    if (regs[rs1] & 7UL)                                                     \
+        throw TrapLoadAccessFault(regs[rs1]);                                \
+    mmu->acquire_load_reservation(regs[rs1]);                                \
+    mem_addr = regs[rs1];                                                    \
+    regs[rd] = mmu->load(regs[rs1], DATA_TYPE_DWORD);                        \
+    load_store = LS_LOAD;                                                    \
+    mem_val = regs[rd];                                                      \
+    mem_val_type = DATA_TYPE_DWORD;                                          \
+    write_reg = rd;                                                          \
+    pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_SC_D                                             \
-    {                                                             \
-        instr_len = 4;                                            \
-        sprintf(remark, "sc.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
-                regs_name[rd], regs_name[rs2], regs_name[rs1]);   \
-        require_extension('A');                                   \
-        if (regs[rs1] & 7UL)                                      \
-            throw TrapLoadAccessFault(regs[rs1]);                 \
-        bool is_reserv(mmu->check_load_reservation(regs[rs1]));   \
-        if (is_reserv) {                                          \
-            mmu->store(regs[rs1], DATA_TYPE_DWORD, regs[rs2]);    \
-            load_store = LS_STORE;                                \
-            mem_addr = regs[rs1];                                 \
-            mem_val = regs[rs2];                                  \
-            mem_val_type = DATA_TYPE_DWORD;                       \
-        }                                                         \
-        regs[rd] = !is_reserv;                                    \
-        mmu->release_load_reservation();                          \
-        write_reg = rd;                                           \
-        pc += 4UL;                                                \
-    }                                                             \
+#define INSTRUCT_SC_D                                                 \
+    {                                                                 \
+        if (verbose)                                                  \
+            sprintf(remark, "sc.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                    regs_name[rd], regs_name[rs2], regs_name[rs1]);   \
+        require_extension('A');                                       \
+        if (regs[rs1] & 7UL)                                          \
+            throw TrapLoadAccessFault(regs[rs1]);                     \
+        bool is_reserv(mmu->check_load_reservation(regs[rs1]));       \
+        if (is_reserv) {                                              \
+            mmu->store(regs[rs1], DATA_TYPE_DWORD, regs[rs2]);        \
+            load_store = LS_STORE;                                    \
+            mem_addr = regs[rs1];                                     \
+            mem_val = regs[rs2];                                      \
+            mem_val_type = DATA_TYPE_DWORD;                           \
+        }                                                             \
+        regs[rd] = !is_reserv;                                        \
+        mmu->release_load_reservation();                              \
+        write_reg = rd;                                               \
+        pc += 4UL;                                                    \
+    }                                                                 \
     break;
 
 #define INSTRUCT_AMOSWAP_D                                             \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amoswap.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amoswap.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoswap_d_func);                  \
@@ -1837,9 +1962,9 @@
     break;
 
 #define INSTRUCT_AMOADD_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amoadd.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),      \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amoadd.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),  \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoadd_d_func);                   \
@@ -1848,9 +1973,9 @@
     break;
 
 #define INSTRUCT_AMOXOR_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amoxor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),      \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amoxor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),  \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoxor_d_func);                   \
@@ -1859,9 +1984,9 @@
     break;
 
 #define INSTRUCT_AMOAND_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amoand.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),      \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amoand.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),  \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoand_d_func);                   \
@@ -1870,9 +1995,9 @@
     break;
 
 #define INSTRUCT_AMOOR_D                                               \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amoor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),       \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amoor.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),   \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amoor_d_func);                    \
@@ -1881,9 +2006,9 @@
     break;
 
 #define INSTRUCT_AMOMIN_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amomin.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),      \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amomin.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),  \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amomin_d_func);                   \
@@ -1892,9 +2017,9 @@
     break;
 
 #define INSTRUCT_AMOMAX_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amomax.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),      \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amomax.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),  \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amomax_d_func);                   \
@@ -1903,9 +2028,9 @@
     break;
 
 #define INSTRUCT_AMOMINU_D                                             \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amominu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amominu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amominu_d_func);                  \
@@ -1914,9 +2039,9 @@
     break;
 
 #define INSTRUCT_AMOMAXU_D                                             \
-    instr_len = 4;                                                     \
-    sprintf(remark, "amomaxu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl),     \
-            regs_name[rd], regs_name[rs2], regs_name[rs1]);            \
+    if (verbose)                                                       \
+        sprintf(remark, "amomaxu.d%s %s, %s, (%s)", STR_AQ_RL(aq, rl), \
+                regs_name[rd], regs_name[rs2], regs_name[rs1]);        \
     require_extension('A');                                            \
     regs[rd] = mmu->amo_operate(regs[rs1], DATA_TYPE_DWORD, regs[rs2], \
                                 &amo_amomaxu_d_func);                  \
@@ -1924,57 +2049,57 @@
     pc += 4UL;                                                         \
     break;
 
-#define INSTRUCT_FLW                                                   \
-    instr_len = 4;                                                     \
-    sprintf(remark, "flw %s,%ld(%s)", fregs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                           \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);          \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
-    set_sd_fs_dirty;                                                   \
-    load_store = LS_LOAD;                                              \
-    mem_addr = regs[rs1] + imm_i;                                      \
-    mem_val = fregs[rd];                                               \
-    mem_val_type = DATA_TYPE_WORD;                                     \
-    write_reg = rd | 0x20;                                             \
-    pc += 4UL;                                                         \
+#define INSTRUCT_FLW                                                       \
+    if (verbose)                                                           \
+        sprintf(remark, "flw %s,%ld(%s)", fregs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                           \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_WORD);              \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                       \
+    set_sd_fs_dirty;                                                       \
+    load_store = LS_LOAD;                                                  \
+    mem_addr = regs[rs1] + imm_i;                                          \
+    mem_val = fregs[rd];                                                   \
+    mem_val_type = DATA_TYPE_WORD;                                         \
+    write_reg = rd | 0x20;                                                 \
+    pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_FSW                                                    \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fsw %s,%ld(%s)", fregs_name[rs2], (int64_t) imm_s, \
-            regs_name[rs1]);                                            \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, fregs[rs2]);          \
-    load_store = LS_STORE;                                              \
-    mem_addr = regs[rs1] + imm_s;                                       \
-    mem_val = fregs[rs2];                                               \
-    mem_val_type = DATA_TYPE_WORD;                                      \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMADD_S                                                    \
-    instr_len = 4;                                                          \
-    sprintf(remark, "fmadd.s %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2], fregs_name[rs3]);                              \
+#define INSTRUCT_FSW                                                        \
+    if (verbose)                                                            \
+        sprintf(remark, "fsw %s,%ld(%s)", fregs_name[rs2], (int64_t) imm_s, \
+                regs_name[rs1]);                                            \
     require_extension('F');                                                 \
     require_fp;                                                             \
-    clean_fflags_value();                                                   \
-    fregs[rd] = f32_add(f32_mul(fregs[rs1], fregs[rs2]), fregs[rs3]);       \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
-    set_sd_fs_dirty;                                                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
-    write_csr = CSR_FFLAGS_ADDR;                                            \
-    write_reg = rd | 0x20;                                                  \
+    mmu->store(regs[rs1] + imm_s, DATA_TYPE_WORD, fregs[rs2]);              \
+    load_store = LS_STORE;                                                  \
+    mem_addr = regs[rs1] + imm_s;                                           \
+    mem_val = fregs[rs2];                                                   \
+    mem_val_type = DATA_TYPE_WORD;                                          \
     pc += 4UL;                                                              \
     break;
 
+#define INSTRUCT_FMADD_S                                              \
+    if (verbose)                                                      \
+        sprintf(remark, "fmadd.s %s,%s,%s,%s", fregs_name[rd],        \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]);   \
+    require_extension('F');                                           \
+    require_fp;                                                       \
+    clean_fflags_value();                                             \
+    fregs[rd] = f32_add(f32_mul(fregs[rs1], fregs[rs2]), fregs[rs3]); \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                  \
+    set_sd_fs_dirty;                                                  \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
+    write_reg = rd | 0x20;                                            \
+    pc += 4UL;                                                        \
+    break;
+
 #define INSTRUCT_FMSUB_S                                                       \
-    instr_len = 4;                                                             \
-    sprintf(remark, "fmsub.s %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1],    \
-            fregs_name[rs2], fregs_name[rs3]);                                 \
+    if (verbose)                                                               \
+        sprintf(remark, "fmsub.s %s,%s,%s,%s", fregs_name[rd],                 \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]);            \
     require_extension('F');                                                    \
     require_fp;                                                                \
     clean_fflags_value();                                                      \
@@ -1988,9 +2113,9 @@
     break;
 
 #define INSTRUCT_FNMSUB_S                                                      \
-    instr_len = 4;                                                             \
-    sprintf(remark, "fnmsub.s %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1],   \
-            fregs_name[rs2], fregs_name[rs3]);                                 \
+    if (verbose)                                                               \
+        sprintf(remark, "fnmsub.s %s,%s,%s,%s", fregs_name[rd],                \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]);            \
     require_extension('F');                                                    \
     require_fp;                                                                \
     clean_fflags_value();                                                      \
@@ -2003,418 +2128,32 @@
     pc += 4UL;                                                                 \
     break;
 
-#define INSTRUCT_FNMADD_S                                                    \
-    instr_len = 4;                                                           \
-    sprintf(remark, "fnmadd.s %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2], fregs_name[rs3]);                               \
-    require_extension('F');                                                  \
-    require_fp;                                                              \
-    clean_fflags_value();                                                    \
-    fregs[rd] = f32_add(F32_NEG(f32_mul(fregs[rs1], fregs[rs2])),            \
-                        F32_NEG(fregs[rs3]));                                \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                         \
-    set_sd_fs_dirty;                                                         \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                       \
-    write_reg = rd | 0x20;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                             \
-    pc += 4UL;                                                               \
+#define INSTRUCT_FNMADD_S                                           \
+    if (verbose)                                                    \
+        sprintf(remark, "fnmadd.s %s,%s,%s,%s", fregs_name[rd],     \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]); \
+    require_extension('F');                                         \
+    require_fp;                                                     \
+    clean_fflags_value();                                           \
+    fregs[rd] = f32_add(F32_NEG(f32_mul(fregs[rs1], fregs[rs2])),   \
+                        F32_NEG(fregs[rs3]));                       \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                \
+    set_sd_fs_dirty;                                                \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());              \
+    write_reg = rd | 0x20;                                          \
+    write_csr = CSR_FFLAGS_ADDR;                                    \
+    pc += 4UL;                                                      \
     break;
 
-#define INSTRUCT_FADD_S                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fadd.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_add(fregs[rs1], fregs[rs2]);                        \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FSUB_S                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fsub.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_add(fregs[rs1], F32_NEG(fregs[rs2]));               \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMUL_S                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fmul.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_mul(fregs[rs1], fregs[rs2]);                        \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FDIV_S                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fdiv.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_div(fregs[rs1], fregs[rs2]);                        \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FSQRT_S                                               \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fsqrt.s %s,%s", fregs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    fregs[rd] = f32_sqrt(fregs[rs1]);                                  \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
-    set_sd_fs_dirty;                                                   \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd | 0x20;                                             \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FSGNJ_S                                                   \
-    instr_len = 4;                                                         \
-    sprintf(remark, "fsgnj.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],   \
-            fregs_name[rs2]);                                              \
-    require_extension('F');                                                \
-    require_fp;                                                            \
-    if (!F32_IS_VALID(fregs[rs1]))                                         \
-        fregs[rd] = !F32_IS_VALID(fregs[rs2])                              \
-                        ? F32_DEFAULT_QUIET_NAN                            \
-                        : F32_NEG(F32_DEFAULT_QUIET_NAN);                  \
-    else if (!F32_IS_VALID(fregs[rs2]))                                    \
-        fregs[rd] = fregs[rs1];                                            \
-    else                                                                   \
-        fregs[rd] = (fregs[rs2] & (1U << 31)) | (fregs[rs1] & (-1U >> 1)); \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                       \
-    set_sd_fs_dirty;                                                       \
-    write_reg = rd | 0x20;                                                 \
-    pc += 4UL;                                                             \
-    break;
-
-#define INSTRUCT_FSGNJN_S                                                   \
-    instr_len = 4;                                                          \
-    sprintf(remark, "fsgnjn.s %s,%s,%s", fregs_name[rd], fregs_name[rs1],   \
-            fregs_name[rs2]);                                               \
+#define INSTRUCT_FADD_S                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fadd.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
     require_extension('F');                                                 \
     require_fp;                                                             \
-    if (!F32_IS_VALID(fregs[rs1]))                                          \
-        fregs[rd] = !F32_IS_VALID(fregs[rs2])                               \
-                        ? F32_DEFAULT_QUIET_NAN                             \
-                        : F32_NEG(F32_DEFAULT_QUIET_NAN);                   \
-    else if (!F32_IS_VALID(fregs[rs2]))                                     \
-        fregs[rd] = fregs[rs1];                                             \
-    else                                                                    \
-        fregs[rd] = (~fregs[rs2] & (1U << 31)) | (fregs[rs1] & (-1U >> 1)); \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
-    set_sd_fs_dirty;                                                        \
-    write_reg = rd | 0x20;                                                  \
-    pc += 4UL;                                                              \
-    break;
-
-#define INSTRUCT_FSGNJX_S                                                 \
-    instr_len = 4;                                                        \
-    sprintf(remark, "fsgnjx.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                             \
-    require_extension('F');                                               \
-    require_fp;                                                           \
-    if (!F32_IS_VALID(fregs[rs1]))                                        \
-        fregs[rd] = !F32_IS_VALID(fregs[rs2])                             \
-                        ? F32_DEFAULT_QUIET_NAN                           \
-                        : F32_NEG(F32_DEFAULT_QUIET_NAN);                 \
-    else if (!F32_IS_VALID(fregs[rs2]))                                   \
-        fregs[rd] = fregs[rs1];                                           \
-    else                                                                  \
-        fregs[rd] = (fregs[rs2] & (1U << 31)) ^ fregs[rs1];               \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                      \
-    set_sd_fs_dirty;                                                      \
-    write_reg = rd | 0x20;                                                \
-    pc += 4UL;                                                            \
-    break;
-
-#define INSTRUCT_FMIN_S                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fmin.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_min(fregs[rs1], fregs[rs2]);                        \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMAX_S                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fmax.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_max(fregs[rs1], fregs[rs2]);                        \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FCVT_W_S                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.w.s %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    regs[rd] = f32_cvt_w_s(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd;                                                    \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_WU_S                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.wu.s %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    regs[rd] = (int32_t) f32_cvt_wu_s(fregs[rs1]);                      \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd;                                                     \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMV_X_W                                              \
-    instr_len = 4;                                                    \
-    sprintf(remark, "fmv.x.w %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                           \
-    require_fp;                                                       \
-    regs[rd] = (int32_t) fregs[rs1];                                  \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_FEQ_S                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "feq.s %s,%s,%s", regs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                         \
-    require_extension('F');                                           \
-    require_fp;                                                       \
-    clean_fflags_value();                                             \
-    regs[rd] = f32_eq(fregs[rs1], fregs[rs2]);                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    write_reg = rd;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                      \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_FLT_S                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "flt.s %s,%s,%s", regs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                         \
-    require_extension('F');                                           \
-    require_fp;                                                       \
-    clean_fflags_value();                                             \
-    regs[rd] = f32_lt(fregs[rs1], fregs[rs2]);                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    write_reg = rd;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                      \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_FLE_S                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "fle.s %s,%s,%s", regs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                         \
-    require_extension('F');                                           \
-    require_fp;                                                       \
-    clean_fflags_value();                                             \
-    regs[rd] = f32_le(fregs[rs1], fregs[rs2]);                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    write_reg = rd;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                      \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_FCLASS_S                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fclass.s %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    regs[rd] = f32_classify(fregs[rs1]);                               \
-    write_reg = rd;                                                    \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_S_W                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.s.w %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    fregs[rd] = f32_cvt_s_w(regs[rs1]);                                \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
-    set_sd_fs_dirty;                                                   \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd | 0x20;                                             \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_S_WU                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.s.wu %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_cvt_s_wu(regs[rs1]);                                \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMV_W_X                                              \
-    instr_len = 4;                                                    \
-    sprintf(remark, "fmv.w.x %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('F');                                           \
-    require_fp;                                                       \
-    fregs[rd] = (uint32_t) regs[rs1];                                 \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                  \
-    set_sd_fs_dirty;                                                  \
-    write_reg = rd | 0x20;                                            \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_FCVT_L_S                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.l.s %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    regs[rd] = f32_cvt_l_s(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd;                                                    \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_LU_S                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.lu.s %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    regs[rd] = f32_cvt_lu_s(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd;                                                     \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FCVT_S_L                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.s.l %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('F');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    fregs[rd] = f32_cvt_s_l(regs[rs1]);                                \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                   \
-    set_sd_fs_dirty;                                                   \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd | 0x20;                                             \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_S_LU                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.s.lu %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('F');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f32_cvt_s_lu(regs[rs1]);                                \
-    fregs[rd] |= FREG_FILL_MSB_WORD;                                    \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FLD                                                   \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fld %s,%ld(%s)", fregs_name[rd], (int64_t) imm_i, \
-            regs_name[rs1]);                                           \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_DWORD);         \
-    set_sd_fs_dirty;                                                   \
-    load_store = LS_LOAD;                                              \
-    mem_addr = regs[rs1] + imm_i;                                      \
-    mem_val = fregs[rd];                                               \
-    mem_val_type = DATA_TYPE_DWORD;                                    \
-    write_reg = rd | 0x20;                                             \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FSD                                                    \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fsd %s,%ld(%s)", fregs_name[rs2], (int64_t) imm_s, \
-            regs_name[rs1]);                                            \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    mmu->store(regs[rs1] + imm_s, DATA_TYPE_DWORD, fregs[rs2]);         \
-    load_store = LS_STORE;                                              \
-    mem_addr = regs[rs1] + imm_s;                                       \
-    mem_val = fregs[rs2];                                               \
-    mem_val_type = DATA_TYPE_DWORD;                                     \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMADD_D                                                    \
-    instr_len = 4;                                                          \
-    sprintf(remark, "fmadd.d %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2], fregs_name[rs3]);                              \
-    require_extension('D');                                                 \
-    require_fp;                                                             \
     clean_fflags_value();                                                   \
-    fregs[rd] = f64_add(f64_mul(fregs[rs1], fregs[rs2]), fregs[rs3]);       \
+    fregs[rd] = f32_add(fregs[rs1], fregs[rs2]);                            \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
     set_sd_fs_dirty;                                                        \
     csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
     write_reg = rd | 0x20;                                                  \
@@ -2422,10 +2161,396 @@
     pc += 4UL;                                                              \
     break;
 
+#define INSTRUCT_FSUB_S                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fsub.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_add(fregs[rs1], F32_NEG(fregs[rs2]));                   \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FMUL_S                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fmul.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_mul(fregs[rs1], fregs[rs2]);                            \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FDIV_S                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fdiv.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_div(fregs[rs1], fregs[rs2]);                            \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FSQRT_S                                                   \
+    if (verbose)                                                           \
+        sprintf(remark, "fsqrt.s %s,%s", fregs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    fregs[rd] = f32_sqrt(fregs[rs1]);                                      \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                       \
+    set_sd_fs_dirty;                                                       \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd | 0x20;                                                 \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FSGNJ_S                                                     \
+    if (verbose)                                                             \
+        sprintf(remark, "fsgnj.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                            \
+    require_extension('F');                                                  \
+    require_fp;                                                              \
+    if (!F32_IS_VALID(fregs[rs1]))                                           \
+        fregs[rd] = !F32_IS_VALID(fregs[rs2])                                \
+                        ? F32_DEFAULT_QUIET_NAN                              \
+                        : F32_NEG(F32_DEFAULT_QUIET_NAN);                    \
+    else if (!F32_IS_VALID(fregs[rs2]))                                      \
+        fregs[rd] = fregs[rs1];                                              \
+    else                                                                     \
+        fregs[rd] = (fregs[rs2] & (1U << 31)) | (fregs[rs1] & (-1U >> 1));   \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                         \
+    set_sd_fs_dirty;                                                         \
+    write_reg = rd | 0x20;                                                   \
+    pc += 4UL;                                                               \
+    break;
+
+#define INSTRUCT_FSGNJN_S                                                     \
+    if (verbose)                                                              \
+        sprintf(remark, "fsgnjn.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                             \
+    require_extension('F');                                                   \
+    require_fp;                                                               \
+    if (!F32_IS_VALID(fregs[rs1]))                                            \
+        fregs[rd] = !F32_IS_VALID(fregs[rs2])                                 \
+                        ? F32_DEFAULT_QUIET_NAN                               \
+                        : F32_NEG(F32_DEFAULT_QUIET_NAN);                     \
+    else if (!F32_IS_VALID(fregs[rs2]))                                       \
+        fregs[rd] = fregs[rs1];                                               \
+    else                                                                      \
+        fregs[rd] = (~fregs[rs2] & (1U << 31)) | (fregs[rs1] & (-1U >> 1));   \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                          \
+    set_sd_fs_dirty;                                                          \
+    write_reg = rd | 0x20;                                                    \
+    pc += 4UL;                                                                \
+    break;
+
+#define INSTRUCT_FSGNJX_S                                                     \
+    if (verbose)                                                              \
+        sprintf(remark, "fsgnjx.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                             \
+    require_extension('F');                                                   \
+    require_fp;                                                               \
+    if (!F32_IS_VALID(fregs[rs1]))                                            \
+        fregs[rd] = !F32_IS_VALID(fregs[rs2])                                 \
+                        ? F32_DEFAULT_QUIET_NAN                               \
+                        : F32_NEG(F32_DEFAULT_QUIET_NAN);                     \
+    else if (!F32_IS_VALID(fregs[rs2]))                                       \
+        fregs[rd] = fregs[rs1];                                               \
+    else                                                                      \
+        fregs[rd] = (fregs[rs2] & (1U << 31)) ^ fregs[rs1];                   \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                          \
+    set_sd_fs_dirty;                                                          \
+    write_reg = rd | 0x20;                                                    \
+    pc += 4UL;                                                                \
+    break;
+
+#define INSTRUCT_FMIN_S                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fmin.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_min(fregs[rs1], fregs[rs2]);                            \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FMAX_S                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fmax.s %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_max(fregs[rs1], fregs[rs2]);                            \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FCVT_W_S                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.w.s %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    regs[rd] = f32_cvt_w_s(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd;                                                        \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FCVT_WU_S                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.wu.s %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    regs[rd] = (int32_t) f32_cvt_wu_s(fregs[rs1]);                          \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd;                                                         \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FMV_X_W                                                  \
+    if (verbose)                                                          \
+        sprintf(remark, "fmv.x.w %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                               \
+    require_fp;                                                           \
+    regs[rd] = (int32_t) fregs[rs1];                                      \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_FEQ_S                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "feq.s %s,%s,%s", regs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                         \
+    require_extension('F');                                               \
+    require_fp;                                                           \
+    clean_fflags_value();                                                 \
+    regs[rd] = f32_eq(fregs[rs1], fregs[rs2]);                            \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                    \
+    write_reg = rd;                                                       \
+    write_csr = CSR_FFLAGS_ADDR;                                          \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_FLT_S                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "flt.s %s,%s,%s", regs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                         \
+    require_extension('F');                                               \
+    require_fp;                                                           \
+    clean_fflags_value();                                                 \
+    regs[rd] = f32_lt(fregs[rs1], fregs[rs2]);                            \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                    \
+    write_reg = rd;                                                       \
+    write_csr = CSR_FFLAGS_ADDR;                                          \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_FLE_S                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "fle.s %s,%s,%s", regs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                         \
+    require_extension('F');                                               \
+    require_fp;                                                           \
+    clean_fflags_value();                                                 \
+    regs[rd] = f32_le(fregs[rs1], fregs[rs2]);                            \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                    \
+    write_reg = rd;                                                       \
+    write_csr = CSR_FFLAGS_ADDR;                                          \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_FCLASS_S                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fclass.s %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    regs[rd] = f32_classify(fregs[rs1]);                                   \
+    write_reg = rd;                                                        \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FCVT_S_W                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.s.w %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    fregs[rd] = f32_cvt_s_w(regs[rs1]);                                    \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                       \
+    set_sd_fs_dirty;                                                       \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd | 0x20;                                                 \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FCVT_S_WU                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.s.wu %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_cvt_s_wu(regs[rs1]);                                    \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FMV_W_X                                                  \
+    if (verbose)                                                          \
+        sprintf(remark, "fmv.w.x %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('F');                                               \
+    require_fp;                                                           \
+    fregs[rd] = (uint32_t) regs[rs1];                                     \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                      \
+    set_sd_fs_dirty;                                                      \
+    write_reg = rd | 0x20;                                                \
+    pc += 4UL;                                                            \
+    break;
+
+#define INSTRUCT_FCVT_L_S                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.l.s %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    regs[rd] = f32_cvt_l_s(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd;                                                        \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FCVT_LU_S                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.lu.s %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    regs[rd] = f32_cvt_lu_s(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd;                                                         \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FCVT_S_L                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.s.l %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('F');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    fregs[rd] = f32_cvt_s_l(regs[rs1]);                                    \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                       \
+    set_sd_fs_dirty;                                                       \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd | 0x20;                                                 \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FCVT_S_LU                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.s.lu %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('F');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f32_cvt_s_lu(regs[rs1]);                                    \
+    fregs[rd] |= FREG_FILL_MSB_WORD;                                        \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FLD                                                       \
+    if (verbose)                                                           \
+        sprintf(remark, "fld %s,%ld(%s)", fregs_name[rd], (int64_t) imm_i, \
+                regs_name[rs1]);                                           \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    fregs[rd] = mmu->load(regs[rs1] + imm_i, DATA_TYPE_DWORD);             \
+    set_sd_fs_dirty;                                                       \
+    load_store = LS_LOAD;                                                  \
+    mem_addr = regs[rs1] + imm_i;                                          \
+    mem_val = fregs[rd];                                                   \
+    mem_val_type = DATA_TYPE_DWORD;                                        \
+    write_reg = rd | 0x20;                                                 \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FSD                                                        \
+    if (verbose)                                                            \
+        sprintf(remark, "fsd %s,%ld(%s)", fregs_name[rs2], (int64_t) imm_s, \
+                regs_name[rs1]);                                            \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    mmu->store(regs[rs1] + imm_s, DATA_TYPE_DWORD, fregs[rs2]);             \
+    load_store = LS_STORE;                                                  \
+    mem_addr = regs[rs1] + imm_s;                                           \
+    mem_val = fregs[rs2];                                                   \
+    mem_val_type = DATA_TYPE_DWORD;                                         \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FMADD_D                                              \
+    if (verbose)                                                      \
+        sprintf(remark, "fmadd.d %s,%s,%s,%s", fregs_name[rd],        \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]);   \
+    require_extension('D');                                           \
+    require_fp;                                                       \
+    clean_fflags_value();                                             \
+    fregs[rd] = f64_add(f64_mul(fregs[rs1], fregs[rs2]), fregs[rs3]); \
+    set_sd_fs_dirty;                                                  \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
+    write_reg = rd | 0x20;                                            \
+    write_csr = CSR_FFLAGS_ADDR;                                      \
+    pc += 4UL;                                                        \
+    break;
+
 #define INSTRUCT_FMSUB_D                                                       \
-    instr_len = 4;                                                             \
-    sprintf(remark, "fmsub.d %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1],    \
-            fregs_name[rs2], fregs_name[rs3]);                                 \
+    if (verbose)                                                               \
+        sprintf(remark, "fmsub.d %s,%s,%s,%s", fregs_name[rd],                 \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]);            \
     require_extension('D');                                                    \
     require_fp;                                                                \
     clean_fflags_value();                                                      \
@@ -2438,9 +2563,9 @@
     break;
 
 #define INSTRUCT_FNMSUB_D                                                      \
-    instr_len = 4;                                                             \
-    sprintf(remark, "fnmsub.d %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1],   \
-            fregs_name[rs2], fregs_name[rs3]);                                 \
+    if (verbose)                                                               \
+        sprintf(remark, "fnmsub.d %s,%s,%s,%s", fregs_name[rd],                \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]);            \
     require_extension('D');                                                    \
     require_fp;                                                                \
     clean_fflags_value();                                                      \
@@ -2452,362 +2577,361 @@
     pc += 4UL;                                                                 \
     break;
 
-#define INSTRUCT_FNMADD_D                                                    \
-    instr_len = 4;                                                           \
-    sprintf(remark, "fnmadd.d %s,%s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2], fregs_name[rs3]);                               \
+#define INSTRUCT_FNMADD_D                                           \
+    if (verbose)                                                    \
+        sprintf(remark, "fnmadd.d %s,%s,%s,%s", fregs_name[rd],     \
+                fregs_name[rs1], fregs_name[rs2], fregs_name[rs3]); \
+    require_extension('D');                                         \
+    require_fp;                                                     \
+    clean_fflags_value();                                           \
+    fregs[rd] = f64_add(F64_NEG(f64_mul(fregs[rs1], fregs[rs2])),   \
+                        F64_NEG(fregs[rs3]));                       \
+    set_sd_fs_dirty;                                                \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());              \
+    write_reg = rd | 0x20;                                          \
+    write_csr = CSR_FFLAGS_ADDR;                                    \
+    pc += 4UL;                                                      \
+    break;
+
+#define INSTRUCT_FADD_D                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fadd.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_add(fregs[rs1], fregs[rs2]);                            \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FSUB_D                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fsub.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_add(fregs[rs1], F64_NEG(fregs[rs2]));                   \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FMUL_D                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fmul.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_mul(fregs[rs1], fregs[rs2]);                            \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FDIV_D                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fdiv.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_div(fregs[rs1], fregs[rs2]);                            \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
+    break;
+
+#define INSTRUCT_FSQRT_D                                                   \
+    if (verbose)                                                           \
+        sprintf(remark, "fsqrt.d %s,%s", fregs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    fregs[rd] = f64_sqrt(fregs[rs1]);                                      \
+    set_sd_fs_dirty;                                                       \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd | 0x20;                                                 \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
+    break;
+
+#define INSTRUCT_FSGNJ_D                                                     \
+    if (verbose)                                                             \
+        sprintf(remark, "fsgnj.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                            \
     require_extension('D');                                                  \
     require_fp;                                                              \
-    clean_fflags_value();                                                    \
-    fregs[rd] = f64_add(F64_NEG(f64_mul(fregs[rs1], fregs[rs2])),            \
-                        F64_NEG(fregs[rs3]));                                \
+    fregs[rd] = (fregs[rs2] & (1UL << 63)) | (fregs[rs1] & (-1UL >> 1));     \
     set_sd_fs_dirty;                                                         \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                       \
     write_reg = rd | 0x20;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                             \
     pc += 4UL;                                                               \
     break;
 
-#define INSTRUCT_FADD_D                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fadd.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_add(fregs[rs1], fregs[rs2]);                        \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FSGNJN_D                                                     \
+    if (verbose)                                                              \
+        sprintf(remark, "fsgnjn.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                             \
+    require_extension('D');                                                   \
+    require_fp;                                                               \
+    fregs[rd] = (~fregs[rs2] & (1UL << 63)) | (fregs[rs1] & (-1UL >> 1));     \
+    set_sd_fs_dirty;                                                          \
+    write_reg = rd | 0x20;                                                    \
+    pc += 4UL;                                                                \
     break;
 
-#define INSTRUCT_FSUB_D                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fsub.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_add(fregs[rs1], F64_NEG(fregs[rs2]));               \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FSGNJX_D                                                     \
+    if (verbose)                                                              \
+        sprintf(remark, "fsgnjx.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                             \
+    require_extension('D');                                                   \
+    require_fp;                                                               \
+    fregs[rd] = (fregs[rs2] & (1UL << 63)) ^ fregs[rs1];                      \
+    set_sd_fs_dirty;                                                          \
+    write_reg = rd | 0x20;                                                    \
+    pc += 4UL;                                                                \
     break;
 
-#define INSTRUCT_FMUL_D                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fmul.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_mul(fregs[rs1], fregs[rs2]);                        \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FMIN_D                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fmin.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_min(fregs[rs1], fregs[rs2]);                            \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FDIV_D                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fdiv.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_div(fregs[rs1], fregs[rs2]);                        \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FMAX_D                                                     \
+    if (verbose)                                                            \
+        sprintf(remark, "fmax.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                           \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_max(fregs[rs1], fregs[rs2]);                            \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FSQRT_D                                               \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fsqrt.d %s,%s", fregs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    fregs[rd] = f64_sqrt(fregs[rs1]);                                  \
-    set_sd_fs_dirty;                                                   \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd | 0x20;                                             \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
+#define INSTRUCT_FCVT_S_D                                                   \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.s.d %s,%s", fregs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_cvt_s_d(fregs[rs1]);                                    \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FSGNJ_D                                                 \
-    instr_len = 4;                                                       \
-    sprintf(remark, "fsgnj.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                            \
-    require_extension('D');                                              \
-    require_fp;                                                          \
-    fregs[rd] = (fregs[rs2] & (1UL << 63)) | (fregs[rs1] & (-1UL >> 1)); \
-    set_sd_fs_dirty;                                                     \
-    write_reg = rd | 0x20;                                               \
-    pc += 4UL;                                                           \
+#define INSTRUCT_FCVT_D_S                                                   \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.d.s %s,%s", fregs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_cvt_d_s(fregs[rs1]);                                    \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FSGNJN_D                                                 \
-    instr_len = 4;                                                        \
-    sprintf(remark, "fsgnjn.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                             \
+#define INSTRUCT_FEQ_D                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "feq.d %s,%s,%s", regs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                         \
     require_extension('D');                                               \
     require_fp;                                                           \
-    fregs[rd] = (~fregs[rs2] & (1UL << 63)) | (fregs[rs1] & (-1UL >> 1)); \
-    set_sd_fs_dirty;                                                      \
-    write_reg = rd | 0x20;                                                \
+    clean_fflags_value();                                                 \
+    regs[rd] = f64_eq(fregs[rs1], fregs[rs2]);                            \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                    \
+    write_reg = rd;                                                       \
+    write_csr = CSR_FFLAGS_ADDR;                                          \
     pc += 4UL;                                                            \
     break;
 
-#define INSTRUCT_FSGNJX_D                                                 \
-    instr_len = 4;                                                        \
-    sprintf(remark, "fsgnjx.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                             \
+#define INSTRUCT_FLT_D                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "flt.d %s,%s,%s", regs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                         \
     require_extension('D');                                               \
     require_fp;                                                           \
-    fregs[rd] = (fregs[rs2] & (1UL << 63)) ^ fregs[rs1];                  \
-    set_sd_fs_dirty;                                                      \
-    write_reg = rd | 0x20;                                                \
+    clean_fflags_value();                                                 \
+    regs[rd] = f64_lt(fregs[rs1], fregs[rs2]);                            \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                    \
+    write_reg = rd;                                                       \
+    write_csr = CSR_FFLAGS_ADDR;                                          \
     pc += 4UL;                                                            \
     break;
 
-#define INSTRUCT_FMIN_D                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fmin.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_min(fregs[rs1], fregs[rs2]);                        \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FLE_D                                                    \
+    if (verbose)                                                          \
+        sprintf(remark, "fle.d %s,%s,%s", regs_name[rd], fregs_name[rs1], \
+                fregs_name[rs2]);                                         \
+    require_extension('D');                                               \
+    require_fp;                                                           \
+    clean_fflags_value();                                                 \
+    regs[rd] = f64_le(fregs[rs1], fregs[rs2]);                            \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                    \
+    write_reg = rd;                                                       \
+    write_csr = CSR_FFLAGS_ADDR;                                          \
+    pc += 4UL;                                                            \
     break;
 
-#define INSTRUCT_FMAX_D                                                 \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fmax.d %s,%s,%s", fregs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                           \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_max(fregs[rs1], fregs[rs2]);                        \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FCLASS_D                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fclass.d %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    regs[rd] = f64_classify(fregs[rs1]);                                   \
+    pc += 4UL;                                                             \
+    write_reg = rd;                                                        \
     break;
 
-#define INSTRUCT_FCVT_S_D                                               \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.s.d %s,%s", fregs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_cvt_s_d(fregs[rs1]);                                \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FCVT_W_D                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.w.d %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    regs[rd] = f64_cvt_w_d(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd;                                                        \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_FCVT_D_S                                               \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.d.s %s,%s", fregs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_cvt_d_s(fregs[rs1]);                                \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FCVT_WU_D                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.wu.d %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    regs[rd] = f64_cvt_wu_d(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd;                                                         \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FEQ_D                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "feq.d %s,%s,%s", regs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                         \
-    require_extension('D');                                           \
-    require_fp;                                                       \
-    clean_fflags_value();                                             \
-    regs[rd] = f64_eq(fregs[rs1], fregs[rs2]);                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    write_reg = rd;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                      \
-    pc += 4UL;                                                        \
+#define INSTRUCT_FCVT_D_W                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.d.w %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    fregs[rd] = f64_cvt_d_w(regs[rs1]);                                    \
+    set_sd_fs_dirty;                                                       \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd | 0x20;                                                 \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_FLT_D                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "flt.d %s,%s,%s", regs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                         \
-    require_extension('D');                                           \
-    require_fp;                                                       \
-    clean_fflags_value();                                             \
-    regs[rd] = f64_lt(fregs[rs1], fregs[rs2]);                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    write_reg = rd;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                      \
-    pc += 4UL;                                                        \
+#define INSTRUCT_FCVT_D_WU                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.d.wu %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_cvt_d_wu(regs[rs1]);                                    \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FLE_D                                                \
-    instr_len = 4;                                                    \
-    sprintf(remark, "fle.d %s,%s,%s", regs_name[rd], fregs_name[rs1], \
-            fregs_name[rs2]);                                         \
-    require_extension('D');                                           \
-    require_fp;                                                       \
-    clean_fflags_value();                                             \
-    regs[rd] = f64_le(fregs[rs1], fregs[rs2]);                        \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                \
-    write_reg = rd;                                                   \
-    write_csr = CSR_FFLAGS_ADDR;                                      \
-    pc += 4UL;                                                        \
+#define INSTRUCT_FCVT_L_D                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.l.d %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    regs[rd] = f64_cvt_l_d(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd;                                                        \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_FCLASS_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fclass.d %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    regs[rd] = f64_classify(fregs[rs1]);                               \
-    pc += 4UL;                                                         \
-    write_reg = rd;                                                    \
+#define INSTRUCT_FCVT_LU_D                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.lu.d %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    regs[rd] = f64_cvt_lu_d(fregs[rs1]);                                    \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd;                                                         \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
-#define INSTRUCT_FCVT_W_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.w.d %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    regs[rd] = f64_cvt_w_d(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd;                                                    \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
+#define INSTRUCT_FMV_X_D                                                  \
+    if (verbose)                                                          \
+        sprintf(remark, "fmv.x.d %s,%s", regs_name[rd], fregs_name[rs1]); \
+    require_extension('D');                                               \
+    require_fp;                                                           \
+    regs[rd] = fregs[rs1];                                                \
+    write_reg = rd;                                                       \
+    pc += 4UL;                                                            \
     break;
 
-#define INSTRUCT_FCVT_WU_D                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.wu.d %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    regs[rd] = f64_cvt_wu_d(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd;                                                     \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FCVT_D_L                                                  \
+    if (verbose)                                                           \
+        sprintf(remark, "fcvt.d.l %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('D');                                                \
+    require_fp;                                                            \
+    clean_fflags_value();                                                  \
+    fregs[rd] = f64_cvt_d_l(regs[rs1]);                                    \
+    set_sd_fs_dirty;                                                       \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                     \
+    write_reg = rd | 0x20;                                                 \
+    write_csr = CSR_FFLAGS_ADDR;                                           \
+    pc += 4UL;                                                             \
     break;
 
-#define INSTRUCT_FCVT_D_W                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.d.w %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    fregs[rd] = f64_cvt_d_w(regs[rs1]);                                \
-    set_sd_fs_dirty;                                                   \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd | 0x20;                                             \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_D_WU                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.d.wu %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_cvt_d_wu(regs[rs1]);                                \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FCVT_L_D                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.l.d %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    regs[rd] = f64_cvt_l_d(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd;                                                    \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_LU_D                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.lu.d %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    regs[rd] = f64_cvt_lu_d(fregs[rs1]);                                \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd;                                                     \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
-    break;
-
-#define INSTRUCT_FMV_X_D                                              \
-    instr_len = 4;                                                    \
-    sprintf(remark, "fmv.x.d %s,%s", regs_name[rd], fregs_name[rs1]); \
-    require_extension('D');                                           \
-    require_fp;                                                       \
-    regs[rd] = fregs[rs1];                                            \
-    write_reg = rd;                                                   \
-    pc += 4UL;                                                        \
-    break;
-
-#define INSTRUCT_FCVT_D_L                                              \
-    instr_len = 4;                                                     \
-    sprintf(remark, "fcvt.d.l %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('D');                                            \
-    require_fp;                                                        \
-    clean_fflags_value();                                              \
-    fregs[rd] = f64_cvt_d_l(regs[rs1]);                                \
-    set_sd_fs_dirty;                                                   \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                 \
-    write_reg = rd | 0x20;                                             \
-    write_csr = CSR_FFLAGS_ADDR;                                       \
-    pc += 4UL;                                                         \
-    break;
-
-#define INSTRUCT_FCVT_D_LU                                              \
-    instr_len = 4;                                                      \
-    sprintf(remark, "fcvt.d.lu %s,%s", fregs_name[rd], regs_name[rs1]); \
-    require_extension('D');                                             \
-    require_fp;                                                         \
-    clean_fflags_value();                                               \
-    fregs[rd] = f64_cvt_d_lu(regs[rs1]);                                \
-    set_sd_fs_dirty;                                                    \
-    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                  \
-    write_reg = rd | 0x20;                                              \
-    write_csr = CSR_FFLAGS_ADDR;                                        \
-    pc += 4UL;                                                          \
+#define INSTRUCT_FCVT_D_LU                                                  \
+    if (verbose)                                                            \
+        sprintf(remark, "fcvt.d.lu %s,%s", fregs_name[rd], regs_name[rs1]); \
+    require_extension('D');                                                 \
+    require_fp;                                                             \
+    clean_fflags_value();                                                   \
+    fregs[rd] = f64_cvt_d_lu(regs[rs1]);                                    \
+    set_sd_fs_dirty;                                                        \
+    csr->set_csr(CSR_FFLAGS_ADDR, get_fflags_value());                      \
+    write_reg = rd | 0x20;                                                  \
+    write_csr = CSR_FFLAGS_ADDR;                                            \
+    pc += 4UL;                                                              \
     break;
 
 #define INSTRUCT_FMV_D_X                                              \
-    instr_len = 4;                                                    \
     sprintf(remark, "fmv.d.x %s,%s", fregs_name[rd], regs_name[rs1]); \
     require_extension('D');                                           \
     require_fp;                                                       \

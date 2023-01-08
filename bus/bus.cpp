@@ -30,7 +30,11 @@ void Bus::fill_mmap_entry(memmap_entry_t *ptr, uint32_t num, uint8_t bound)
     }
 }
 
-Bus::Bus() : slave_cnt(0), mmap(new memmap_entry_t[64]), bus_mutex(PTHREAD_MUTEX_INITIALIZER), slaves()
+Bus::Bus()
+    : slave_cnt(0),
+      mmap(new memmap_entry_t[64]),
+      bus_mutex(PTHREAD_MUTEX_INITIALIZER),
+      slaves()
 {
     init_mmap(mmap);
 }
@@ -132,10 +136,12 @@ bool Bus::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         goto done;
     ret = slaves[n_slave]->read(offset, data_type, rdata);
     if (GET_SIGNED(data_type))
-        rdata = (int64_t)rdata << (64 - GET_SIZE(data_type) * 8) >> (64 - GET_SIZE(data_type) * 8);
+        rdata = (int64_t) rdata << (64 - GET_SIZE(data_type) * 8) >>
+                (64 - GET_SIZE(data_type) * 8);
     else
-        rdata = (uint64_t)rdata << (64 - GET_SIZE(data_type) * 8) >> (64 - GET_SIZE(data_type) * 8);
-                               
+        rdata = (uint64_t) rdata << (64 - GET_SIZE(data_type) * 8) >>
+                (64 - GET_SIZE(data_type) * 8);
+
 
 done:
     // pthread_mutex_unlock(&bus_mutex);

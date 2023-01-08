@@ -12,29 +12,31 @@ int32_t stdin_wptr = 0;
 int32_t stdin_rptr = 0;
 int8_t stdin_mon_end = 0;
 
-int8_t tmp;
-
-void getch()
+void Uart::getch(Uart *uart)
 {
     uint32_t exit_key = 0;
     system("stty raw -echo");
     while (!stdin_mon_end) {
-        if (!FIFO_FULL(stdin, STDIN_BUFF_SIZE)) {
-            tmp = getchar();
-            if (tmp != '+') {
-                exit_key = exit_key << 8 | (stdin_buff[stdin_wptr++] = tmp);
-                // printf("(%08x)", tmp);
-                // printf("[DEBUG] exit_key = %08x\r\n", exit_key);
-                stdin_wptr %= STDIN_BUFF_SIZE;
-                if (exit_key ==
-                    (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
-                     ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
-                    __exit = 1;
-            }
-            else {
-                verbose = !verbose;
-                printf("[DBG] verbose = %x\r\n", verbose);
-            }
+        if (FIFO_FULL(uart->rx, UART_RXFIFO_DEPTH) &&
+            (uart->rxctrl & UART_RXEN)) {
+            usleep(1);
+            continue;
+        }
+
+        uint8_t tmp(getchar());
+        if (uart->rxctrl & UART_RXEN) {
+            uart->rxfifo[uart->rx_wptr++] = tmp;
+            uart->rx_wptr %= UART_RXFIFO_DEPTH;
+            uart->_update();
+        }
+        exit_key = exit_key << 8 | tmp;
+        if (exit_key == (((uint32_t) 'e') << 24 | ((uint32_t) 'x') << 16 |
+                         ((uint32_t) 'i') << 8 | ((uint32_t) 't') << 0))
+            __exit = 1;
+
+        if (tmp == '+') {
+            verbose = !verbose;
+            printf("[DBG] verbose = %x\r\n", verbose);
         }
     }
 
@@ -46,68 +48,8 @@ void getch()
 
 void Uart::_init() {}
 
-Uart::Uart(uint32_t irq_id, PLIC *plic)
-    : txctrl(0),
-      rxctrl(0),
-      nstop(0),
-      txcnt(0),
-      rxcnt(0),
-      ie(0),
-      ip(0),
-      txfifo{0},
-      tx_rptr(0),
-      tx_wptr(0),
-      rxfifo{0},
-      rx_rptr(0),
-      rx_wptr(0),
-      t_getch(getch),
-      Device(),
-      Slave(0x1000),
-      IRQSource(irq_id, plic)
+void Uart::_update()
 {
-    if (isatty(fileno(stdout)))
-        setbuf(stdout, NULL);
-}
-
-Uart::~Uart()
-{
-    printf("\r\nPress any key to exit ... \r\n");
-    stdin_mon_end = 1;
-    t_getch.join();
-}
-
-void Uart::single_step()
-{
-    if (txctrl & UART_TXEN) {
-        if (!FIFO_EMPT(tx)) {
-            if (txfifo[tx_rptr] == '\n')
-                putchar('\r');
-            putchar((uint8_t) txfifo[tx_rptr++]);
-            tx_rptr %= UART_TXFIFO_DEPTH;
-        }
-    }
-    if (rxctrl & UART_RXEN) {
-        while (!FIFO_FULL(rx, UART_RXFIFO_DEPTH) && !FIFO_EMPT(stdin)) {
-            // printf("[DEBUG] rx_rptr = %d, rx_wptr = %d, stdin_rptr = %d,
-            // stdin_wptr = %d\r\n",
-            //         rx_rptr, rx_wptr, stdin_rptr, stdin_wptr);
-            // printf("[DEBUG] txwm_ie = %x, rxwm_ie = %x\r\n",
-            //         (ie >> 0) & 1, (ie >> 1) & 1);
-            // printf("[DEBUG] txwm_ip = %x, rxwm_ip = %x\r\n",
-            //         (ip >> 0) & 1, (ip >> 1) & 1);
-            // for (int i = 0; i < UART_RXFIFO_DEPTH; ++i)
-            //     printf("%d: 0x%x\r\n", i, rxfifo[i]);
-            rxfifo[rx_wptr++] = stdin_buff[stdin_rptr++];
-            rx_wptr %= UART_RXFIFO_DEPTH;
-            stdin_rptr %= STDIN_BUFF_SIZE;
-        }
-    }
-    if ((tx_wptr - tx_rptr + UART_TXFIFO_DEPTH) % UART_TXFIFO_DEPTH <=
-        (UART_TXFIFO_DEPTH >> 3) * txcnt) {
-        ip |= 1 << 0;
-    } else {
-        ip &= ~(1 << 0);
-    }
     if ((rx_wptr - rx_rptr + UART_RXFIFO_DEPTH) % UART_RXFIFO_DEPTH >
         (UART_RXFIFO_DEPTH >> 3) * rxcnt) {
         ip |= 1 << 1;
@@ -119,6 +61,39 @@ void Uart::single_step()
     else
         DEV_FALLING_IRQ();
 }
+
+Uart::Uart(uint32_t irq_id, PLIC *plic)
+    : txctrl(0),
+      rxctrl(0),
+      nstop(0),
+      txcnt(0),
+      rxcnt(0),
+      ie(0),
+      ip(1 << 0),
+      txfifo{0},
+      tx_rptr(0),
+      tx_wptr(0),
+      rxfifo{0},
+      rx_rptr(0),
+      rx_wptr(0),
+      t_getch(getch, this),
+      Device(),
+      Slave(0x1000),
+      IRQSource(irq_id, plic)
+{
+    if (isatty(fileno(stdout)))
+        setbuf(stdout, NULL);
+    _update();
+}
+
+Uart::~Uart()
+{
+    printf("\r\nPress any key to exit ... \r\n");
+    stdin_mon_end = 1;
+    t_getch.join();
+}
+
+void Uart::single_step() {}
 
 bool Uart::write(const Addr &addr,
                  const DataType &data_type,
@@ -148,17 +123,16 @@ bool Uart::write(const Addr &addr,
 
     _wdata = wdata & mask;
 
-    // if (addr != RG_TXFIFO)
-    //     printf("[DEBUG] write [%lx] = %lx\r\n", addr, _wdata);
 
     switch (addr) {
     case RG_TXFIFO:
-        if (txctrl & UART_TXEN) {
-            if (!FIFO_FULL(tx, UART_TXFIFO_DEPTH)) {
-                txfifo[tx_wptr++] = _wdata;
-                tx_wptr %= UART_TXFIFO_DEPTH;
-            }
-        }
+        if (!(txctrl & UART_TXEN))
+            break;
+
+        _wdata &= 0xff;
+        if (_wdata == '\n')
+            putchar('\r');
+        putchar(_wdata);
         break;
     case RG_RXFIFO:
         break;
@@ -170,14 +144,16 @@ bool Uart::write(const Addr &addr,
     case RG_RXCTRL:
         rxctrl = _wdata & (1 << 0);
         rxcnt = _wdata & (7 << 16);
+        _update();
         break;
     case RG_IE:
         ie = _wdata & 0x7;
+        _update();
         break;
     case RG_IP:
         break;
     case RG_IC:
-        ip &= ~(_wdata & 0x7);
+        ip &= ~(_wdata & 0x6);
         break;
     case RG_DIV:
         div = _wdata & 0xffff;
@@ -221,6 +197,7 @@ bool Uart::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         rdata = div;
         break;
     }
+    _update();
 
     return 1;
 }

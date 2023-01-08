@@ -227,16 +227,13 @@ uint64_t MMU::fetch(const Addr &pc, const uint64_t &alignment_mask)
 
 uint64_t MMU::load(const Addr &addr, const DataType &data_type)
 {
-    // cout << hex << "LOAD(" << addr << ", " << (int)data_type << ")" << endl;
     uint64_t rdata(0);
     Addr paddr;
     switch (data_type) {
     case DATA_TYPE_DWORD:
         if (addr & 7UL) {
-            for (uint8_t i = 0; i < 2; ++i) {
-                rdata |= load(addr + i * 4, DATA_TYPE_WORD_UNSIGNED)
-                         << (i << 5);
-            }
+            rdata |= load(addr, DATA_TYPE_WORD_UNSIGNED);
+            rdata |= load(addr + 4, DATA_TYPE_WORD_UNSIGNED) << 32;
             return rdata;
         }
         paddr = translate(addr, 8, ACCESS_TYPE_LOAD);
@@ -244,11 +241,9 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type)
     case DATA_TYPE_WORD:
     case DATA_TYPE_WORD_UNSIGNED:
         if (addr & 3UL) {
-            for (uint8_t i = 0; i < 2; ++i) {
-                rdata |= load(addr + i * 2,
-                              half_data(data_type, i && is_signed(data_type)))
-                         << (i << 4);
-            }
+            rdata |= load(addr, DATA_TYPE_HWORD_UNSIGNED);
+            rdata |= load(addr + 2,
+                          HALF_DATA(DATA_TYPE_WORD_UNSIGNED, GET_SIGNED(data_type))) << 16;
             return rdata;
         }
         paddr = translate(addr, 4, ACCESS_TYPE_LOAD);
@@ -256,11 +251,9 @@ uint64_t MMU::load(const Addr &addr, const DataType &data_type)
     case DATA_TYPE_HWORD:
     case DATA_TYPE_HWORD_UNSIGNED:
         if (addr & 1UL) {
-            for (uint8_t i = 0; i < 2; ++i) {
-                rdata |= load(addr + i,
-                              half_data(data_type, i && is_signed(data_type)))
-                         << (i << 3);
-            }
+            rdata |= load(addr, DATA_TYPE_BYTE_UNSIGNED);
+            rdata |= load(addr + 1,
+                          HALF_DATA(DATA_TYPE_WORD_UNSIGNED, GET_SIGNED(data_type))) << 8;
             return rdata;
         }
         paddr = translate(addr, 2, ACCESS_TYPE_LOAD);
@@ -288,9 +281,8 @@ void MMU::store(const Addr &addr,
     switch (data_type) {
     case DATA_TYPE_DWORD:
         if (addr & 7UL) {
-            for (uint8_t i = 0; i < 2; ++i) {
-                store(addr + i * 4, DATA_TYPE_WORD_UNSIGNED, wdata >> (i << 5));
-            }
+            store(addr, DATA_TYPE_WORD_UNSIGNED, wdata);
+            store(addr + 4, DATA_TYPE_WORD_UNSIGNED, wdata >> 32);
             return;
         }
         paddr = translate(addr, 8, ACCESS_TYPE_STORE);
@@ -298,9 +290,8 @@ void MMU::store(const Addr &addr,
     case DATA_TYPE_WORD:
     case DATA_TYPE_WORD_UNSIGNED:
         if (addr & 3UL) {
-            for (uint8_t i = 0; i < 2; ++i) {
-                store(addr + i * 2, half_data(data_type, 0), wdata >> (i << 4));
-            }
+            store(addr, DATA_TYPE_HWORD_UNSIGNED, wdata);
+            store(addr + 2, DATA_TYPE_HWORD_UNSIGNED, wdata >> 16);
             return;
         }
         paddr = translate(addr, 4, ACCESS_TYPE_STORE);
@@ -308,9 +299,8 @@ void MMU::store(const Addr &addr,
     case DATA_TYPE_HWORD:
     case DATA_TYPE_HWORD_UNSIGNED:
         if (addr & 1UL) {
-            for (uint8_t i = 0; i < 2; ++i) {
-                store(addr + i, half_data(data_type, 0), wdata >> (i << 3));
-            }
+            store(addr, DATA_TYPE_BYTE_UNSIGNED, wdata);
+            store(addr + 1, DATA_TYPE_BYTE_UNSIGNED, wdata >> 8);
             return;
         }
         paddr = translate(addr, 2, ACCESS_TYPE_STORE);
@@ -332,7 +322,7 @@ uint64_t MMU::amo_operate(const Addr &addr,
                           uint64_t (*func)(const uint64_t &rdata,
                                            const uint64_t &src))
 {
-    if (addr & data_size(type) - 1)
+    if (addr & GET_SIZE(type) - 1)
         throw TrapStoreAddressMisaligned(addr);
     try {
         uint64_t x(load(addr, type));

@@ -10,7 +10,7 @@
 #define DHCP_HEADER_SIZE 240
 
 #define UDP_PROTO 17
-#define PERI_PA2KVA(ADDR, TYPE) ((volatile TYPE *)(ADDR - 0x80000000L))
+#define PERI_PA2KVA(ADDR, TYPE) ((TYPE *)(ADDR - 0x80000000L))
 
 #define ETH_SEND_FRAME 0
 #define ETH_RECV_FRAME 1

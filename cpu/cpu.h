@@ -99,9 +99,6 @@ typedef CSR *pCSR;
     (((struct c_swsp_insn *) &insn)->imm_7_6 << 6 | \
      ((struct c_swsp_insn *) &insn)->imm_5_2 << 2)
 
-
-/**********/
-
 struct r_type_insn {
     uint32_t opcode : 7;
     uint32_t rd : 5;

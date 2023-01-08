@@ -72,6 +72,13 @@ bool CLINT::write(const Addr &addr,
     } else if (_addr >= RG_TIMECMP && _addr < RG_TIMECMP + 8 * CORE_NUM) {
         uint8_t id((_addr - RG_TIMECMP) >> 3);
         timecmp[id] = _wdata;
+        if (ip[id]) {
+            if (time >= timecmp[id])
+                *(ip[id]) |= MIP_MTIP;
+            else
+                *(ip[id]) &= ~MIP_MTIP;
+        } else
+            abort();
     } else if (_addr == RG_TIME) {
         time = _wdata;
     }

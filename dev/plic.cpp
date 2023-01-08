@@ -137,8 +137,6 @@ bool PLIC::read(const Addr &addr, const DataType &data_type, uint64_t &rdata)
         if (tar_n < TARGET_NUM) {
             if (addr & 0x4) {
                 rdata = int_id[tar_n];
-                // pending[(rdata >> 5) % INT_REG_NUM] &=
-                //     ~(1U << (rdata & 0x1f));  // Clear pending
                 dispatch[(rdata >> 5) % INT_REG_NUM] &=
                     ~(1U << (rdata & 0x1f));  // Clear dispatch
             } else {

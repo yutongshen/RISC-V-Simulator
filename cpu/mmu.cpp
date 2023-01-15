@@ -210,12 +210,14 @@ uint64_t MMU::fetch(const Addr &pc, const uint64_t &alignment_mask)
         throw TrapInstructionAddressMisaligned(pc);
     if (pc & 3UL) {
         uint64_t insn[2];
-        for (uint8_t i = 0; i < 2; ++i) {
-            Addr paddr(translate(pc + (i << 1), 2, ACCESS_TYPE_FETCH));
-            if (!read(paddr, DATA_TYPE_HWORD_UNSIGNED, insn[i]))
-                throw TrapInstructionAccessFault(paddr);
-        }
-        return insn[1] << 16 | insn[0];
+        Addr paddr;
+        paddr = translate(pc, 2, ACCESS_TYPE_FETCH);
+        if (!read(paddr, DATA_TYPE_HWORD_UNSIGNED, insn[0]))
+            throw TrapInstructionAccessFault(paddr);
+        paddr = translate(pc + 2, 2, ACCESS_TYPE_FETCH);
+        if (!read(paddr, DATA_TYPE_HWORD_UNSIGNED, *(uint64_t *)((void *)insn + 2)))
+            throw TrapInstructionAccessFault(paddr);
+        return insn[0];
     } else {
         uint64_t insn;
         Addr paddr(translate(pc, 4, ACCESS_TYPE_FETCH));
@@ -277,9 +279,6 @@ void MMU::store(const Addr &addr,
                 const uint64_t &wdata)
 {
     Addr paddr;
-    // cout << hex << "STORE(" << addr << ", " << (int)data_type << ", " <<
-    // wdata
-    //     << ")" << endl;
     switch (data_type) {
     case DATA_TYPE_DWORD:
         if (addr & 7UL) {

@@ -9,6 +9,8 @@
 
 # private
 private/
+rootfs_4g/
+riscv_disk_4g
 
 # ipython
 .ipynb_checkpoints/

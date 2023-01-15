@@ -2,7 +2,7 @@ SHELL   := /bin/bash
 CC      := g++
 OBJCOPY := objcopy
 
-CFLAGS  := -I${root_dir}
+CFLAGS  := -I${root_dir} -O3
 
 ifeq (true,${debug})
 CFLAGS  += -g 

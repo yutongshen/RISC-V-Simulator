@@ -23,7 +23,7 @@ TMDL_PARSE_C  := ./script/tmdl_parse -c
 TMDL_PARSE_S  := ./script/tmdl_parse -s
 
 CC      := g++
-CFLAGS  := -std=c++11 -pthread
+CFLAGS  := -std=c++11 -pthread -O3
 
 ifeq (true,${debug})
 CFLAGS  += -g 

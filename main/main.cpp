@@ -276,7 +276,7 @@ int main(int argc, char **argv)
     // ==========================================================
     //                     Define FLASH
     // ==========================================================
-    Flash flash_0(argparser.get_str(2).c_str(), "1gb");
+    Flash flash_0(argparser.get_str(2).c_str(), "2gb");
 
     // ==========================================================
     //                     Define Bridge
